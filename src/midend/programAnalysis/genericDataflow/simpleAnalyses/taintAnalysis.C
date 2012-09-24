@@ -1,4 +1,9 @@
 // Tainted flow analysis.  See taintAnalysis.h for details.
+
+#if 1 /* Commented out for now because the genericDataflow API changed from under us. [RPM 2012-09-24] */
+#warning "taint analysis is not currently available"
+#else
+
 #include "sage3basic.h"
 #include "taintAnalysis.h"
 #include "stringify.h"
@@ -230,3 +235,5 @@ TaintAnalysis::magic_tainted(SgNode *node, FiniteVarsExprsProductLattice *prodLa
 
     return false;
 }
+
+#endif
