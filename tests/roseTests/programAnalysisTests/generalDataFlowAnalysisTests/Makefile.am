@@ -18,20 +18,21 @@ INCLUDES = 					\
 	-I$(srcdir)				\
         -I$(SAF_SRC_ROOT)			\
         -I$(SAF_SRC_ROOT)/analysis		\
-        -I$(SAF_SRC_ROOT)/arrIndexLabeler	\
         -I$(SAF_SRC_ROOT)/cfgUtils		\
         -I$(SAF_SRC_ROOT)/lattice		\
-        -I$(SAF_SRC_ROOT)/rwAccessLabeler	\
         -I$(SAF_SRC_ROOT)/simpleAnalyses	\
-        -I$(SAF_SRC_ROOT)/state			\
-        -I$(SAF_SRC_ROOT)/variables
+        -I$(SAF_SRC_ROOT)/state
 
-bin_PROGRAMS = taintAnalysisTest constantPropagationTest # taintedFlowAnalysisTest liveDeadVarAnalysisTest pointerAliasAnalysisTest
+bin_PROGRAMS = constantPropagationTest # taintAnalysisTest taintedFlowAnalysisTest liveDeadVarAnalysisTest pointerAliasAnalysisTest
 EXTRA_DIST += constantPropagation.h taintedFlowAnalysis.h pointerAliasAnalysis.h
 
-taintAnalysisTest_SOURCES = taintAnalysisTest.C
+## Some of these are commented out because the genericDataflow API has changed since they were written.  The
+## taintAnalysis is commented out by Robb and will be corrected by him.  The liveDeadVarAnalysisTest,
+## taintedFlowAnalysisTest, and pointerAliasAnalysisTest are commented out by Sriram. [RPM 2012-09-24]
+
+#taintAnalysisTest_SOURCES = taintAnalysisTest.C
 #liveDeadVarAnalysisTest_SOURCES = liveDeadVarAnalysisTest.C
-constantPropagationTest_SOURCES = constantPropagation.C constantPropagationTest.C
+constantPropagationTest_SOURCES = constantPropagationTest.C #constantPropagation.C 
 #taintedFlowAnalysisTest_SOURCES = taintedFlowAnalysis.C taintedFlowAnalysisTest.C
 #pointerAliasAnalysisTest_SOURCES = pointerAliasAnalysis.C pointerAliasAnalysisTest.C
 
