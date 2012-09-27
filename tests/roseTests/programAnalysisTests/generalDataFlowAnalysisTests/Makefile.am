@@ -52,7 +52,7 @@ TAINT_ANALYSIS_TESTS = $(addprefix cxxta_, $(addsuffix .passed, $(TAINT_ANALYSIS
 $(TAINT_ANALYSIS_TESTS): cxxta_%.passed: $(srcdir)/% taintAnalysisTest taintAnalysisTest.conf
 	@$(RTH_RUN) INPUT=$< ANSWER=$<.ans $(srcdir)/taintAnalysisTest.conf $@
 
-C_CHECK_TARGETS += check-taint-analysis
+#C_CHECK_TARGETS += check-taint-analysis
 .PHONY: check-taint-analysis
 check-taint-analysis: $(TAINT_ANALYSIS_TESTS)
 
@@ -70,10 +70,13 @@ clean-taint-analysis:
 ###############################################################################################################################
 
 CXX_CONSTPROP_LOCAL_SPECIMENS = cp_test1.C
-EXTRA_DIST += $(CXX_CONSTPROP_LOCAL_SPECIMENS)
+EXTRA_DIST += $(CXX_CONSTPROP_LOCAL_SPECIMENS) constantPropagationTest.conf cp_test_status.txt
 CXX_CONSTPROP_LOCAL_TESTS = $(addprefix cxxcpls_, $(addsuffix .passed, $(CXX_CONSTPROP_LOCAL_SPECIMENS)))
-$(CXX_CONSTPROP_LOCAL_TESTS): cxxcpls_%.passed: $(srcdir)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
-	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -c $<" $(TEST_EXIT_STATUS) $@
+#$(CXX_CONSTPROP_LOCAL_TESTS): cxxcpls_%.passed: $(srcdir)/% $(TEST_EXIT_STATUS) $(CONST_PROP) constantPropagationTest.conf
+#	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -c $<" $(TEST_EXIT_STATUS) $@
+
+$(CXX_CONSTPROP_LOCAL_TESTS): cxxcpls_%.passed: $(srcdir)/% $(TEST_EXIT_STATUS) $(CONST_PROP) constantPropagationTest.conf
+	@$(RTH_RUN) INPUT=$< ROSE_FLAGS=$(ROSE_FLAGS) CONST_PROP_INCL= $(srcdir)/constantPropagationTest.conf  $@
 
 C_CHECK_TARGETS += check-cxx-constprop-local
 .PHONY: check-cxx-constprop-local
@@ -203,8 +206,12 @@ CXX_CONSTPROP_SPECIMENS_HANGING = \
 	test2005_114.C
 
 CXX_CONSTPROP_TESTS = $(addprefix cxxcp_, $(addsuffix .passed, $(CXX_CONSTPROP_SPECIMENS)))
-$(CXX_CONSTPROP_TESTS): cxxcp_%.passed: $(CXX_TESTDIR)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
-	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -I$(CXX_TESTDIR) -c $<" $(TEST_EXIT_STATUS) $@
+#$(CXX_CONSTPROP_TESTS): cxxcp_%.passed: $(CXX_TESTDIR)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
+#	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -I$(CXX_TESTDIR) -c $<" $(TEST_EXIT_STATUS) $@
+
+$(CXX_CONSTPROP_TESTS): cxxcp_%.passed: $(CXX_TESTDIR)/% $(CONST_PROP) constantPropagationTest.conf
+	@$(RTH_RUN) INPUT=$< ROSE_FLAGS=$(ROSE_FLAGS) CONST_PROP_INCL=-I$(CXX_TESTDIR) $(srcdir)/constantPropagationTest.conf $@
+
 
 C_CHECK_TARGETS += check-cxx-constprop
 .PHONY: check-cxx-constprop
@@ -254,9 +261,13 @@ C_CONSTPROP_SPECIMENS_FAILING =											     \
 
 # The EXAMPLE_C_TESTCODES_VERIFIED_TO_PASS have ".C" extentions, not ".c", so we need to first copy each one to a new name.
 C_CONSTPROP_TESTS = $(addprefix ccp_, $(addsuffix .passed, $(C_CONSTPROP_SPECIMENS)))
+#$(C_CONSTPROP_TESTS): ccp_%.passed: $(CXX_TESTDIR)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
+#	cp $< ${@:.C.passed=.c}
+#	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -I$(CXX_TESTDIR) -c ${@:.C.passed=.c}" $(TEST_EXIT_STATUS) $@
+
 $(C_CONSTPROP_TESTS): ccp_%.passed: $(CXX_TESTDIR)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
 	cp $< ${@:.C.passed=.c}
-	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -I$(CXX_TESTDIR) -c ${@:.C.passed=.c}" $(TEST_EXIT_STATUS) $@
+	@$(RTH_RUN) INPUT=$< ROSE_FLAGS=$(ROSE_FLAGS) CONST_PROP_INCL=-I$(CXX_TESTDIR) $(srcdir)/constantPropagationTest.conf $@
 
 C_CHECK_TARGETS += check-c-constprop
 .PHONY: check-c-constprop
@@ -283,8 +294,12 @@ C99_CONSTPROP_SPECIMENS = bool.c complex_01.c complex_03.c constants.c test2005_
 C99_CONSTPROP_SPECIMENS_FAILING = test2008_01.c
 
 C99_CONSTPROP_TESTS = $(addprefix c99cp_, $(addsuffix .passed, $(C99_CONSTPROP_SPECIMENS)))
+#$(C99_CONSTPROP_TESTS): c99cp_%.passed: $(C99_TESTDIR)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
+#	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -I$(C99_TESTDIR) -c $<" $(TEST_EXIT_STATUS) $@
+
 $(C99_CONSTPROP_TESTS): c99cp_%.passed: $(C99_TESTDIR)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
-	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -I$(C99_TESTDIR) -c $<" $(TEST_EXIT_STATUS) $@
+	@$(RTH_RUN) INPUT=$< ROSE_FLAGS=$(ROSE_FLAGS) CONST_PROP_INCL=-I$(C99_TESTDIR) $(srcdir)/constantPropagationTest.conf $@
+
 
 C_CHECK_TARGETS += check-c99-constprop
 .PHONY: check-c99-constprop
@@ -327,7 +342,7 @@ F77_CONSTPROP_TESTS = $(addprefix f77cp_, $(addsuffix .passed, $(F77_CONSTPROP_S
 $(F77_CONSTPROP_TESTS): f77cp_%.passed: $(F77_TESTDIR)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
 	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -rose:f77 -c $<" $(TEST_EXIT_STATUS) $@
 
-FORTRAN_CHECK_TARGETS += check-f77-constprop
+#FORTRAN_CHECK_TARGETS += check-f77-constprop
 .PHONY: check-f77-constprop
 check-f77-constprop: $(F77_CONSTPROP_TESTS)
 
@@ -377,7 +392,7 @@ F90_CONSTPROP_TESTS = $(addprefix f90cp_, $(addsuffix .passed, $(F90_CONSTPROP_S
 $(F90_CONSTPROP_TESTS): f90cp_%.passed: $(F90_TESTDIR)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
 	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -rose:f90 -c $<" $(TEST_EXIT_STATUS) $@
 
-FORTRAN_CHECK_TARGETS += check-f90-constprop
+#FORTRAN_CHECK_TARGETS += check-f90-constprop
 .PHONY: check-f90-constprop
 check-f90-constprop: $(F90_CONSTPROP_TESTS)
 
@@ -411,7 +426,7 @@ $(F03_CONSTPROP_TESTS): f03cp_%.passed: $(F03_TESTDIR)/% $(TEST_EXIT_STATUS) $(C
 	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -rose:skip_syntax_check -rose:skipfinalCompileStep -rose:f2003 -c $<" \
 		$(TEST_EXIT_STATUS) $@
 
-FORTRAN_CHECK_TARGETS += check-f03-constprop
+#FORTRAN_CHECK_TARGETS += check-f03-constprop
 .PHONY: check-f03-constprop
 check-f03-constprop: $(F03_CONSTPROP_TESTS)
 
@@ -437,7 +452,7 @@ CXX_LIVENESS_TESTS = $(addprefix cxxla_, $(addsuffix .passed, $(CXX_LIVENESS_SPE
 $(CXX_LIVENESS_TESTS): cxxla_%.passed: $(srcdir)/% $(TEST_EXIT_STATUS) liveDeadVarAnalysisTest
 	@$(RTH_RUN) CMD="./liveDeadVarAnalysisTest $(ROSE_FLAGS) -c $<" $(TEST_EXIT_STATUS) $@
 
-C_CHECK_TARGETS += check-cxx-liveness
+#C_CHECK_TARGETS += check-cxx-liveness
 .PHONY: check-cxx-liveness
 check-cxx-liveness: $(CXX_LIVENESS_TESTS)
 
@@ -462,7 +477,7 @@ CXX_POINTER_ALIAS_TESTS = $(addprefix cxxpa_, $(addsuffix .passed, $(CXX_POINTER
 $(CXX_POINTER_ALIAS_TESTS): cxxpa_%.passed: $(srcdir)/% $(TEST_EXIT_STATUS) ./pointerAliasAnalysisTest
 	@$(RTH_RUN) CMD="./pointerAliasAnalysisTest $(ROSE_FLAGS) -c $<" $(TEST_EXIT_STATUS) $@
 
-C_CHECK_TARGETS += check-cxx-pointer-alias
+#C_CHECK_TARGETS += check-cxx-pointer-alias
 .PHONY: check-cxx-pointer-alias
 check-cxx-pointer-alias: $(CXX_POINTER_ALIAS_TESTS)
 
