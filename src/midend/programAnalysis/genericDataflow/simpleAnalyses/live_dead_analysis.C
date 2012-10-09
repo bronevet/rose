@@ -451,7 +451,7 @@ namespace dataflow {
                 Dbg::indent ind(analysisDebugLevel, 1);
                 Dbg::dbg << (*asgn)->str() << endl;
                 asgn++;
-                if(asgn==used.end()) Dbg::dbg << "]";
+                if(asgn==assigned.end()) Dbg::dbg << "]"; //ASR: iterator bug caught by _GLIBCXX_DEBUG fixed
                 else                 Dbg::dbg << endl;
             }
             Dbg::dbg << endl;
