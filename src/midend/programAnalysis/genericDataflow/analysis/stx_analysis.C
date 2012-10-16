@@ -993,7 +993,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //---------------------
   LabeledAggregateExprObj::LabeledAggregateExprObj(SgExpression* e, SgType* t, PartPtr part): ExprObj (e,t) 
   {
-    init(e, t, part);
+      //init(e, t, part);  //#SA init() should be stripped to avoid double deletion when using shared_ptr
   }
   
   LabeledAggregateExprObj::LabeledAggregateExprObj(const LabeledAggregateExprObj& that):ExprObj(that.anchor_exp, that.type)
@@ -1014,7 +1014,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     assert (e->get_type() == t);
     SgClassType * c_t = isSgClassType(t);
     assert (c_t != NULL);
-    fillUpElements(this, LabeledAggregate_Impl::getElements(part), c_t, part);
+    fillUpElements(boost::dynamic_pointer_cast<LabeledAggregate>(shared_from_this()), LabeledAggregate_Impl::getElements(part), c_t, part);
   }
   
   /*std::set<SgType*> LabeledAggregateExprObj::getType()
@@ -1608,13 +1608,8 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   
   // a helper function to fill up std::vector<LabeledAggregateField*>  from a class/structure type
   // TODO handle static members,they should be treated as global variables , not instances
-  void fillUpElements(MemLocObject* p, std::vector<LabeledAggregateFieldPtr > & elements, SgClassType* c_t, PartPtr part)
+  void fillUpElements(LabeledAggregatePtr lp, std::vector<LabeledAggregateFieldPtr > & elements, SgClassType* c_t, PartPtr part)
   {
-    assert (p!= NULL);
-    boost::shared_ptr<LabeledAggregate> lp = 
-      boost::shared_ptr<LabeledAggregate>(dynamic_cast <LabeledAggregate* > (p));
-    assert (lp);
-
     assert (c_t != NULL);
     SgDeclarationStatement * decl = c_t ->get_declaration();
     assert (decl != NULL);
@@ -1646,7 +1641,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //----------------------
   LabeledAggregateNamedObj::LabeledAggregateNamedObj(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv, PartPtr part): NamedObj(s,t, p, iv)
   {
-    init(s, t, p, iv, part);
+      //init(s, t, p, iv, part); //#SA init should be stripped to avoid double deletion when using shared_ptr
   }
   
   LabeledAggregateNamedObj::LabeledAggregateNamedObj(const LabeledAggregateNamedObj& that): NamedObj(that.anchor_symbol, that.type, that.parent, that.array_index_vector)
@@ -1667,7 +1662,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     assert (s->get_type() == t);
     SgClassType * c_t = isSgClassType(t);
 
-    fillUpElements(this, LabeledAggregate_Impl::getElements(part), c_t, part);
+    fillUpElements(boost::dynamic_pointer_cast<LabeledAggregate>(shared_from_this()), LabeledAggregate_Impl::getElements(part), c_t, part);
   }
 
   /*std::set<SgType*> LabeledAggregateNamedObj::getType()
@@ -2341,15 +2336,29 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     if (SageInterface::isScalarType(t) || (isSgReferenceType(t) && SageInterface::isScalarType(isSgReferenceType(t)->get_base_type())))
     // We define the following SgType as scalar types: 
     // char, short, int, long , void, Wchar, Float, double, long long, string, bool, complex, imaginary 
-    { rt = boost::make_shared<ScalarNamedObj>(anchor_symbol, t, parent, iv, part); }
+    { 
+        rt = boost::make_shared<ScalarNamedObj>(anchor_symbol, t, parent, iv, part); 
+    }
     else if (isSgFunctionType(t) || (isSgReferenceType(t) && isSgFunctionType(isSgReferenceType(t)->get_base_type())))
-    { rt = boost::make_shared<FunctionNamedObj>(anchor_symbol, part); }
+    { 
+        rt = boost::make_shared<FunctionNamedObj>(anchor_symbol, part); 
+    }
     else if (isSgPointerType(t) || (isSgReferenceType(t) && isSgPointerType(isSgReferenceType(t)->get_base_type())))
-    { rt = boost::make_shared<PointerNamedObj>(anchor_symbol, t, parent, iv, part); }
+    { 
+        rt = boost::make_shared<PointerNamedObj>(anchor_symbol, t, parent, iv, part); 
+    }
     else if (isSgClassType(t) || (isSgReferenceType(t) && isSgClassType(isSgReferenceType(t)->get_base_type())))
-    { rt = boost::make_shared<LabeledAggregateNamedObj>(anchor_symbol, t, parent, iv, part); }
+    {
+        // #SA 10/15/12
+        // Stripping init() from constructor
+        // 
+        rt = boost::make_shared<LabeledAggregateNamedObj>(anchor_symbol, t, parent, iv, part);
+        boost::dynamic_pointer_cast<LabeledAggregateNamedObj>(rt)->init(anchor_symbol, t, parent, iv, part);
+    }
     else if (isSgArrayType(t) || (isSgReferenceType(t) && isSgArrayType(isSgReferenceType(t)->get_base_type()))) // This is for the entire array variable
-    { rt = boost::make_shared<ArrayNamedObj>(anchor_symbol, t, parent, iv, part); }
+    { 
+        rt = boost::make_shared<ArrayNamedObj>(anchor_symbol, t, parent, iv, part); 
+    }
     else
     {
       cerr<<"Warning: createNamedMemLocObject(): unhandled symbol:"<<anchor_symbol->class_name() << 
@@ -2523,13 +2532,25 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
         rt = boost::make_shared<ScalarExprObj>(anchor_exp, t, part);
       }
       else if (isSgFunctionType(t) || (isSgReferenceType(t) && isSgFunctionType(isSgReferenceType(t)->get_base_type())))
-      { rt = boost::make_shared<FunctionExprObj>(anchor_exp, t, part); }
+      { 
+          rt = boost::make_shared<FunctionExprObj>(anchor_exp, t, part); 
+      }
       else if (isSgPointerType(t) || (isSgReferenceType(t) && isSgPointerType(isSgReferenceType(t)->get_base_type())))
-      { rt = boost::make_shared<PointerExprObj>(anchor_exp, t, part); }
+      { 
+          rt = boost::make_shared<PointerExprObj>(anchor_exp, t, part); 
+      }
       else if (isSgClassType(t) || (isSgReferenceType(t) && isSgClassType(isSgReferenceType(t)->get_base_type())))
-      { rt = boost::make_shared<LabeledAggregateExprObj>(anchor_exp, t, part); }
+      {
+          // #SA 10/15/12
+          // stripping the init(...) function from the constructor to avoid double deletion of object
+          // 
+          rt = boost::make_shared<LabeledAggregateExprObj>(anchor_exp, t, part); 
+          boost::dynamic_pointer_cast<LabeledAggregateExprObj>(rt)->init(anchor_exp, t, part);          
+      }
       else if (isSgArrayType(t) || (isSgReferenceType(t) && isSgArrayType(isSgReferenceType(t)->get_base_type())))
-      { rt = boost::make_shared<ArrayExprObj>(anchor_exp, t, part); }
+      { 
+          rt = boost::make_shared<ArrayExprObj>(anchor_exp, t, part); 
+      }
       else
       {
         cerr<<"Warning: createExprMemLocObject(): unhandled expression:"<<anchor_exp->class_name() << 

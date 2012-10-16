@@ -202,7 +202,10 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   };
 
 
-  class LabeledAggregate_Impl : public LabeledAggregate/*, public StxMemLocObject*/
+  // #SA 10/15/12
+  // Deriving from enable_shared_from_this provides shared_from_this() to create a shared_ptr using 'this'
+  //  
+  class LabeledAggregate_Impl : public LabeledAggregate, public boost::enable_shared_from_this<LabeledAggregate_Impl>
   {
     public:
       bool operator < (const MemLocObject& other) const ;
@@ -913,7 +916,9 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   bool isMemberVariableDeclarationSymbol(SgSymbol * s);
 
   // a helper function to fill up elements of MemLocObject p from a class/structure type
-  void fillUpElements (MemLocObject* p, std::vector<boost::shared_ptr<LabeledAggregateField> > & elements, SgClassType* c_t, PartPtr part);
+  // #SA 10/15/12 - modified first parameter to LabeledAggregatePtr
+  // Currently only labeled aggregate objects use this function
+  void fillUpElements (LabeledAggregatePtr p, std::vector<boost::shared_ptr<LabeledAggregateField> > & elements, SgClassType* c_t, PartPtr part);
 
   // convert std::vector<SgExpression*>* subscripts to IndexVectorPtr  array_index_vector
   IndexVectorPtr generateIndexVector (std::vector<SgExpression*>& subscripts);
