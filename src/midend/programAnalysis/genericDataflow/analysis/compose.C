@@ -300,6 +300,7 @@ boost::shared_ptr<RetObject> ChainComposer::callServerAnalysisFunc(SgNode* n, Pa
     try {
       //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;In TRY, caller="<<caller.funcName()<<endl;
       boost::shared_ptr<RetObject> v(caller(n, p, curAnalysis));
+      ROSE_ASSERT(v);
       // If control reaches here, we know that the current analysis does 
       // implement this method, so reconstruct doneAnalyses and return its reply
 
