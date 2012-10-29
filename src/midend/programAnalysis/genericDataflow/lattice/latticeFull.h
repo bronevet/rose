@@ -22,15 +22,11 @@ class BoolAndLattice : public FiniteLattice
   int state;
   
   public:
-  BoolAndLattice(PartPtr p) : Lattice(p), FiniteLattice(p)
+  BoolAndLattice(PartEdgePtr pedge) : Lattice(pedge), FiniteLattice(pedge)
   { state = -1; }
   
-  private:
-  BoolAndLattice(int state, PartPtr p) : Lattice(p), FiniteLattice(p)
-  { this->state = state; }
-  
   public:
-  BoolAndLattice(bool state, PartPtr p) : Lattice(p), FiniteLattice(p)
+  BoolAndLattice(bool state, PartEdgePtr pedge) : Lattice(pedge), FiniteLattice(pedge)
   { this->state = state; }
   
   // initializes this Lattice to its default state
@@ -89,12 +85,12 @@ class IntMaxLattice : public InfiniteLattice
   public:
   static const int infinity;// = 32768;
   
-  IntMaxLattice(PartPtr p) : Lattice(p), InfiniteLattice(p)
+  IntMaxLattice(PartEdgePtr pedge) : Lattice(pedge), InfiniteLattice(pedge)
   {
     state = -1;
   }
   
-  IntMaxLattice(int state, PartPtr p) : Lattice(p), InfiniteLattice(p)
+  IntMaxLattice(int state, PartEdgePtr pedge) : Lattice(pedge), InfiniteLattice(pedge)
   {
     this->state = state;
   }
@@ -170,9 +166,9 @@ class ProductLattice : public virtual Lattice
   
   public:
   //ProductLattice();
-  ProductLattice(PartPtr p);
+  ProductLattice(PartEdgePtr pedge);
   ProductLattice(const ProductLattice& that);
-  ProductLattice(const std::vector<Lattice*>& lattices, PartPtr p);
+  ProductLattice(const std::vector<Lattice*>& lattices, PartEdgePtr pedge);
   ~ProductLattice();
   
   void init(const std::vector<Lattice*>& lattices);
@@ -197,11 +193,10 @@ class ProductLattice : public virtual Lattice
   //    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
   //    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets 
   //    of MemLocObjects) this may not require any actual insertions.
-  // The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
-  //    to the code region(s) to which we are remapping.
-  // The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
-  //    to the code region(s) to which we are remapping.
-  Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartPtr newPart);
+  // The function takes newPEdge, the edge that points to the part within which the values of ml2ml should be 
+  //    interpreted. It corresponds to the code region(s) to which we are remapping.
+  // remapML must return a freshly-allocated object.
+  Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartEdgePtr newPEdge);
 
   // Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously 
   //    maintained in this lattice about them.
@@ -236,15 +231,15 @@ class FiniteProductLattice : public virtual ProductLattice
 {
   public:
 
-  FiniteProductLattice(PartPtr p) : Lattice(p), ProductLattice(p)
+  FiniteProductLattice(PartEdgePtr pedge) : Lattice(pedge), ProductLattice(pedge)
   {}
   
-  FiniteProductLattice(const std::vector<Lattice*>& lattices, PartPtr p) : Lattice(p), ProductLattice(lattices, p)
+  FiniteProductLattice(const std::vector<Lattice*>& lattices, PartEdgePtr pedge) : Lattice(pedge), ProductLattice(lattices, pedge)
   {
     verifyFinite();
   }
   
-  FiniteProductLattice(const FiniteProductLattice& that) : Lattice(that.part), ProductLattice(that.lattices, that.part)
+  FiniteProductLattice(const FiniteProductLattice& that) : Lattice(that.latPEdge), ProductLattice(that.lattices, that.latPEdge)
   {
     verifyFinite();
   }
@@ -269,13 +264,13 @@ class InfiniteProductLattice : public virtual ProductLattice
 {
   public:
   
-  InfiniteProductLattice(PartPtr p) : Lattice(p), ProductLattice(p)
+  InfiniteProductLattice(PartEdgePtr pedge) : Lattice(pedge), ProductLattice(pedge)
   {}
   
-  InfiniteProductLattice(const std::vector<Lattice*>& lattices, PartPtr p) : Lattice(p), ProductLattice(lattices, p)
+  InfiniteProductLattice(const std::vector<Lattice*>& lattices, PartEdgePtr pedge) : Lattice(pedge), ProductLattice(lattices, pedge)
   {}
   
-  InfiniteProductLattice(const InfiniteProductLattice& that) : Lattice(that.part), ProductLattice(that.lattices, that.part)
+  InfiniteProductLattice(const InfiniteProductLattice& that) : Lattice(that.latPEdge), ProductLattice(that.lattices, that.latPEdge)
   {}
   
   bool finiteLattice()

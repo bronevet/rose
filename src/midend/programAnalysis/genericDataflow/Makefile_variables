@@ -16,6 +16,8 @@ mpaGenericDataflow_la_sources=\
 	$(mpaGenericDataflowPath)/analysis/abstract_object.C \
 	$(mpaGenericDataflowPath)/analysis/abstract_object_map.C \
 	$(mpaGenericDataflowPath)/analysis/abstract_object_set.C \
+	$(mpaGenericDataflowPath)/analysis/partitionIterator.C \
+	$(mpaGenericDataflowPath)/analysis/partitions.C \
 	$(mpaGenericDataflowPath)/analysis/stx_analysis.C \
 	$(mpaGenericDataflowPath)/AnalysisDebuggingUtils.C \
 	$(mpaGenericDataflowPath)/cfgUtils/CallGraphTraverse.C \
@@ -25,6 +27,7 @@ mpaGenericDataflow_la_sources=\
 	$(mpaGenericDataflowPath)/genUID.C \
 	$(mpaGenericDataflowPath)/lattice/lattice.C \
 	$(mpaGenericDataflowPath)/simpleAnalyses/const_prop_analysis.C \
+	$(mpaGenericDataflowPath)/simpleAnalyses/dead_path_elim_analysis.C \
 	$(mpaGenericDataflowPath)/simpleAnalyses/live_dead_analysis.C \
 	$(mpaGenericDataflowPath)/simpleAnalyses/ortho_array_analysis.C \
 	$(mpaGenericDataflowPath)/simpleAnalyses/printAnalysisStates.C \
@@ -56,6 +59,7 @@ mpaGenericDataflow_includeHeaders=\
 	$(mpaGenericDataflowPath)/analysis/abstract_object_map.h \
 	$(mpaGenericDataflowPath)/analysis/abstract_object_set.h \
 	$(mpaGenericDataflowPath)/analysis/stx_analysis.h \
+	$(mpaGenericDataflowPath)/analysis/partitionIterator.h \
 	$(mpaGenericDataflowPath)/analysis/partitions.h \
 	$(mpaGenericDataflowPath)/AnalysisDebuggingUtils.h \
 	$(mpaGenericDataflowPath)/cfgUtils/baseCFGIterator.h \
@@ -72,6 +76,7 @@ mpaGenericDataflow_includeHeaders=\
 	$(mpaGenericDataflowPath)/state/nodeState.h \
 	$(mpaGenericDataflowPath)/simpleAnalyses/VariableStateTransfer.h \
 	$(mpaGenericDataflowPath)/simpleAnalyses/const_prop_analysis.h \
+	$(mpaGenericDataflowPath)/simpleAnalyses/dead_path_elim_analysis.h \
 	$(mpaGenericDataflowPath)/simpleAnalyses/live_dead_analysis.h \
 	$(mpaGenericDataflowPath)/simpleAnalyses/ortho_array_analysis.h \
 	$(mpaGenericDataflowPath)/simpleAnalyses/printAnalysisStates.h \

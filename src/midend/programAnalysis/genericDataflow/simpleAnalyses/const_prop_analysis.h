@@ -35,8 +35,7 @@ class CPValueObject : public FiniteLattice, public ValueObject
   // this object's current level in the lattice: (bottom, valKnown, divKnown, top)
   short level;
   
-  public:
-  // The different levels of this lattice
+  public:  // The different levels of this lattice
   // no information is known about the value of the variable
   static const short bottom = 1; 
   
@@ -54,12 +53,12 @@ class CPValueObject : public FiniteLattice, public ValueObject
   
   public:
   // Do we need a default constructor?
-  CPValueObject(PartPtr p);
+  CPValueObject(PartEdgePtr pedge);
   
   // This constructor builds a constant value lattice.
-  CPValueObject(int v, PartPtr p);
+  CPValueObject(int v, PartEdgePtr pedge);
   
-  CPValueObject(short level, int v, PartPtr p);
+  CPValueObject(short level, int v, PartEdgePtr pedge);
   
   // Do we need th copy constructor?
   CPValueObject(const CPValueObject & X);
@@ -102,14 +101,22 @@ class CPValueObject : public FiniteLattice, public ValueObject
   // pretty print for the object
   std::string str(std::string indent="") const;
   std::string str(std::string indent="") { return ((const CPValueObject*)this)->str(indent); }
-  std::string strp(PartPtr part, std::string indent="") const;
+  std::string strp(PartEdgePtr pedge, std::string indent="") const;
     
-  bool mayEqual(ValueObjectPtr o, PartPtr p);
-  bool mustEqual(ValueObjectPtr o, PartPtr p);
+  bool mayEqual(ValueObjectPtr o, PartEdgePtr pedge);
+  bool mustEqual(ValueObjectPtr o, PartEdgePtr pedge);
   
   // Allocates a copy of this object and returns a pointer to it
   ValueObjectPtr copyV() const;
 
+  // Returns true if this ValueObject corresponds to a concrete value that is statically-known
+  bool isConcrete();
+  // Returns the type of the concrete value (if there is one)
+  SgType* getConcreteType();
+  // Returns the concrete value (if there is one) as an SgValueExp, which allows callers to use
+  // the normal ROSE mechanisms to decode it
+  boost::shared_ptr<SgValueExp> getConcreteValue();
+  
   /* Don't have good idea how to represent a finite number of options 
   virtual bool isFiniteSet()=0;
   virtual set<AbstractObj> getValueSet()=0;*/
@@ -127,13 +134,17 @@ class ConstantPropagationAnalysis : virtual public IntraFWDataflow
   public:
   ConstantPropagationAnalysis();
   
-  void genInitState(const Function& func, PartPtr p, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
+  // Initializes the state of analysis lattices at the given function, part and edge into our out of the part
+  // by setting initLattices to refer to freshly-allocated Lattice objects.
+  void genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
+                      std::vector<Lattice*>& initLattices);
   
-  bool transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo);
+  bool transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo);
   
-  boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo);
+  boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr part, CFGNode cn, 
+                                              NodeState& state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo);
   
-  boost::shared_ptr<ValueObject> Expr2Val(SgNode* n, PartPtr p);
+  boost::shared_ptr<ValueObject> Expr2Val(SgNode* n, PartEdgePtr pedge);
   
   // pretty print for the object
   std::string str(std::string indent="")
@@ -157,9 +168,11 @@ class ConstantPropagationAnalysisTransfer : public VariableStateTransfer<CPValue
    void transferMultiplicative(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat, CPValueObjectPtr resLat);
    void transferDivision(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat, CPValueObjectPtr resLat);
    void transferMod(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat, CPValueObjectPtr resLat);
-   
+   void transferLogical(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat, 
+                        CPValueObjectPtr resLat, SgExpression* expr);
    public:
    //  void visit(SgNode *);
+   // Values
    void visit(SgLongLongIntVal *sgn);
    void visit(SgLongIntVal *sgn);
    void visit(SgIntVal *sgn);
@@ -169,6 +182,7 @@ class ConstantPropagationAnalysisTransfer : public VariableStateTransfer<CPValue
    void visit(SgUnsignedIntVal *sgn);
    void visit(SgUnsignedShortVal *sgn);
    void visit(SgValueExp *sgn);
+   // Arithmetic Operations
    void visit(SgPlusAssignOp *sgn);
    void visit(SgMinusAssignOp *sgn);
    void visit(SgMultAssignOp *sgn);
@@ -179,14 +193,28 @@ class ConstantPropagationAnalysisTransfer : public VariableStateTransfer<CPValue
    void visit(SgMultiplyOp *sgn);
    void visit(SgDivideOp *sgn);
    void visit(SgModOp *sgn);
+   // Increment Operations
    void visit(SgPlusPlusOp *sgn);
    void visit(SgMinusMinusOp *sgn);
+   // Unary Operations
    void visit(SgUnaryAddOp *sgn);
    void visit(SgMinusOp *sgn);
+   void visit(SgCastExp *sgn);
+   // Logical Operations
+   void visit(SgGreaterOrEqualOp *sgn);
+   void visit(SgGreaterThanOp *sgn);
+   void visit(SgLessOrEqualOp *sgn);
+   void visit(SgLessThanOp *sgn);
+   void visit(SgEqualityOp *sgn);
+   void visit(SgNotEqualOp *sgn);
+   void visit(SgAndOp *sgn);
+   void visit(SgOrOp *sgn);
    
    bool finish();
    
-   ConstantPropagationAnalysisTransfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo, Composer* composer, ConstantPropagationAnalysis* analysis);
+   ConstantPropagationAnalysisTransfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
+                                       std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, 
+                                       Composer* composer, ConstantPropagationAnalysis* analysis);
 };
 
 }; //namespace dataflow

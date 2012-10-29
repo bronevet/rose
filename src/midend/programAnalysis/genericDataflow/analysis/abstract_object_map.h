@@ -51,36 +51,24 @@ namespace dataflow {
     bool isFinite;
     // True if this map has been set to represent the set of all possible AbstractObject->Lattice mappings.
     bool isFull;
-
-    //ComposerExpr2ObjPtr ceo;
-
-    // We may need to be able to call the composer's Expr2MemLoc functions
-    // but I'm not sure yet
-    /*const Composer& composer;
-    const Part&     part;
-    const Analysis& analysis;*/
-
+    
   public:
     // GB: Removed the empty constructor since an object constructed this 
     // way would not have a valid equalFunctor and thus would not function
     //AbstractObjectMap() : /*composer(NULL), */isFinite(true) {}
-    AbstractObjectMap(const AbstractObjectMap& that) : Lattice(that.part),
+    AbstractObjectMap(const AbstractObjectMap& that) : Lattice(that.latPEdge),
                                    equalFunctor(that.equalFunctor),
                                    items       (that.items),
                                    defaultLat  (that.defaultLat),
-                                   /*composer    (that.composer),
-                                   part        (that.part),
-                                   analysis    (that.analysis),*/
                                    isFinite    (that.isFinite),
-                                   isFull      (that.isFull)/*,
-                                   ceo         (that.ceo)*/
+                                   isFull      (that.isFull)
     {}
-    AbstractObjectMap(EqualFunctor& ef, LatticePtr defaultLat_/*, ComposerExpr2ObjPtr ceo_*/, PartPtr part_) : 
-      Lattice(part_), equalFunctor(EqualFunctorPtr(&ef)), defaultLat(defaultLat_), isFinite(true), isFull(false) {}
-    AbstractObjectMap(EqualFunctor* ef, LatticePtr defaultLat_/*, ComposerExpr2ObjPtr ceo_*/, PartPtr part_) : 
-      Lattice(part_), equalFunctor(EqualFunctorPtr(ef)), defaultLat(defaultLat_), isFinite(true), isFull(false) {}
-    AbstractObjectMap(EqualFunctorPtr efPtr, LatticePtr defaultLat_/*, ComposerExpr2ObjPtr ceo_*/, PartPtr part_) : 
-      Lattice(part_), equalFunctor(efPtr), defaultLat(defaultLat_), isFinite(true), isFull(false) {}
+    AbstractObjectMap(EqualFunctor& ef, LatticePtr defaultLat_, PartEdgePtr pedge) : 
+      Lattice(pedge), equalFunctor(EqualFunctorPtr(&ef)), defaultLat(defaultLat_), isFinite(true), isFull(false) {}
+    AbstractObjectMap(EqualFunctor* ef, LatticePtr defaultLat_, PartEdgePtr pedge) : 
+      Lattice(pedge), equalFunctor(EqualFunctorPtr(ef)), defaultLat(defaultLat_), isFinite(true), isFull(false) {}
+    AbstractObjectMap(EqualFunctorPtr efPtr, LatticePtr defaultLat_, PartEdgePtr pedge) : 
+      Lattice(pedge), equalFunctor(efPtr), defaultLat(defaultLat_), isFinite(true), isFull(false) {}
     ~AbstractObjectMap() {}
 
   public:
@@ -103,10 +91,10 @@ namespace dataflow {
     // Return true if this causes the object to change and false otherwise.
     bool setToEmpty();
 
-    std::string str(std::string indent);
+    std::string str(std::string indent="");
     // Variant of the str method that can produce information specific to the current Part.
     // Useful since AbstractObjects can change from one Part to another.
-    std::string strp(PartPtr part, std::string indent="");
+    std::string strp(PartEdgePtr pedge, std::string indent="");
     
     // -----------------
     // Lattice methods
@@ -127,9 +115,11 @@ namespace dataflow {
     //    of MemLocObjects) this may not require any actual insertions. If the value of a given ml2ml mapping is 
     //    NULL (empty boost::shared_ptr), any information for MemLocObjects that must-equal to the key should be 
     //    deleted.    
-    // The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
-    //    to the code region(s) to which we are remapping.
-    Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartPtr newPart);
+    // The function takes newPEdge, the edge that points to the part within which the values of ml2ml should be
+    //    interpreted. It corresponds to the code region(s) to which we are remapping.
+    //    remapML must return a freshly-allocated object.
+    // remapML must return a freshly-allocated object.
+    Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartEdgePtr newPEdge);
 
     // Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously 
     //    maintained in this lattice about them.

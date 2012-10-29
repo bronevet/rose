@@ -14,7 +14,7 @@
 #include "functionState.h"
 #include "latticeFull.h"
 #include "printAnalysisStates.h"
-
+#include "partitions.h"
 
 using namespace std;
 using namespace dataflow;
@@ -27,45 +27,45 @@ class analysisStatesToDOT : virtual public UnstructuredPassIntraAnalysis
   private:
     //    LiveDeadVarsAnalysis* lda; // reference to the source analysis
     Analysis* lda; // reference to the source analysis
-    void printEdge(const DataflowEdge& e); // print data flow edge
-    void printNode(const DataflowNode& n, std::string state_string); // print date flow node
+    void printEdge(PartEdgePtr e); // print data flow edge
+    void printNode(PartPtr n, std::string state_string); // print date flow node
   public:
     void visit(const Function& func, PartPtr p, NodeState& state); // visitor function
     std::ostream* ostr; 
     // must transfer the custom filter from l, or the default filter will kick in!
-    analysisStatesToDOT (Analysis* l):  lda(l), Analysis(l->filter){ }; 
+    analysisStatesToDOT (ComposedAnalysis* l): Analysis(l->filter), UnstructuredPassIntraAnalysis(l), lda(l) { }; 
 };
 
-void analysisStatesToDOT::printEdge (const DataflowEdge& e)
+void analysisStatesToDOT::printEdge (PartEdgePtr e)
 {
-  (*ostr) << e.source().id() << " -> " << e.target().id() << " [label=\"" << escapeString(e.toString ()) <<
+  (*ostr) << e->source()->CFGNodes().begin()->id() << " -> " << e->target()->CFGNodes().begin()->id() << " [label=\"" << escapeString(e->str()) <<
     "\", style=\"" << "solid" << "\"];\n";
 }
 
-void analysisStatesToDOT::printNode(const DataflowNode& n, std::string state_string)
+void analysisStatesToDOT::printNode(PartPtr part, std::string state_string)
 {
-  std::string id = n.id();  // node id
+  std::string id = part->CFGNodes().begin()->id();  // node id
   std::string nodeColor = "black";
 
-  if (isSgStatement(n.getNode()))
+  if (part->maySgNodeAny<SgStatement>())
     nodeColor = "blue";
-  else if (isSgExpression(n.getNode()))
+  else if (part->maySgNodeAny<SgExpression>())
     nodeColor = "green";
-  else if (isSgInitializedName(n.getNode()))
+  else if (part->maySgNodeAny<SgInitializedName>())
     nodeColor = "red";
 
   // node_id [label="", color="", style=""]
-  (*ostr) << id << " [label=\""  << escapeString(n.toString()) <<"\\n" << escapeString (state_string) << "\", color=\"" << nodeColor <<
-    "\", style=\"" << (n.isInteresting()? "solid" : "dotted") << "\"];\n";
+  (*ostr) << id << " [label=\""  << part->str() <<"\\n" << escapeString (state_string) << "\", color=\"" << nodeColor <<
+    "\", style=\"solid\"];\n";
 }
 
 // This will be visited only once? Not sure, better check
 void
-analysisStatesToDOT::visit(const Function& func, PartPtr p, NodeState& state)
+analysisStatesToDOT::visit(const Function& func, PartPtr part, NodeState& state)
 { 
   std::string state_str = state.str( lda, " ");
-  printNode(p, state_str);
-  std::vector < DataflowEdge> outEdges = p.outEdges();
+  printNode(part, state_str);
+  std::vector <PartEdgePtr> outEdges = part->outEdges();
   for (unsigned int i = 0; i < outEdges.size(); ++i)
   {
     printEdge(outEdges[i]);
@@ -906,7 +906,7 @@ region::~region()
         }
 
 
-  void dotGraphGenerator (dataflow::Analysis *a) 
+  void dotGraphGenerator (dataflow::ComposedAnalysis *a) 
   {
     analysisStatesToDOT eas(a);
     IntraAnalysisResultsToDotFiles upia_eas(eas);

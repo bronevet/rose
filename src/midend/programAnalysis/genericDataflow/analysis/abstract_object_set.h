@@ -72,19 +72,18 @@ public:
 private:
     conserv mode;
     
-    //ComposerExpr2ObjPtr ceo;
 public:
     // constructor
-    AbstractObjectSet(PartPtr part, conserv mode): 
-      Lattice(part), FiniteLattice(part), isFull(false), mode(mode)
+    AbstractObjectSet(PartEdgePtr pedge, conserv mode): 
+      Lattice(pedge), FiniteLattice(pedge), isFull(false), mode(mode)
     {}
     
     AbstractObjectSet(const AbstractObjectSet* that) : 
-      Lattice(that->part), FiniteLattice(that->part), items(that->items), isFull(that->isFull), mode(that->mode)
+      Lattice(that->latPEdge), FiniteLattice(that->latPEdge), items(that->items), isFull(that->isFull), mode(that->mode)
     {}
     
     AbstractObjectSet(const AbstractObjectSet& that) :
-      Lattice(that.part), FiniteLattice(that.part), items(that.items), isFull(that.isFull), mode(that.mode)
+      Lattice(that.latPEdge), FiniteLattice(that.latPEdge), items(that.items), isFull(that.isFull), mode(that.mode)
     {}
 
     ~AbstractObjectSet() { }
@@ -117,9 +116,9 @@ public:
     bool setToEmpty();
 
     std::string str(std::string indent);
-    // Variant of the str method that can produce information specific to the current Part.
-    // Useful since AbstractObjects can change from one Part to another.
-    std::string strp(PartPtr part, std::string indent="");
+    // Variant of the str method that can produce information specific to the current PartEdge.
+    // Useful since AbstractObjects can change from one PartEdge to another.
+    std::string strp(PartEdgePtr pedge, std::string indent="");
     
     // initializes this Lattice to its default state, if it is not already initialized
     void initialize();
@@ -136,11 +135,14 @@ public:
     //    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
     //    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets 
     //    of MemLocObjects) this may not require any actual insertions.
-    // The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
-    //    to the code region(s) to which we are remapping.
-    // The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
-    //    to the code region(s) to which we are remapping.
-    Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartPtr newPart);
+    // The function takes newPEdge, the edge that points to the part within which the values of ml2ml should be 
+    //    interpreted. It corresponds to the code region(s) to which we are remapping.
+    // remapML must return a freshly-allocated object.
+    // In must mode for each MemLocObject o in the set, if there exist any pairs <old, new> in ml2ml such that 
+    //    o mustEquals old, then new will be included in the final set.
+    // May mode is the same, except if for some pair <old, new> old mayEquals o but not mustEquals o then new is 
+    //    included in the final set but o is not removed.
+    Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartEdgePtr newPEdge);
 
     // Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously 
     //    maintained in this lattice about them.

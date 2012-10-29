@@ -21,7 +21,7 @@ std::string OrthoIndexVector_Impl::str(std::string indent) const // pretty print
   return rt;
 }
 
-bool OrthoIndexVector_Impl::mayEqual(IndexVectorPtr other, const Part& p)
+bool OrthoIndexVector_Impl::mayEqual(IndexVectorPtr other, PartEdgePtr pedge)
 {
   //Dbg::dbg << "OrthoIndexVector_Impl::mayEqual()"<<endl;
 
@@ -42,7 +42,7 @@ bool OrthoIndexVector_Impl::mayEqual(IndexVectorPtr other, const Part& p)
     for (size_t i =0; i< other_impl->getSize(); i++)
     {
       //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"<<i<<" : mayEqual="<<this->index_vector[i]->mayEqual(other_impl->index_vector[i], p)<<endl;
-      if (!(this->index_vector[i]->mayEqual(other_impl->index_vector[i], p)))
+      if (!(this->index_vector[i]->mayEqual(other_impl->index_vector[i], pedge)))
       {
         has_diff_element = true;
           break;
@@ -55,7 +55,7 @@ bool OrthoIndexVector_Impl::mayEqual(IndexVectorPtr other, const Part& p)
   return rt; 
 }
 
-bool OrthoIndexVector_Impl::mustEqual(IndexVectorPtr other, const Part& p)
+bool OrthoIndexVector_Impl::mustEqual(IndexVectorPtr other, PartEdgePtr pedge)
 {
   //Dbg::dbg << "OrthoIndexVector_Impl::mayEqual()"<<endl;
   
@@ -76,7 +76,7 @@ bool OrthoIndexVector_Impl::mustEqual(IndexVectorPtr other, const Part& p)
     for (size_t i =0; i< other_impl->getSize(); i++)
     {
       //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"<<i<<" : mustEqual="<<this->index_vector[i]->mustEqual(other_impl->index_vector[i], p)<<endl;
-      if (!(this->index_vector[i]->mustEqual(other_impl->index_vector[i], p)))
+      if (!(this->index_vector[i]->mustEqual(other_impl->index_vector[i], pedge)))
       {
         has_diff_element = true;
           break;
@@ -186,7 +186,7 @@ MemLocObjectPtr OrthoArrayMemLocObject::copyML() const
  *******************************/
 
 // Maps the given SgNode to an implementation of the MemLocObject abstraction.
-MemLocObjectPtr OrthogonalArrayAnalysis::Expr2MemLoc(SgNode* n, PartPtr part)
+MemLocObjectPtr OrthogonalArrayAnalysis::Expr2MemLoc(SgNode* n, PartEdgePtr pedge)
 {
   // If this is a top-most array index expression
   if(isSgPntrArrRefExp(n) && 
@@ -194,7 +194,7 @@ MemLocObjectPtr OrthogonalArrayAnalysis::Expr2MemLoc(SgNode* n, PartPtr part)
     SgExpression* arrayNameExp = NULL;
     std::vector<SgExpression*>* subscripts = new std::vector<SgExpression*>;
     SageInterface::isArrayReference(isSgPntrArrRefExp(n), &arrayNameExp, &subscripts);
-    MemLocObjectPtrPair array = composer->Expr2MemLoc(arrayNameExp, part, this);
+    MemLocObjectPtrPair array = composer->Expr2MemLoc(arrayNameExp, pedge, this);
     assert(array.isArray());
     
     OrthoIndexVector_ImplPtr iv = boost::make_shared<OrthoIndexVector_Impl>();
@@ -209,22 +209,22 @@ MemLocObjectPtr OrthogonalArrayAnalysis::Expr2MemLoc(SgNode* n, PartPtr part)
       //CFGNode subNode(*iter, 2);
       Dbg::dbg << "subNode = ["<<(*iter)->unparseToString()<<" | "<<(*iter)->class_name()<<"]"<<endl;
       //DataflowNode subNodeDF(subNode, filter);
-      iv->index_vector.push_back(composer->Expr2Val(*iter, part, this));
+      iv->index_vector.push_back(composer->Expr2Val(*iter, pedge, this));
     }
 
     // GB: Do we need to deallocate subscripts???
     Dbg::dbg << "OrthogonalArrayAnalysis::Expr2MemLoc() array->getElements(iv)"<<endl;
-    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;array="<<array.strp(part, "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;array="<<array.strp(pedge, "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;iv="<<iv->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     
-    MemLocObjectPtr tmp = array.mem ? MemLocObject::isArray(array.mem)->getElements(iv, part) :
-                                      MemLocObject::isArray(array.expr)->getElements(iv, part);
+    MemLocObjectPtr tmp = array.mem ? array.mem->isArray()->getElements(iv, pedge) :
+                                      array.expr->isArray()->getElements(iv, pedge);
     //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;result="<<tmp<<"="<<tmp.get()<<endl;
     //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;result="<<tmp->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     return tmp;
     //return boost::make_shared<OrthoArrayMemLocObject>(array, iv, p);
   } else {
-    MemLocObjectPtrPair notArray = composer->Expr2MemLoc(n, part, this);
+    MemLocObjectPtrPair notArray = composer->Expr2MemLoc(n, pedge, this);
     // Return the memory location if possible but if not, return the expression object
     return (notArray.mem ? notArray.mem : notArray.expr);
     //return boost::make_shared<OrthoArrayMemLocObject>(notArray, p);

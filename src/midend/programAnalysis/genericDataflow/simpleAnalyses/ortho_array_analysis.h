@@ -25,8 +25,8 @@ class OrthoIndexVector_Impl : public IndexVector
     std::string str(std::string indent) const; // pretty print for the object
     std::string str(std::string indent) { return ((const OrthoIndexVector_Impl*)this)->str(indent); }
 
-    bool mayEqual(IndexVectorPtr other, const Part& p);
-    bool mustEqual(IndexVectorPtr other, const Part& p);
+    bool mayEqual(IndexVectorPtr other, PartEdgePtr pedge);
+    bool mustEqual(IndexVectorPtr other, PartEdgePtr pedge);
 };
 typedef boost::shared_ptr<OrthoIndexVector_Impl> OrthoIndexVector_ImplPtr;
 
@@ -81,21 +81,12 @@ class OrthogonalArrayAnalysis : virtual public IntraUndirDataflow
   
   void runAnalysis(const Function&  func, NodeState* state, bool, std::set<Function>) { }
   
-  // The genInitState and transfer functions are dummy since this is not a dataflow 
-  // analysis.
-  //void genInitState(const Part& p, Lattice** initLattice, 
-  //                  std::vector<NodeFact*>& initFacts) {}
-  void genInitState(const Function& func, PartPtr p, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts)
-  {}
-   
-   //void transfer(SgNode &n, Part& p) {}
-  bool transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo) {
-    return true;
-  }
+  // The genInitLattice, genInitFact and transfer functions are not implemented since this 
+  // is not a dataflow analysis.
    
   // Maps the given SgNode to an implementation of the MemLocObject abstraction.
   // Variant of Expr2Val where Part field is ignored since it makes no difference for the syntactic analysis.
-  MemLocObjectPtr  Expr2MemLoc (SgNode* n, PartPtr p);
+  MemLocObjectPtr  Expr2MemLoc (SgNode* n, PartEdgePtr pedge);
 
   // pretty print for the object
   std::string str(std::string indent="")
