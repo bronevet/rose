@@ -212,9 +212,13 @@ class ChainComposer : public Composer
   SgProject* project;
   list<ComposedAnalysis*> allAnalyses;
   list<ComposedAnalysis*> doneAnalyses;
+  // The optional pass that tests the results of the other analyses
+  ComposedAnalysis* testAnalysis;
+  // If true, the debug output of testAnalysis is emitted.
+  bool verboseTest;
   
   public:
-  ChainComposer(int argc, char** argv, list<ComposedAnalysis*>& analyses, SgProject* project=NULL);
+  ChainComposer(int argc, char** argv, list<ComposedAnalysis*>& analyses, ComposedAnalysis* testAnalysis, bool verboseTest, SgProject* project=NULL);
   
   //bool runAnalysis(const Function& func, NodeState* state);
   void runAnalysis();
@@ -536,7 +540,7 @@ class UnstructuredPassInterDataflow : virtual public InterProceduralDataflow
   //          the function call's return value. The callee may not modify these lattices.
   // Returns true if any of the input lattices changed as a result of the transfer function and
   //    false otherwise.
-  bool transfer(const Function& func, CFGNode cn, NodeState& state,
+  bool transfer(const Function& func, PartPtr callPart, CFGNode callCFG, NodeState& state,
                 std::vector<Lattice*>& dfInfo)
   {
     return false;

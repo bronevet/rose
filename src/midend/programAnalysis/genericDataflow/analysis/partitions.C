@@ -31,25 +31,63 @@ bool Part::filterAll(bool (*filter) (CFGNode cfgn))
   return true;
 }
 
-bool Part::operator!=(const PartPtr& o) const { return !(*this==o); }
-bool Part::operator>=(const PartPtr& o) const { return !(*this<o); }
-bool Part::operator<=(const PartPtr& o) const { return (*this<o) || (*this == o); }
-bool Part::operator> (const PartPtr& o) const { return !(*this<=o); }
+// If this and that come from the same analysis, call the type-specific equality test implemented
+// in the derived class. Otherwise, these Parts are not equal.
+bool Part::operator==(const PartPtr& that) const
+{
+  if(analysis == that->analysis) return equal(that);
+  else                           return false;
+}
+
+// If this and that come from the same analysis, call the type-specific inequality test implemented
+// in the derived class. Otherwise, determine inequality by comparing the analysis pointers.
+bool Part::operator<(const PartPtr& that) const
+{
+  if(analysis == that->analysis) return less(that);
+  else                           return analysis < that->analysis;
+}
+
+bool Part::operator!=(const PartPtr& that) const { return !(*this==that); }
+bool Part::operator>=(const PartPtr& that) const { return !(*this<that); }
+bool Part::operator<=(const PartPtr& that) const { return (*this<that) || (*this == that); }
+bool Part::operator> (const PartPtr& that) const { return !(*this<=that); }
 
 /* ####################
    ##### PartEdge #####
    #################### */
 
-bool PartEdge::operator!=(const PartEdgePtr& o) const { return !(*this==o); }
-bool PartEdge::operator>=(const PartEdgePtr& o) const { return !(*this<o); }
-bool PartEdge::operator<=(const PartEdgePtr& o) const { return (*this<o) || (*this == o); }
-bool PartEdge::operator> (const PartEdgePtr& o) const { return !(*this<=o); }
+
+// If this and that come from the same analysis, call the type-specific equality test implemented
+// in the derived class. Otherwise, these Parts are not equal.
+bool PartEdge::operator==(const PartEdgePtr& that) const
+{
+  if(analysis == that->analysis) return equal(that);
+  else                          return false;
+}
+
+// If this and that come from the same analysis, call the type-specific inequality test implemented
+// in the derived class. Otherwise, determine inequality by comparing the analysis pointers.
+bool PartEdge::operator<(const PartEdgePtr& that) const
+{
+  if(analysis == that->analysis) return less(that);
+  else                           return analysis < that->analysis;
+}
+
+bool PartEdge::operator!=(const PartEdgePtr& that) const { return !(*this==that); }
+bool PartEdge::operator>=(const PartEdgePtr& that) const { return !(*this<that); }
+bool PartEdge::operator<=(const PartEdgePtr& that) const { return (*this<that) || (*this == that); }
+bool PartEdge::operator> (const PartEdgePtr& that) const { return !(*this<=that); }
 
 /* ############################
    ##### IntersectionPart #####
    ############################ */
-IntersectionPart::IntersectionPart(PartPtr part) { parts.push_back(part); }
-IntersectionPart::IntersectionPart(const std::list<PartPtr>& parts) : parts(parts) {}
+IntersectionPart::IntersectionPart(PartPtr part, ComposedAnalysis* analysis) : 
+    Part(analysis)
+{ parts.push_back(part); }
+
+IntersectionPart::IntersectionPart(const std::list<PartPtr>& parts, ComposedAnalysis* analysis) : 
+    Part(analysis), parts(parts) 
+{}
 
 void IntersectionPart::add(PartPtr part) { parts.push_back(part); }
 
@@ -73,7 +111,7 @@ void IntersectionPart::outEdges_rec(std::list<PartPtr>::iterator partI, std::lis
                                                         std::vector<PartEdgePtr>& edges) {
   // If we've reached the last part in parts and outEdgeParts contains all the outgoing PartEdges
   if(partI == parts.end())
-    edges.push_back(makePart<IntersectionPartEdge>(outPartEdges));
+    edges.push_back(makePart<IntersectionPartEdge>(outPartEdges, analysis));
   // If we haven't yet reached the end, recurse on all the outgoing edges of the current part
   else {
     // Get this part's outgoing edges
@@ -110,7 +148,7 @@ void IntersectionPart::inEdges_rec(list<PartPtr>::iterator partI, list<PartEdgeP
                                    vector<PartEdgePtr>& edges) {
   // If we've reached the last part in parts and inEdgeParts contains all the incoming PartEdges
   if(partI == parts.end())
-    edges.push_back(makePart<IntersectionPartEdge>(inPartEdges));
+    edges.push_back(makePart<IntersectionPartEdge>(inPartEdges, analysis));
   // If we haven't yet reached the end, recurse on all the incoming edges of the current part
   else {
     // Get this part's incoming edges
@@ -210,7 +248,7 @@ PartEdgePtr IntersectionPart::inEdgeFromAny()
   list<PartEdgePtr> edges;
   for(list<PartPtr>::iterator p=parts.begin(); p!=parts.end(); p++)
     edges.push_back((*p)->inEdgeFromAny());
-  return makePart<IntersectionPartEdge>(edges);
+  return makePart<IntersectionPartEdge>(edges, analysis);
 }
 
 // Returns a PartEdgePtr, where the target is a wild-card part (NULLPart) and the source is this Part
@@ -220,13 +258,13 @@ PartEdgePtr IntersectionPart::outEdgeToAny()
   list<PartEdgePtr> edges;
   for(list<PartPtr>::iterator p=parts.begin(); p!=parts.end(); p++)
     edges.push_back((*p)->outEdgeToAny());
-  return makePart<IntersectionPartEdge>(edges);
+  return makePart<IntersectionPartEdge>(edges, analysis);
 }
 
 // Two IntersectionParts are equal of all their constituent sub-parts are equal
-bool IntersectionPart::operator==(const PartPtr& o) const
+bool IntersectionPart::equal(const PartPtr& that_arg) const
 {
-  IntersectionPartPtr that = static_part_cast<IntersectionPart>(o);
+  IntersectionPartPtr that = static_part_cast<IntersectionPart>(that);
   
   // Two intersection parts with different numbers of sub-parts are definitely not equal
   if(parts.size() != that->parts.size()) return false;
@@ -242,9 +280,9 @@ bool IntersectionPart::operator==(const PartPtr& o) const
 // Lexicographic ordering: This IntersectionPart is < that IntersectionPart if this has fewer parts than that or
 // there exists an index i in this.parts and that.parts s.t. forall j<i. this.parts[j]==that.parts[j] and 
 // this.parts[i] < that.parts[i].
-bool IntersectionPart::operator<(const PartPtr& o) const
+bool IntersectionPart::less(const PartPtr& that_arg) const
 {
-  IntersectionPartPtr that = static_part_cast<IntersectionPart>(o);
+  IntersectionPartPtr that = static_part_cast<IntersectionPart>(that);
   
   // If this has fewer parts than that, it is ordered before it
   if(parts.size() < that->parts.size()) return true;
@@ -276,8 +314,13 @@ std::string IntersectionPart::str(std::string indent)
 /* ################################
    ##### IntersectionPartEdge #####
    ################################ */
-IntersectionPartEdge::IntersectionPartEdge(PartEdgePtr edge) { edges.push_back(edge); }
-IntersectionPartEdge::IntersectionPartEdge(const list<PartEdgePtr>& edges) : edges(edges) {}
+IntersectionPartEdge::IntersectionPartEdge(PartEdgePtr edge, ComposedAnalysis* analysis) :
+    PartEdge(analysis)
+{ edges.push_back(edge); }
+
+IntersectionPartEdge::IntersectionPartEdge(const list<PartEdgePtr>& edges, ComposedAnalysis* analysis) : 
+    PartEdge(analysis), edges(edges) 
+{}
   
 void IntersectionPartEdge::add(PartEdgePtr edge) { edges.push_back(edge); }
 
@@ -286,7 +329,7 @@ PartPtr IntersectionPartEdge::source() {
   list<PartPtr> sourceParts;
   for(list<PartEdgePtr>::iterator e=edges.begin(); e!=edges.end(); e++)
     sourceParts.push_back((*e)->source());
-  return makePart<IntersectionPart>(sourceParts);
+  return makePart<IntersectionPart>(sourceParts, analysis);
 }
 
 // Return the part that intersects the targets of all the sub-edges of this IntersectionPartEdge
@@ -294,7 +337,7 @@ PartPtr IntersectionPartEdge::target() {
   list<PartPtr> targetParts;
   for(list<PartEdgePtr>::iterator e=edges.begin(); e!=edges.end(); e++)
     targetParts.push_back((*e)->target());
-  return makePart<IntersectionPart>(targetParts);
+  return makePart<IntersectionPart>(targetParts, analysis);
 }
 
 // Let A={ set of execution prefixes that terminate at the given anchor SgNode }
@@ -325,7 +368,7 @@ void IntersectionPartEdge::getOperandPartEdge_rec(SgNode* anchor, SgNode* operan
 {
   // If we've reached the last edge in edges and accumOperandPartEdges contains all the edges for the current combination
   if(edgeI == edges.end())
-    allPartEdges.push_back(makePart<IntersectionPartEdge>(accumOperandPartEdges));
+    allPartEdges.push_back(makePart<IntersectionPartEdge>(accumOperandPartEdges, analysis));
   // If we haven't yet reached the end, recurse on all the incoming edges of the current edge
   else {
     // Get this edge's incoming edges
@@ -383,7 +426,7 @@ std::map<CFGNode, boost::shared_ptr<SgValueExp> > IntersectionPartEdge::getPredi
 }
 
 // Two IntersectionPartEdges are equal of all their constituent sub-parts are equal
-bool IntersectionPartEdge::operator==(const PartEdgePtr& o) const
+bool IntersectionPartEdge::equal(const PartEdgePtr& o) const
 {
   IntersectionPartEdgePtr that = static_part_cast<IntersectionPartEdge>(o);
   
@@ -401,7 +444,7 @@ bool IntersectionPartEdge::operator==(const PartEdgePtr& o) const
 // Lexicographic ordering: This IntersectionPartEdge is < that IntersectionPartEdge if this has fewer edges than that or
 // there exists an index i in this.edges and that.edges s.t. forall j<i. this.edges[j]==that.edges[j] and 
 // this.edges[i] < that.edges[i].
-bool IntersectionPartEdge::operator<(const PartEdgePtr& o) const
+bool IntersectionPartEdge::less(const PartEdgePtr& o) const
 {
   IntersectionPartEdgePtr that = static_part_cast<IntersectionPartEdge>(o);
   

@@ -20,10 +20,6 @@ namespace dataflow {
 // information that cannot be directly derived from the text of the code such as 
 // the referents of pointers.
 
-/*class StxValueObject;
-class StxMemLocObject;
-class StxCodeLocObject;*/
-
 /********************
  ***** ANALYSIS *****
  ********************/
@@ -82,11 +78,11 @@ class StxPart : public Part
   friend class StxPartEdge;
   
   public:
-  StxPart(CFGNode n, bool (*f) (CFGNode) = defaultFilter): n(n), filter(f) {}
-  StxPart(const StxPart& part):    n(part.n), filter(part.filter) {} 
-  StxPart(const StxPartPtr& part): n(part->n), filter(part->filter) {} 
-  StxPart(const StxPart& part,    bool (*f) (CFGNode) = defaultFilter): n(part.n), filter (f) {}
-  StxPart(const StxPartPtr& part, bool (*f) (CFGNode) = defaultFilter): n(part->n), filter (f) {}
+  StxPart(CFGNode n, ComposedAnalysis* analysis, bool (*f) (CFGNode) = defaultFilter): Part(analysis), n(n), filter(f) {}
+  StxPart(const StxPart& part):    Part((const Part&)part), n(part.n), filter(part.filter) {} 
+  StxPart(const StxPartPtr& part): Part((const Part&)part), n(part->n), filter(part->filter) {} 
+  StxPart(const StxPart& part,    bool (*f) (CFGNode) = defaultFilter): Part((const Part&)part), n(part.n), filter (f) {}
+  StxPart(const StxPartPtr& part, bool (*f) (CFGNode) = defaultFilter): Part((const Part&)part), n(part->n), filter (f) {}
         
   std::vector<PartEdgePtr> outEdges();
   std::vector<StxPartEdgePtr> outStxEdges();
@@ -109,8 +105,8 @@ class StxPart : public Part
   // Returns a PartEdgePtr, where the target is a wild-card part (NULLPart) and the source is this Part
   PartEdgePtr outEdgeToAny();
   
-  bool operator==(const PartPtr& o) const;
-  bool operator<(const PartPtr& o) const;
+  bool equal(const PartPtr& o) const;
+  bool less(const PartPtr& o) const;
   
   std::string str(std::string indent="");
 };
@@ -121,9 +117,11 @@ class StxPartEdge : public PartEdge
   bool (*filter) (CFGNode cfgn);
 
   public:
-  StxPartEdge(CFGNode src, CFGNode tgt, bool (*f) (CFGNode) = defaultFilter): p(CFGEdge(src, tgt)), filter(f) {}
-  StxPartEdge(CFGPath p, bool (*f) (CFGNode) = defaultFilter): p(p), filter(f) {}
-  StxPartEdge(const StxPartEdge& dfe): p(dfe.p), filter(dfe.filter) {}
+  StxPartEdge(CFGNode src, CFGNode tgt, ComposedAnalysis* analysis, bool (*f) (CFGNode) = defaultFilter): 
+      PartEdge(analysis), p(CFGEdge(src, tgt)), filter(f) {}
+  StxPartEdge(CFGPath p, ComposedAnalysis* analysis, bool (*f) (CFGNode) = defaultFilter): 
+      PartEdge(analysis), p(p), filter(f) {}
+  StxPartEdge(const StxPartEdge& dfe): PartEdge((const PartEdge&)dfe), p(dfe.p), filter(dfe.filter) {}
   
   PartPtr source();
   PartPtr target();
@@ -148,8 +146,8 @@ class StxPartEdge : public PartEdge
   // this edge.
   std::map<CFGNode, boost::shared_ptr<SgValueExp> > getPredicateValue();
   
-  bool operator==(const PartEdgePtr& o) const;
-  bool operator<(const PartEdgePtr& o) const;
+  bool equal(const PartEdgePtr& o) const;
+  bool less(const PartEdgePtr& o) const;
   
   std::string str(std::string indent="");
 };
@@ -187,10 +185,6 @@ class StxValueObject : public ValueObject
   ValueObjectPtr copyV() const;
 };
 typedef boost::shared_ptr<StxValueObject> StxValueObjectPtr;
-
-/*class StxMemLocObject : public MemLocObject
-{
-};*/
 
 class StxCodeLocObject : public CodeLocObject
 {
@@ -246,7 +240,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
     SgType* type;
     
     public:
-    StxMemLocObject(SgType* t);
+    StxMemLocObject(SgNode* n, SgType* t);
     
     // equal() should be called by mayEqualML and mustEqualML of any derived classes
     // to ensure that the in-scope or out-of-scope issues are taken into account. 
@@ -270,7 +264,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class OutOfScope_StxMemLocObject : public StxMemLocObject
   {
     public:
-    OutOfScope_StxMemLocObject(SgType* t) : StxMemLocObject(/*false, */t) {}
+    OutOfScope_StxMemLocObject(SgNode* n, SgType* t) : MemLocObject(n), StxMemLocObject(n, t) {}
     
     // Returns true if this MemLocObject is in-scope at the given part and false otherwise
     bool isLive(PartEdgePtr pedge) const { return false; }
@@ -281,6 +275,8 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class Scalar_Impl : public Scalar/*, public StxMemLocObject*/
   {
     public:
+      Scalar_Impl(SgNode* n) : MemLocObject(n), Scalar(n) {}
+      Scalar_Impl(const Scalar_Impl& that) : MemLocObject((const MemLocObject&)that), Scalar(that) {}
       // We implement operator < () at this level
       bool operator < (const MemLocObject& other) const ;
   };
@@ -288,6 +284,8 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class Function_Impl : public FunctionMemLoc/*, public StxMemLocObject*/
   {
     public:
+      Function_Impl(SgNode* n) : MemLocObject(n), FunctionMemLoc(n) {}
+      Function_Impl(const Scalar_Impl& that) : MemLocObject((const MemLocObject&)that), FunctionMemLoc((const FunctionMemLoc&)that) {}
       // We implement operator < () at this level
       bool operator < (const MemLocObject& other) const ;
   };
@@ -296,6 +294,8 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class LabeledAggregate_Impl : public LabeledAggregate/*, public StxMemLocObject*/
   {
     public:
+      LabeledAggregate_Impl(SgNode* n) : MemLocObject(n), LabeledAggregate(n) {}
+      LabeledAggregate_Impl(const Scalar_Impl& that) : MemLocObject((const MemLocObject&)that), LabeledAggregate((const LabeledAggregate&)that) {}
       bool operator < (const MemLocObject& other) const ;
 
       size_t fieldCount(PartEdgePtr pedge) const {return elements.size(); };
@@ -309,15 +309,19 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class Array_Impl : public Array/*, public StxMemLocObject*/
   {
     public:   
+      Array_Impl(SgNode* n) : MemLocObject(n), Array(n) {}
+      Array_Impl(const Scalar_Impl& that) : MemLocObject((const MemLocObject &)that), Array((const Array&)that) {}
       bool operator < (const MemLocObject& other) const ;
   };
 
   class Pointer_Impl: public Pointer/*, public StxMemLocObject*/
   {
     public: 
+      Pointer_Impl(SgNode* n) : MemLocObject(n), Pointer(n) {}
+      Pointer_Impl(const Scalar_Impl& that) : MemLocObject((const MemLocObject&)that), Pointer((const Pointer&)that) {}
       bool operator < (const MemLocObject& other) const ;
   };
-
+  
   /*GB: Deprecating IndexSets and replacing them with ValueObjects.
   // we reuse the ConstIndexSet if the value is the same
   class ConstIndexSet: public IndexSet
@@ -399,7 +403,6 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       LabeledAggregatePtr parent; 
   };
 
-
   // The connection to the ROSE AST, all concrete type, size , etc. information come from this side
   // -----------------------------------------------------------------------------------------------
   //
@@ -420,7 +423,8 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       SgExpression* anchor_exp; 
       
       // MemLocObject* parent; // this field is not necessary, if this ExprObj is a filed of some aggregate types, this ExprObj should be NamedObj
-      ExprObj (SgExpression* a, SgType* t): StxMemLocObject(t), anchor_exp(a) {};
+      ExprObj(SgExpression* a, SgType* t): MemLocObject(a), StxMemLocObject(a, t), anchor_exp(a) {};
+      ExprObj(const ExprObj& that) : MemLocObject((const MemLocObject &)that), StxMemLocObject((const StxMemLocObject&)that), anchor_exp(that.anchor_exp) {};
       
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       // equal if and only the o2 is another ExprObj with the same SgExpression anchor
@@ -460,7 +464,10 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       IndexVectorPtr  array_index_vector; // exists for array element: the index vector of an array element. Ideally this data member could be reused for index of field of structure/class
 
       //Is this always true that the parent of a named object must be an expr object?
-      NamedObj (SgSymbol* a, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv): StxMemLocObject(t), anchor_symbol(a), parent(p), array_index_vector (iv){};
+      NamedObj (SgNode* n, SgSymbol* a, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv): 
+            MemLocObject(n), StxMemLocObject(n, t), anchor_symbol(a), parent(p), array_index_vector (iv){};
+      NamedObj (const NamedObj& that) : MemLocObject((const MemLocObject&)that), StxMemLocObject((const StxMemLocObject&)that), anchor_symbol(that.anchor_symbol), 
+                                        parent(that.parent), array_index_vector(that.array_index_vector) {};
       //SgType* getType() const {return type;}
       MemLocObjectPtr getParent() {return parent; } 
       SgSymbol* getSymbol() {return anchor_symbol;}
@@ -496,7 +503,8 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   {  // One object for each type
     public: 
       SgType* type; 
-      AliasedObj (SgType* t): StxMemLocObject(t) {};
+      AliasedObj(SgNode* n, SgType* t): MemLocObject(n), StxMemLocObject(n, t) {};
+      AliasedObj(const AliasedObj& that): MemLocObject((const MemLocObject&)that), StxMemLocObject((const StxMemLocObject&)that) {};
       
       virtual std::string str(std::string indent) const; // pretty print for the object
       virtual std::string str(std::string indent) { return ((const AliasedObj*)this)->str(indent); }
@@ -524,7 +532,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class ScalarOutOfScopeObj : public Scalar_Impl, public OutOfScope_StxMemLocObject
   {
     public:
-    ScalarOutOfScopeObj(SgType* t);
+    ScalarOutOfScopeObj(SgNode* n, SgType* t);
     MemLocObjectPtr copyML() const;
     
     bool mayEqualML(MemLocObjectPtr that,  PartEdgePtr pedge) { return StxMemLocObject::equal(that,  pedge) == defEqual ? true: false; }
@@ -536,7 +544,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class FunctionOutOfScopeObj : public Function_Impl, public OutOfScope_StxMemLocObject
   {
     public:
-    FunctionOutOfScopeObj(SgType* t);
+    FunctionOutOfScopeObj(SgNode* n, SgType* t);
     MemLocObjectPtr copyML() const;
     
     bool mayEqualML(MemLocObjectPtr that,  PartEdgePtr pedge) { return StxMemLocObject::equal(that,  pedge) == defEqual ? true: false; }
@@ -548,7 +556,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class LabeledAggregateOutOfScopeObj : public LabeledAggregate_Impl, public OutOfScope_StxMemLocObject
   {
     public:
-    LabeledAggregateOutOfScopeObj(SgType* t);
+    LabeledAggregateOutOfScopeObj(SgNode* n, SgType* t);
     MemLocObjectPtr copyML() const;
     
     bool mayEqualML(MemLocObjectPtr that,  PartEdgePtr pedge) { return StxMemLocObject::equal(that,  pedge) == defEqual ? true: false; }
@@ -564,7 +572,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class ArrayOutOfScopeObj : public Array_Impl, public OutOfScope_StxMemLocObject
   {
     public:
-    ArrayOutOfScopeObj(SgType* t);
+    ArrayOutOfScopeObj(SgNode* n, SgType* t);
     MemLocObjectPtr copyML() const;
     
     bool mayEqualML(MemLocObjectPtr that,  PartEdgePtr pedge) { return StxMemLocObject::equal(that,  pedge) == defEqual ? true: false; }
@@ -581,7 +589,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class PointerOutOfScopeObj : public Pointer_Impl, public OutOfScope_StxMemLocObject
   {
     public:
-    PointerOutOfScopeObj(SgType* t);
+    PointerOutOfScopeObj(SgNode* n, SgType* t);
     MemLocObjectPtr copyML() const;
     
     bool mayEqualML(MemLocObjectPtr that,  PartEdgePtr pedge) { return StxMemLocObject::equal(that,  pedge) == defEqual ? true: false; }
@@ -601,8 +609,8 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class ScalarExprObj: public Scalar_Impl, public ExprObj
   {
     public:
-      ScalarExprObj(SgExpression* e, SgType* t, PartEdgePtr pedge): ExprObj(e, t) {}
-      ScalarExprObj(const ScalarExprObj& that): ExprObj(that.anchor_exp, that.type) {}
+      ScalarExprObj(SgExpression* e, SgType* t, PartEdgePtr pedge): MemLocObject(e), Scalar_Impl(e), ExprObj(e, t) {}
+      ScalarExprObj(const ScalarExprObj& that): MemLocObject((const MemLocObject &)that), Scalar_Impl((const Scalar_Impl&) that), ExprObj(that.anchor_exp, that.type) {}
       //std::set<SgType*> getType() const;
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       // Implement MemLocObject::operator== () at this level, through ExprObj::operator==().
@@ -626,8 +634,8 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class FunctionExprObj: public Function_Impl, public ExprObj
   {
     public:
-      FunctionExprObj(SgExpression* e, SgType* t, PartEdgePtr pedge): ExprObj(e, t) {}
-      FunctionExprObj(const FunctionExprObj& that): ExprObj(that.anchor_exp, that.type) {}
+      FunctionExprObj(SgExpression* e, SgType* t, PartEdgePtr pedge): MemLocObject(e), Function_Impl(e), ExprObj(e, t) {}
+      FunctionExprObj(const FunctionExprObj& that): MemLocObject((const MemLocObject &)that), Function_Impl((const Function_Impl&) that), ExprObj(that.anchor_exp, that.type) {}
       //std::set<SgType*> getType() const;
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       // Implement MemLocObject::operator== () at this level, through ExprObj::operator==().
@@ -670,8 +678,8 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class ArrayExprObj: public Array_Impl, public ExprObj
   {
     public:
-      ArrayExprObj(SgExpression* e, SgType* t, PartEdgePtr pedge): ExprObj (e,t) {}
-      ArrayExprObj(const ArrayExprObj& that): ExprObj(that.anchor_exp, that.type) {}
+      ArrayExprObj(SgExpression* e, SgType* t, PartEdgePtr pedge): MemLocObject(e), Array_Impl(e), ExprObj (e,t) {}
+      ArrayExprObj(const ArrayExprObj& that): MemLocObject((const MemLocObject &)that), Array_Impl((const Array_Impl&) that), ExprObj(that.anchor_exp, that.type) {}
       //std::set<SgType*> getType();
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       //TODO other member functions still make sense?
@@ -698,8 +706,8 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class PointerExprObj: public Pointer_Impl, public ExprObj
   {
     public:
-      PointerExprObj(SgExpression* e, SgType* t, PartEdgePtr pedge): ExprObj (e, t) {}
-      PointerExprObj(const PointerExprObj& that): ExprObj(that.anchor_exp, that.type) {}
+      PointerExprObj(SgExpression* e, SgType* t, PartEdgePtr pedge): MemLocObject(e), Pointer_Impl(e), ExprObj (e, t) {}
+      PointerExprObj(const PointerExprObj& that): MemLocObject((const MemLocObject &)that), Pointer_Impl((const Pointer_Impl&) that), ExprObj(that.anchor_exp, that.type) {}
       //std::set<SgType*> getType();
       // used for a pointer to non-array
       MemLocObjectPtr getDereference(PartEdgePtr pedge);
@@ -727,8 +735,9 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class ScalarNamedObj: public Scalar_Impl, public NamedObj 
   {
     public:
-      ScalarNamedObj(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv, PartEdgePtr pedge): NamedObj (s,t, p, iv) {}
-      ScalarNamedObj(const ScalarNamedObj& that): NamedObj(that.anchor_symbol, that.type, that.parent, that.array_index_vector) {}
+      ScalarNamedObj(SgNode* n, SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv, PartEdgePtr pedge): 
+        MemLocObject(n), Scalar_Impl(n), NamedObj (n, s,t, p, iv) {}
+      ScalarNamedObj(const ScalarNamedObj& that): MemLocObject((const MemLocObject &)that), Scalar_Impl(that), NamedObj((const NamedObj&)that) {}
       //std::set<SgType*> getType();
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator == (const MemLocObject & that) const ;*/
@@ -750,11 +759,14 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
     public:
 
       // simple constructor, a function symbol is enough
-      FunctionNamedObj(SgSymbol* s, PartEdgePtr pedge): NamedObj (s, s->get_type(), MemLocObjectPtr(), IndexVectorPtr()) {}
-      FunctionNamedObj(const FunctionNamedObj& that): NamedObj(that.anchor_symbol, that.type, that.parent, that.array_index_vector) {}
+      FunctionNamedObj(SgNode* n, SgSymbol* s, PartEdgePtr pedge): 
+          MemLocObject(n), Function_Impl(n), NamedObj(n, s, s->get_type(), MemLocObjectPtr(), IndexVectorPtr()) {}
+      FunctionNamedObj(const FunctionNamedObj& that): 
+          MemLocObject((const MemLocObject &)that), Function_Impl(that), NamedObj((const NamedObj&)that) {}
       // I am not sure when a function can be used as a child and an array element. But this is
       // provided just in case
-      FunctionNamedObj (SgSymbol* s, SgType* t, PartEdgePtr pedge, MemLocObjectPtr p, IndexVectorPtr iv): NamedObj (s,t, p, iv) {}
+      FunctionNamedObj (SgNode* n, SgSymbol* s, SgType* t, PartEdgePtr pedge, MemLocObjectPtr p, IndexVectorPtr iv): 
+          MemLocObject(n), Function_Impl(n), NamedObj (n, s,t, p, iv) {}
       //std::set<SgType*> getType();
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator == (const MemLocObject & that) const ;*/
@@ -774,7 +786,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class LabeledAggregateNamedObj: public LabeledAggregate_Impl, public NamedObj
   {
     public:
-      LabeledAggregateNamedObj(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv, PartEdgePtr pedge);
+      LabeledAggregateNamedObj(SgNode* n, SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv, PartEdgePtr pedge);
       LabeledAggregateNamedObj(const LabeledAggregateNamedObj& that);
       void init(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv, PartEdgePtr pedge);
       //std::set<SgType*> getType();
@@ -799,7 +811,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class ArrayNamedObj: public Array_Impl, public NamedObj//, public boost::enable_shared_from_this<ArrayNamedObj>
   {
     public:
-      ArrayNamedObj(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv, PartEdgePtr pedge);
+      ArrayNamedObj(SgNode* n, SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv, PartEdgePtr pedge);
       ArrayNamedObj(const ArrayNamedObj& that);
       void init(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv);
       //std::set <SgType*> getType();
@@ -835,8 +847,10 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class PointerNamedObj: public Pointer_Impl, public NamedObj
   {
     public:
-      PointerNamedObj(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv, PartEdgePtr pedge): NamedObj (s,t, p, iv) {}
-      PointerNamedObj(const PointerNamedObj& that): NamedObj(that.anchor_symbol, that.type, that.parent, that.array_index_vector) {}
+      PointerNamedObj(SgNode*n, SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv, PartEdgePtr pedge): 
+          MemLocObject(n), Pointer_Impl(n), NamedObj (n, s,t, p, iv) {}
+      PointerNamedObj(const PointerNamedObj& that): 
+          MemLocObject((const MemLocObject &)that), Pointer_Impl((const Pointer_Impl&)that), NamedObj((const NamedObj&)that) {}
       //std::set<SgType*> getType() const;
       // used for a pointer to non-array
       MemLocObjectPtr getDereference(PartEdgePtr pedge);
@@ -864,8 +878,8 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class ScalarAliasedObj: public Scalar_Impl, public AliasedObj
   {
     public:
-      ScalarAliasedObj(SgType* t, PartEdgePtr pedge): AliasedObj(t){}
-      ScalarAliasedObj(const ScalarAliasedObj& that): AliasedObj(that.type) {}
+      ScalarAliasedObj(SgNode* n, SgType* t, PartEdgePtr pedge): MemLocObject(n), Scalar_Impl(n), AliasedObj(n, t) {}
+      ScalarAliasedObj(const ScalarAliasedObj& that): MemLocObject((const MemLocObject&)that), Scalar_Impl((const Scalar_Impl&)that), AliasedObj((const AliasedObj&)type) {}
       //std::set<SgType*> getType();
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator == (const MemLocObject& o2) const; */
@@ -882,8 +896,8 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class FunctionAliasedObj: public Function_Impl, public AliasedObj
   {
     public:
-      FunctionAliasedObj(SgType* t, PartEdgePtr pedge): AliasedObj(t){}
-      FunctionAliasedObj(const FunctionAliasedObj& that): AliasedObj(that.type) {}
+      FunctionAliasedObj(SgNode* n, SgType* t, PartEdgePtr pedge): MemLocObject(n), Function_Impl(n), AliasedObj(n, t){}
+      FunctionAliasedObj(const FunctionAliasedObj& that):  MemLocObject((const MemLocObject&)that), Function_Impl((const Function_Impl&)that), AliasedObj((const AliasedObj&)type) {}
       //std::set<SgType*> getType();
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator == (const MemLocObject& o2) const; */
@@ -900,8 +914,9 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class LabeledAggregateAliasedObj : public  LabeledAggregate_Impl, public AliasedObj
   {
     public:
-      LabeledAggregateAliasedObj(SgType* t, PartEdgePtr pedge): AliasedObj(t){}
-      LabeledAggregateAliasedObj(const LabeledAggregateAliasedObj& that): AliasedObj(that.type) {}
+      LabeledAggregateAliasedObj(SgNode* n, SgType* t, PartEdgePtr pedge): MemLocObject(n), LabeledAggregate_Impl(n), AliasedObj((const AliasedObj&)type) {}
+      LabeledAggregateAliasedObj(const LabeledAggregateAliasedObj& that): 
+           MemLocObject((const MemLocObject&)that), LabeledAggregate_Impl((const LabeledAggregate_Impl&)that), AliasedObj((const AliasedObj&)type) {}
       //std::set<SgType*> getType();
       //TODO
       // size_t fieldCount();
@@ -921,8 +936,9 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class ArrayAliasedObj: public Array_Impl, public AliasedObj
   {
     public:
-      ArrayAliasedObj (SgType* t, PartEdgePtr pedge): AliasedObj(t){}
-      ArrayAliasedObj(const ArrayAliasedObj& that): AliasedObj(that.type) {}
+      ArrayAliasedObj(SgNode* n, SgType* t, PartEdgePtr pedge): MemLocObject(n), Array_Impl(n), AliasedObj(n, t){}
+      ArrayAliasedObj(const ArrayAliasedObj& that): 
+           MemLocObject((const MemLocObject&)that), Array_Impl((const Array_Impl&)that), AliasedObj((const AliasedObj&)type) {}
       //std::set<SgType*> getType();
 
       //TODO
@@ -951,8 +967,8 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class PointerAliasedObj: public Pointer_Impl, public AliasedObj
   {
     public:
-      PointerAliasedObj (SgType* t, PartEdgePtr pedge): AliasedObj(t) {}
-      PointerAliasedObj(const PointerAliasedObj& that): AliasedObj(that.type) {}
+      PointerAliasedObj(SgNode* n, SgType* t, PartEdgePtr pedge): MemLocObject(n), Pointer_Impl(n), AliasedObj(n, t) {}
+      PointerAliasedObj(const PointerAliasedObj& that):  MemLocObject((const MemLocObject&)that), Pointer_Impl((const Pointer_Impl&)that), AliasedObj((const AliasedObj&)type) {}
       MemLocObjectPtr getDereference(PartEdgePtr pedge);
       // MemLocObject * getElements() const;
       //std::set<SgType*> getType();
@@ -972,10 +988,10 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   // Users should use MemLocObject* ObjSetFactory::createObjSet (SgNode* n) instead
   
   // Create an aliased obj set from a type. It can return NULL since not all types are supported.
-  MemLocObjectPtr createAliasedMemLocObject(SgType*t, PartEdgePtr pedge);  // One object per type, Type based alias analysis
-  MemLocObjectPtr createNamedMemLocObject(SgSymbol* anchor_symbol, SgType* t, PartEdgePtr pedge, MemLocObjectPtr parent, IndexVectorPtr iv); // any 
-  MemLocObjectPtr createNamedMemLocObject(SgVarRefExp* r, PartEdgePtr pedge); // create NamedMemLocObject or AliasedMemLocObject (for pointer type) from a variable reference 
-  MemLocObjectPtr createNamedMemLocObject(SgPntrArrRefExp* r, PartEdgePtr pedge); // create NamedMemLocObject from an array element access
+  MemLocObjectPtr createAliasedMemLocObject(SgNode* n, SgType*t, PartEdgePtr pedge);  // One object per type, Type based alias analysis
+  MemLocObjectPtr createNamedMemLocObject(SgNode* n, SgSymbol* anchor_symbol, SgType* t, PartEdgePtr pedge, MemLocObjectPtr parent, IndexVectorPtr iv); // any 
+  MemLocObjectPtr createNamedMemLocObject(SgNode* n, SgVarRefExp* r, PartEdgePtr pedge); // create NamedMemLocObject or AliasedMemLocObject (for pointer type) from a variable reference 
+  MemLocObjectPtr createNamedMemLocObject(SgNode* n, SgPntrArrRefExp* r, PartEdgePtr pedge); // create NamedMemLocObject from an array element access
   MemLocObjectPtr createExpressionMemLocObject(SgExpression* anchor_exp, SgType*t, PartEdgePtr pedge); 
   // Return true if op is an operand of the given SgNode n and false otherwise.
   bool isOperand(SgNode* n, SgExpression* op);

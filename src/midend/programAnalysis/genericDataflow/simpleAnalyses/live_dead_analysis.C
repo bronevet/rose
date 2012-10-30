@@ -153,14 +153,16 @@ public:
     }
     // Array access
     void visit(SgPntrArrRefExp *sgn) {
-      Dbg::dbg << "visit(SgPntrArrRefExp *sgn)"<<endl;
-      // The only way for this SgPntrArrRefExp to appear s if it is used by its parent expression
-      ldmt.useMem(sgn);
-      // Both the lhs and rhs are used to identify the memory location being accessed
-      Dbg::dbg << "LHS"<<endl;
-      ldmt.use(sgn, sgn->get_lhs_operand());
-      Dbg::dbg << "RHS"<<endl;
-      ldmt.use(sgn, sgn->get_rhs_operand());
+      if(ldmt.isMemLocLive(sgn)) {
+        Dbg::dbg << "visit(SgPntrArrRefExp *sgn)"<<endl;
+        // The only way for this SgPntrArrRefExp to appear s if it is used by its parent expression
+        ldmt.useMem(sgn);
+        // Both the lhs and rhs are used to identify the memory location being accessed
+        Dbg::dbg << "LHS"<<endl;
+        ldmt.use(sgn, sgn->get_lhs_operand());
+        Dbg::dbg << "RHS"<<endl;
+        ldmt.use(sgn, sgn->get_rhs_operand());
+      }
     }
     // Binary Operations
     void visit(SgBinaryOp *sgn) {
@@ -168,7 +170,9 @@ public:
       // Self-update expressions, where the lhs is assigned
       if(isSgCompoundAssignOp(sgn))
         ldmt.assign(sgn, sgn->get_lhs_operand());*/
-        
+      
+      Dbg::dbg << "LiveDead: visit("<<cfgUtils::SgNode2Str(sgn)<<") ldmt.isMemLocLive(sgn)="<<ldmt.isMemLocLive(sgn)<<endl;
+      
       // If this expression is live or writes writes to a live memory location, make the operands live
       if(ldmt.isMemLocLive(sgn) || (isSgCompoundAssignOp(sgn) && ldmt.isMemLocLive(sgn, sgn->get_lhs_operand()))) {
         // Both the lhs and rhs are used
@@ -311,6 +315,7 @@ void LiveDeadMemTransfer::assign(SgNode *sgn, SgExpression* operand)
 // Note that the variable corresponding to this expression is used
 void LiveDeadMemTransfer::use(SgNode *sgn, SgExpression* operand)
 {
+  Dbg::dbg << "part->outEdgeToAny()="<<part->outEdgeToAny()->str()<<endl;
   MemLocObjectPtrPair p = composer->OperandExpr2MemLoc(sgn, operand, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
   Dbg::dbg << "LiveDeadMemTransfer::use(sgn=["<<Dbg::escape(sgn->unparseToString())<<" | "<<sgn->class_name()<<"]"<<endl;
   Dbg::dbg << "p="<<p.str()<<endl;
@@ -318,7 +323,7 @@ void LiveDeadMemTransfer::use(SgNode *sgn, SgExpression* operand)
   if(p.expr) used.insert(p.expr);
   // At statement boundaries SgVarRefExp and SgArrPntrRefExp refer to real memory locations that were written by prior
   // statements. 
-  if((isSgVarRefExp(sgn) || isSgPntrArrRefExp(sgn)) && p.mem)  used.insert(p.mem);
+  if((isSgVarRefExp(operand) || isSgPntrArrRefExp(operand)) && p.mem)  used.insert(p.mem);
 }
 // Note that the memory location denoted by the corresponding SgVarRefExp is used
 void LiveDeadMemTransfer::useMem(SgVarRefExp* sgn)
@@ -332,7 +337,9 @@ void LiveDeadMemTransfer::useMem(SgPntrArrRefExp* sgn)
 {
   MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
   Dbg::dbg << "LiveDeadMemTransfer::useMem(SgPntrArrRefExp)(sgn=["<<Dbg::escape(sgn->unparseToString())<<" | "<<sgn->class_name()<<"]"<<endl;
-  used.insert(p.mem);
+  // If a memory object is available, insert it. Not all SgPntrArrRefExps correspond to a real memory location.
+  // e.g. in array2d[a][b] the expression array2D[a] doesn't denote a memory location.
+  if(p.mem) used.insert(p.mem);
 }
 
 /*void LiveDeadMemTransfer::use(AbstractObjectPtr mem)
@@ -530,19 +537,20 @@ MemLocObjectPtr LiveDeadMemAnalysis::Expr2MemLoc(SgNode* n, PartEdgePtr pedge)
 {
   MemLocObjectPtrPair p = composer->Expr2MemLoc(n, pedge, this);
   Dbg::dbg << "LiveDeadMemAnalysis::Expr2MemLoc() p="<<p.strp(pedge)<<endl;
-  if(p.mem) return createLDMemLocObjectCategory(p.mem, this);
+  if(p.mem) return createLDMemLocObjectCategory(n, p.mem, this);
   else      return p.expr;
 }
 
 /**************************
  ***** LDMemLocObject *****
  **************************/
-LDMemLocObject::LDMemLocObject(MemLocObjectPtr parent_, LiveDeadMemAnalysis* ldma)
-  : parent(parent_), ldma(ldma)
+LDMemLocObject::LDMemLocObject(SgNode* n, MemLocObjectPtr parent_, LiveDeadMemAnalysis* ldma)
+  : MemLocObject(n), parent(parent_), ldma(ldma)
 {
 }
 
-LDMemLocObject::LDMemLocObject(const LDMemLocObject& that) : parent(that.parent), ldma(that.ldma) 
+LDMemLocObject::LDMemLocObject(const LDMemLocObject& that) : 
+    MemLocObject(that), parent(that.parent), ldma(that.ldma) 
 {}
 
 bool LDMemLocObject::mayEqualML(MemLocObjectPtr o, PartEdgePtr pedge)
@@ -646,39 +654,39 @@ MemLocObjectPtr LDMemLocObject::copyML() const
 
 // Creates an instance of an LDMemLocObject that belongs to one of the MemLocObject categories
 // (LDMemLocObject sub-classes): LDScalar, LDFunctionMemLoc, LDLabeledAggregate, LDArray or LDPointer.
-LDMemLocObjectPtr createLDMemLocObjectCategory(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
+LDMemLocObjectPtr createLDMemLocObjectCategory(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
 {
   if(parent->isScalar()) {
     //Dbg::dbg << "LiveDeadMemAnalysis::createLDMemLocObjectCategory() Scalar"<<endl;
-    return boost::make_shared<LDScalar>(parent, ldma);
+    return boost::make_shared<LDScalar>(n, parent, ldma);
   } else if(parent->isFunctionMemLoc()) {
     //Dbg::dbg << "LiveDeadMemAnalysis::createLDMemLocObjectCategory() FunctionMemLoc"<<endl;
-    return boost::make_shared<LDFunctionMemLoc>(parent, ldma);
+    return boost::make_shared<LDFunctionMemLoc>(n, parent, ldma);
   } else if(parent->isLabeledAggregate()) {
     //Dbg::dbg << "LiveDeadMemAnalysis::createLDMemLocObjectCategory() LabeledAggregate"<<endl;
-    return boost::make_shared<LDLabeledAggregate>(parent, ldma);
+    return boost::make_shared<LDLabeledAggregate>(n, parent, ldma);
   } else if(parent->isArray()) {
     //Dbg::dbg << "LiveDeadMemAnalysis::createLDMemLocObjectCategory() Array"<<endl;
-    return boost::make_shared<LDArray>(parent, ldma);
+    return boost::make_shared<LDArray>(n, parent, ldma);
   } else if(parent->isPointer()) {
     //Dbg::dbg << "LiveDeadMemAnalysis::createLDMemLocObjectCategory() Pointer"<<endl;
-    return boost::make_shared<LDPointer>(parent, ldma);
+    return boost::make_shared<LDPointer>(n, parent, ldma);
   }
   // Control should not reach here
   Dbg::dbg << "<font color=\"#ff0000\">parent="<<parent->str()<<"</font>"<<endl;
   assert(0);
 }
 
-LDScalar::LDScalar(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
-  : LDMemLocObject(parent, ldma)
+LDScalar::LDScalar(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
+  : MemLocObject(n), LDMemLocObject(n, parent, ldma)
 { /*Dbg::dbg << "LDScalar::LDScalar(parent="<<(parent ? parent->str("") : "NULL")<<")"<<endl;*/ }
 
-LDFunctionMemLoc::LDFunctionMemLoc(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
-  : LDMemLocObject(parent, ldma)
+LDFunctionMemLoc::LDFunctionMemLoc(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
+  :MemLocObject(n),  LDMemLocObject(n, parent, ldma)
 { /*Dbg::dbg << "LDFunctionMemLoc::LDFunctionMemLoc(parent="<<(parent ? parent->str("") : "NULL")<<")"<<endl;*/ }
 
-LDLabeledAggregate::LDLabeledAggregate(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
-  : LDMemLocObject(parent, ldma)
+LDLabeledAggregate::LDLabeledAggregate(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
+  : MemLocObject(n), LDMemLocObject(n, parent, ldma)
 {/* Dbg::dbg << "LDLabeledAggregate::LDLabeledAggregate(parent="<<(parent ? parent->str("") : "NULL")<<")"<<endl;*/ }
 
 size_t LDLabeledAggregate::fieldCount(PartEdgePtr pedge)
@@ -698,15 +706,15 @@ std::list<LabeledAggregateFieldPtr> LDLabeledAggregate::getElements(PartEdgePtr 
   }*/
 }
 
-LDArray::LDArray(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
-  : LDMemLocObject(parent, ldma)
+LDArray::LDArray(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
+  : MemLocObject(n), LDMemLocObject(n, parent, ldma)
 { /*Dbg::dbg << "LDArray::LDArray(parent="<<(parent ? parent->str("") : "NULL")<<")"<<endl;*/ }
 
 // Returns a memory object that corresponds to all the elements in the given array
 MemLocObjectPtr LDArray::getElements(PartEdgePtr pedge)
 {
   //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "")) 
-    return createLDMemLocObjectCategory(parent->isArray()->getElements(pedge), ldma);
+    return createLDMemLocObjectCategory(NULL, parent->isArray()->getElements(pedge), ldma);
   //else return MemLocObjectPtr();
 }
 
@@ -715,7 +723,7 @@ MemLocObjectPtr LDArray::getElements(PartEdgePtr pedge)
 MemLocObjectPtr LDArray::getElements(IndexVectorPtr ai, PartEdgePtr pedge)
 {
   //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "")) 
-    return createLDMemLocObjectCategory(parent->isArray()->getElements(ai, pedge), ldma);
+    return createLDMemLocObjectCategory(NULL, parent->isArray()->getElements(ai, pedge), ldma);
   //else return MemLocObjectPtr();
 }
 
@@ -732,18 +740,18 @@ size_t LDArray::getNumDims(PartEdgePtr pedge)
 MemLocObjectPtr LDArray::getDereference(PartEdgePtr pedge)
 {
   //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "")) 
-    return createLDMemLocObjectCategory(parent->isArray()->getDereference(pedge), ldma);
+    return createLDMemLocObjectCategory(NULL, parent->isArray()->getDereference(pedge), ldma);
   //else return MemLocObjectPtr();
 }
 
-LDPointer::LDPointer(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
-  : LDMemLocObject(parent, ldma)
+LDPointer::LDPointer(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
+  : MemLocObject(n), LDMemLocObject(n, parent, ldma)
 { /*Dbg::dbg << "LDPointer::LDPointer(parent="<<(parent ? parent->str("") : "NULL")<<")"<<endl;*/ }
 
 MemLocObjectPtr LDPointer::getDereference(PartEdgePtr pedge)
 {
   //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "")) 
-  return createLDMemLocObjectCategory(parent->isPointer()->getDereference(pedge), ldma);
+  return createLDMemLocObjectCategory(NULL, parent->isPointer()->getDereference(pedge), ldma);
   //else return MemLocObjectPtr();
 }
 

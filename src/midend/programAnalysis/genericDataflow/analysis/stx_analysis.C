@@ -30,38 +30,40 @@ MemLocObjectPtr SyntacticAnalysis::Expr2MemLocStatic(SgNode* n, PartEdgePtr pedg
 {
   MemLocObjectPtr rt;
 
-  assert (n!= NULL);
+  ROSE_ASSERT(n);
   Dbg::dbg << "isSgPntrArrRefExp (n)="<<isSgPntrArrRefExp (n)<<" isSgPntrArrRefExp (n->get_parent())="<<isSgPntrArrRefExp (n->get_parent())<<endl;
   if(isSgPntrArrRefExp (n->get_parent())) {
     Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;parent->lhs=["<<Dbg::escape(isSgPntrArrRefExp (n->get_parent())->get_lhs_operand()->unparseToString())<<" | "<<isSgPntrArrRefExp (n->get_parent())->get_lhs_operand()->class_name()<<"]"<<endl;
-    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;parent->lhs=["<<Dbg::escape(isSgPntrArrRefExp (n->get_parent())->get_rhs_operand()->unparseToString())<<" | "<<isSgPntrArrRefExp (n->get_parent())->get_rhs_operand()->class_name()<<"]"<<endl;
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;parent->rhs=["<<Dbg::escape(isSgPntrArrRefExp (n->get_parent())->get_rhs_operand()->unparseToString())<<" | "<<isSgPntrArrRefExp (n->get_parent())->get_rhs_operand()->class_name()<<"]"<<endl;
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;isSgPntrArrRefExp (n->get_parent())->get_rhs_operand()==n)="<<(isSgPntrArrRefExp (n->get_parent())->get_lhs_operand()==n)<<endl;
   }
+  Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;isSgExpression(n)="<<isSgExpression(n)<<endl;
   
-  // only generate MemLocObject for the top level isSgPntrArrRefExp
+  // Only create Named objects for top-level SgPntrArrRefExps
+  // Or for SgPntrArrRefExps that denote the indexes inside SgPntrArrRefExps (e.g. array[array[i]])
   if (isSgPntrArrRefExp (n) && 
-      (!isSgPntrArrRefExp (n->get_parent()) || !isSgPntrArrRefExp (isSgPntrArrRefExp (n->get_parent())->get_lhs_operand())))
+      !(isSgPntrArrRefExp (n->get_parent()) && isSgPntrArrRefExp(isSgPntrArrRefExp (n->get_parent())->get_lhs_operand()) &&
+        isSgPntrArrRefExp (n->get_parent())->get_lhs_operand()==n))
   {
+    Dbg::dbg<< "NamedML"<<endl;
     SgPntrArrRefExp* r = isSgPntrArrRefExp(n);
     assert (r != NULL);
-    rt = createNamedMemLocObject (r, pedge);
+    rt = createNamedMemLocObject(n, r, pedge);
   } 
   else if (isSgVarRefExp (n))
   {
     SgVarRefExp* varexp = isSgVarRefExp (n);
     assert (varexp != NULL);
-    rt = createNamedMemLocObject (varexp, pedge);
+    rt = createNamedMemLocObject (n, varexp, pedge);
   }
-  else if (isSgExpression(n)) // the order matters !! Must put after V_SgVarRefExp, SgPntrArrRefExp etc.
+  else if (SgExpression* sgexp=isSgExpression(n)) // the order matters !! Must put after V_SgVarRefExp, SgPntrArrRefExp etc.
   {
-    SgExpression* sgexp = isSgExpression (n);
-    assert (sgexp != NULL);
+    Dbg::dbg<< "ExprML"<<endl;
     rt = createExpressionMemLocObject (sgexp, sgexp->get_type(), pedge);
   }
-  else if (isSgType(n))
+  else if (SgType* t = isSgType(n))
   {
-    SgType* t = isSgType(n);
-    assert (t != NULL);
-    rt = createAliasedMemLocObject(t, pedge);
+    rt = createAliasedMemLocObject(n, t, pedge);
   }
   else if (isSgSymbol(n) || isSgInitializedName(n)) // skip SgFunctionSymbol etc
   {
@@ -71,16 +73,17 @@ MemLocObjectPtr SyntacticAnalysis::Expr2MemLocStatic(SgNode* n, PartEdgePtr pedg
     assert (s != NULL);
 
     if (!isMemberVariableDeclarationSymbol (s))
-      rt  = createNamedMemLocObject(s, s->get_type(), pedge, MemLocObjectPtr(), IndexVectorPtr()); // parent should be NULL since it is not a member variable symbol
+      rt  = createNamedMemLocObject(n, s, s->get_type(), pedge, MemLocObjectPtr(), IndexVectorPtr()); // parent should be NULL since it is not a member variable symbol
                                                    // TODO handle array of arrays ?? , then last IndexVectorPtr should not be NULL   
     else
     {
       // This symbol is part of an aggregate object
       // We cannot create an MemLocObject based on this symbol alone since it can be instantiated to multiple instances, based on the parent obj, and optional index value
       // We should create something like a.b when this field (b) is referenced in the AST
-      assert(0);
+      ROSE_ASSERT(0);
     }  
-  }
+  } else ROSE_ASSERT(0);
+  
   return rt;
 }
 
@@ -105,7 +108,7 @@ PartPtr SyntacticAnalysis::GetFunctionStartPart(const Function& func)
   for(VirtualCFG::back_iterator it(cfgUtils::getFuncEndCFG(func.get_definition())); it!=VirtualCFG::back_iterator::end(); it++) {
     //Dbg::dbg << "it="<<cfgUtils::CFGNode2Str(*it)<<endl;
     if(isSgFunctionParameterList((*it).getNode())/* && (*it).getIndex()==1*/)
-      return makePart<StxPart>(*it, filter);//boost::make_shared<StxPart>(*it, filter);
+      return makePart<StxPart>(*it, this, filter);//boost::make_shared<StxPart>(*it, filter);
   }
   // We should never get here
   ROSE_ASSERT(0);
@@ -113,7 +116,7 @@ PartPtr SyntacticAnalysis::GetFunctionStartPart(const Function& func)
 
 PartPtr SyntacticAnalysis::GetFunctionEndPart(const Function& func)
 {
-  return makePart<StxPart>(cfgUtils::getFuncEndCFG(func.get_definition()), filter);//boost::make_shared<StxPart>(cfgUtils::getFuncEndCFG(func.get_definition()), filter);
+  return makePart<StxPart>(cfgUtils::getFuncEndCFG(func.get_definition()), this, filter);//boost::make_shared<StxPart>(cfgUtils::getFuncEndCFG(func.get_definition()), filter);
 }
 
 /**********************
@@ -134,7 +137,8 @@ vector<StxPartEdgePtr> makeClosureDF(const vector<CFGEdge>& orig, // raw in or o
                                      vector<CFGEdge> (CFGNode::*closure)() const, // find successor edges from a node, CFGNode::outEdges() for example
                                      CFGNode (CFGPath::*otherSide)() const, // node from the other side of the path: CFGPath::target()
                                      CFGPath (*merge)(const CFGPath&, const CFGPath&),  // merge two paths into one
-                                     bool (*filter) (CFGNode))   // filter function 
+                                     bool (*filter) (CFGNode),   // filter function 
+                                     ComposedAnalysis* analysis)
 {
   // a filter function here
   // A set of CFG paths, each of them is made from a raw CFG edge initially
@@ -185,7 +189,7 @@ top:
     //if (((*i).*otherSide)().isInteresting())
     if (filter(((*i).*otherSide)()))
       //edges.push_back(/*boost::static_pointer_cast<PartEdge>(*/boost::make_shared<StxPartEdge>(*i, filter)/*)*/);
-      edges.push_back(makePart<StxPartEdge>(*i, filter));
+      edges.push_back(makePart<StxPartEdge>(*i, analysis, filter));
   }
   //cout << "makeClosure done: #edges=" << edges.size() << endl;
   //for(vector<DataflowEdge>::iterator e=edges.begin(); e!=edges.end(); e++)
@@ -198,7 +202,7 @@ top:
 }
 
 vector<PartEdgePtr> StxPart::outEdges() {
-  vector<StxPartEdgePtr> vStx = makeClosureDF(n.outEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter);
+  vector<StxPartEdgePtr> vStx = makeClosureDF(n.outEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter, analysis);
   vector<PartEdgePtr> v;
   for(vector<StxPartEdgePtr>::iterator i=vStx.begin(); i!=vStx.end(); i++) {
     v.push_back(static_part_cast<PartEdge>(*i));
@@ -208,11 +212,11 @@ vector<PartEdgePtr> StxPart::outEdges() {
 }
 
 vector<StxPartEdgePtr> StxPart::outStxEdges() {
-  return makeClosureDF(n.outEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter);
+  return makeClosureDF(n.outEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter, analysis);
 }
 
 vector<PartEdgePtr> StxPart::inEdges() {
-  vector<StxPartEdgePtr> vStx = makeClosureDF(n.inEdges(), &CFGNode::inEdges, &CFGPath::source, &mergePathsReversed, filter);
+  vector<StxPartEdgePtr> vStx = makeClosureDF(n.inEdges(), &CFGNode::inEdges, &CFGPath::source, &mergePathsReversed, filter, analysis);
   vector<PartEdgePtr> v;
   for(vector<StxPartEdgePtr>::iterator i=vStx.begin(); i!=vStx.end(); i++) {
     v.push_back(static_part_cast<PartEdge>(*i));
@@ -223,7 +227,7 @@ vector<PartEdgePtr> StxPart::inEdges() {
 }
 
 vector<StxPartEdgePtr> StxPart::inStxEdges() {
-  return makeClosureDF(n.inEdges(), &CFGNode::inEdges, &CFGPath::source, &mergePathsReversed, filter);
+  return makeClosureDF(n.inEdges(), &CFGNode::inEdges, &CFGPath::source, &mergePathsReversed, filter, analysis);
 }
 
 set<CFGNode> StxPart::CFGNodes()
@@ -243,19 +247,34 @@ set<CFGNode> StxPart::CFGNodes()
 std::list<PartPtr> StxPart::getOperandPart(SgNode* anchor, SgNode* operand)
 {
   list<PartPtr> l;
-  l.push_back(makePart<StxPart>(operand->cfgForEnd()));
+  l.push_back(makePart<StxPart>(operand->cfgForEnd(), analysis));
   return l;
 }*/
 
+/*class NULLCFGNode : public CFGNode {
+  public:
+  NULLCFGNode() : CFGNode(SageInterface::getProject(), -1) { }
+};
+*/
+CFGNode getCFGNode() {
+  static SgNode* sgn = NULL;
+  if(!sgn) sgn = SageBuilder::buildNullStatement();
+  CFGNode n(sgn, 0);
+  return n;
+}
+bool isNULLCFGNode(CFGNode n) { return isSgNullStatement(n.getNode()); }
+
+
+
 // Returns a PartEdgePtr, where the source is a wild-card part (NULLPart) and the target is this Part
 PartEdgePtr StxPart::inEdgeFromAny()
-{ return makePart<StxPartEdge>(/*NULLCFGNode*/SageInterface::getGlobalScope(n.getNode())->cfgForBeginning(), n); }
+{ return makePart<StxPartEdge>(getCFGNode(), n, analysis); } ///*NULLCFGNode*/SageInterface::getGlobalScope(n.getNode())->cfgForBeginning(), n); }
 
 // Returns a PartEdgePtr, where the target is a wild-card part (NULLPart) and the source is this Part
 PartEdgePtr StxPart::outEdgeToAny()
-{ return makePart<StxPartEdge>(n, /*NULLCFGNode*/SageInterface::getGlobalScope(n.getNode())->cfgForEnd()); }
+{ return makePart<StxPartEdge>(n, getCFGNode(), analysis); } ///*NULLCFGNode*/SageInterface::getGlobalScope(n.getNode())->cfgForEnd()); }
 
-bool StxPart::operator==(const PartPtr& o) const
+bool StxPart::equal(const PartPtr& o) const
 {
   /*ROSE_ASSERT(boost::dynamic_pointer_cast<StxPart>(o));
   return n == boost::dynamic_pointer_cast<StxPart>(o)->n;*/
@@ -263,7 +282,7 @@ bool StxPart::operator==(const PartPtr& o) const
   return n == static_part_cast<StxPart>(o)->n;
 }
 
-bool StxPart::operator<(const PartPtr& o) const
+bool StxPart::less(const PartPtr& o) const
 {
   /*ROSE_ASSERT(boost::dynamic_pointer_cast<StxPart>(o));
   return n < boost::dynamic_pointer_cast<StxPart>(o)->n;*/
@@ -274,7 +293,7 @@ bool StxPart::operator<(const PartPtr& o) const
 std::string StxPart::str(std::string indent)
 {
   ostringstream oss;
-  if(isSgGlobal(n.getNode())) oss << "[*]";
+  if(isNULLCFGNode(n.getNode())) oss << "[*]";
   else oss << "[" << Dbg::escape(n.getNode()->unparseToString()) << " | " << n.getNode()->class_name() << " | " << n.getIndex() << "]";
   return oss.str();
 }
@@ -284,13 +303,13 @@ std::string StxPart::str(std::string indent)
  ***********************/
 
 PartPtr StxPartEdge::source() {
-  if(isSgGlobal(p.source().getNode())) return NULLPart;
-  else return makePart<StxPart>(p.source(), filter);
+  if(isNULLCFGNode(p.source().getNode())) return NULLPart;
+  else return makePart<StxPart>(p.source(), analysis, filter);
 }
 
 PartPtr StxPartEdge::target() { 
-  if(isSgGlobal(p.target().getNode())) return NULLPart;
-  else return makePart<StxPart>(p.target(), filter);
+  if(isNULLCFGNode(p.target().getNode())) return NULLPart;
+  else return makePart<StxPart>(p.target(), analysis, filter);
 }
 
 // Let A={ set of execution prefixes that terminate at the given anchor SgNode }
@@ -307,13 +326,14 @@ std::list<PartEdgePtr> StxPartEdge::getOperandPartEdge(SgNode* anchor, SgNode* o
   // edge along the path from operand to anchor. Since operand is part of anchor's expression
   // tree we're guaranteed that there is only one such path.
   CFGNode opCFG = operand->cfgForEnd();
-  StxPart opPart(opCFG);
+  //cout << "opCFG="<<cfgUtils::CFGNode2Str(opCFG)<<endl;
+  StxPart opPart(opCFG, analysis);
   ROSE_ASSERT(opPart.outEdges().size()==1);
   list<PartEdgePtr> l;
-  //l.push_back(makePart<StxPartEdge>(opCFG, opCFG.outEdges()[0].target()));
-  StxPart* partTarget = dynamic_cast<StxPart*>(opPart.outEdges()[0]->target().get());
+  StxPartPtr partTarget = opPart.outStxEdges()[0]->target();
   ROSE_ASSERT(partTarget);
-  l.push_back(makePart<StxPartEdge>(opCFG, partTarget->n));
+  ROSE_ASSERT(partTarget->n.getNode());
+  l.push_back(makePart<StxPartEdge>(opCFG, partTarget->n, analysis));
   return l;
 }
 
@@ -339,7 +359,7 @@ map<CFGNode, boost::shared_ptr<SgValueExp> > StxPartEdge::getPredicateValue()
   return pv;
 }
 
-bool StxPartEdge::operator==(const PartEdgePtr& o) const
+bool StxPartEdge::equal(const PartEdgePtr& o) const
 {
   ROSE_ASSERT(static_part_cast<StxPartEdge>(o).get());
   /*Dbg::dbg << "StxPartEdge::operator<("<<(p.source() == static_part_cast<StxPartEdge>(o)->p.source() &&
@@ -353,7 +373,7 @@ bool StxPartEdge::operator==(const PartEdgePtr& o) const
          p.target() == static_part_cast<StxPartEdge>(o)->p.target();
 }
 
-bool StxPartEdge::operator<(const PartEdgePtr& o) const
+bool StxPartEdge::less(const PartEdgePtr& o) const
 {
   ROSE_ASSERT(static_part_cast<StxPartEdge>(o).get());
   /*Dbg::dbg << "StxPartEdge::operator<("<<((p.source() < static_part_cast<StxPartEdge>(o)->p.source()) ||
@@ -372,17 +392,17 @@ bool StxPartEdge::operator<(const PartEdgePtr& o) const
 std::string StxPartEdge::str(std::string indent)
 {
   ostringstream oss;
-  oss << (isSgGlobal(p.source().getNode())? "*" : source()->str()) << 
+  oss << (isNULLCFGNode(p.source().getNode())? "*" : source()->str()) << 
          Dbg::escape(" ==> ") << 
-         (isSgGlobal(p.target().getNode())? "*" : target()->str());
+         (isNULLCFGNode(p.target().getNode())? "*" : target()->str());
   return oss.str();
 }
 
 /***************************
  ***** StxMemLocObject *****
  ***************************/
-StxMemLocObject::StxMemLocObject(SgType* t) : 
-  type(t)
+StxMemLocObject::StxMemLocObject(SgNode* n, SgType* t) : 
+  MemLocObject(n), type(t)
 {}
 
 StxMemLocObject::eqType StxMemLocObject::equal(MemLocObjectPtr that_arg, PartEdgePtr pedge) 
@@ -406,7 +426,7 @@ StxMemLocObject::eqType StxMemLocObject::equal(MemLocObjectPtr that_arg, PartEdg
  ***** StxValueObject *****
  **************************/
 
-StxValueObject::StxValueObject(SgNode* n)
+StxValueObject::StxValueObject(SgNode* n) : ValueObject(n)
 {
   // If a valid node is passed, check if it is an SgValue
   if(n) {
@@ -425,7 +445,7 @@ StxValueObject::StxValueObject(SgNode* n)
     val = NULL;
 }
 
-StxValueObject::StxValueObject(const StxValueObject& that) : val(that.val)
+StxValueObject::StxValueObject(const StxValueObject& that) : ValueObject((const ValueObject&)that), val(that.val)
 { }
 
 bool StxValueObject::mayEqual(ValueObjectPtr other, PartEdgePtr pedge)
@@ -1119,15 +1139,15 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   // -------------------------------
   
   // ----- ScalarOutOfScopeObj -----
-  ScalarOutOfScopeObj::ScalarOutOfScopeObj(SgType* t) : OutOfScope_StxMemLocObject(t) {}
+  ScalarOutOfScopeObj::ScalarOutOfScopeObj(SgNode* n, SgType* t) : MemLocObject(n), Scalar_Impl(n), OutOfScope_StxMemLocObject(n, t) {}
   MemLocObjectPtr ScalarOutOfScopeObj::copyML() const { return boost::make_shared<ScalarOutOfScopeObj>(*this); }
 
   // ----- FunctionOutOfScopeObj -----
-  FunctionOutOfScopeObj::FunctionOutOfScopeObj(SgType* t) : OutOfScope_StxMemLocObject(t) {}
+  FunctionOutOfScopeObj::FunctionOutOfScopeObj(SgNode* n, SgType* t) : MemLocObject(n), Function_Impl(n), OutOfScope_StxMemLocObject(n, t) {}
   MemLocObjectPtr FunctionOutOfScopeObj::copyML() const { return boost::make_shared<FunctionOutOfScopeObj>(*this); }
   
   // ----- LabeledAggregateOutOfScopeObj -----
-  LabeledAggregateOutOfScopeObj::LabeledAggregateOutOfScopeObj(SgType* t) : OutOfScope_StxMemLocObject(t) {}
+  LabeledAggregateOutOfScopeObj::LabeledAggregateOutOfScopeObj(SgNode* n, SgType* t) : MemLocObject(n), LabeledAggregate_Impl(n),  OutOfScope_StxMemLocObject(n, t) {}
   MemLocObjectPtr LabeledAggregateOutOfScopeObj::copyML() const { return boost::make_shared<LabeledAggregateOutOfScopeObj>(*this); }
     
   size_t LabeledAggregateOutOfScopeObj::fieldCount(PartEdgePtr pedge) const { ROSE_ASSERT(false); return 0; /*Need to implement field count based on type*/ };
@@ -1137,7 +1157,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   }
   
   // ----- ArrayOutOfScopeObj -----
-  ArrayOutOfScopeObj::ArrayOutOfScopeObj(SgType* t) : OutOfScope_StxMemLocObject(t) {}
+  ArrayOutOfScopeObj::ArrayOutOfScopeObj(SgNode* n, SgType* t) : MemLocObject(n), Array_Impl(n), OutOfScope_StxMemLocObject(n, t) {}
   MemLocObjectPtr ArrayOutOfScopeObj::copyML() const { return boost::make_shared<ArrayOutOfScopeObj>(*this); }
     
   MemLocObjectPtr ArrayOutOfScopeObj::getElements(PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
@@ -1146,7 +1166,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   MemLocObjectPtr ArrayOutOfScopeObj::getDereference(PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
  
   // ----- PointerOutOfScopeObj -----
-  PointerOutOfScopeObj::PointerOutOfScopeObj(SgType* t) : OutOfScope_StxMemLocObject(t) {}
+  PointerOutOfScopeObj::PointerOutOfScopeObj(SgNode* n, SgType* t) : MemLocObject(n), Pointer_Impl(n), OutOfScope_StxMemLocObject(n, t) {}
   MemLocObjectPtr PointerOutOfScopeObj::copyML() const { return boost::make_shared<PointerOutOfScopeObj>(*this); }
 
   // used for a pointer to non-array
@@ -1287,7 +1307,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     SgType* t = StxMemLocObject::getType();
     SgPointerType* p_t = isSgPointerType(t);
     assert (p_t != NULL);
-    return createAliasedMemLocObject (p_t->get_base_type(), pedge);
+    return createAliasedMemLocObject (NULL, p_t->get_base_type(), pedge);
   }
 
   MemLocObjectPtr PointerExprObj::getElements(PartEdgePtr pedge) // in case it is a pointer to array
@@ -1332,12 +1352,14 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   { return boost::make_shared<PointerExprObj>(*this); }
 
   //---------------------
-  LabeledAggregateExprObj::LabeledAggregateExprObj(SgExpression* e, SgType* t, PartEdgePtr pedge): ExprObj (e,t) 
+  LabeledAggregateExprObj::LabeledAggregateExprObj(SgExpression* e, SgType* t, PartEdgePtr pedge): 
+    MemLocObject(e), LabeledAggregate_Impl(e), ExprObj (e,t) 
   {
     init(e, t, pedge);
   }
   
-  LabeledAggregateExprObj::LabeledAggregateExprObj(const LabeledAggregateExprObj& that):ExprObj(that.anchor_exp, that.type)
+  LabeledAggregateExprObj::LabeledAggregateExprObj(const LabeledAggregateExprObj& that):
+    MemLocObject((const MemLocObject &)that), LabeledAggregate_Impl((const LabeledAggregate_Impl&) that), ExprObj(that.anchor_exp, that.type)
   {
     //init(that.anchor_exp, that.type);
     assert (that.anchor_exp != NULL);
@@ -1910,7 +1932,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     SgType* t = StxMemLocObject::getType();
     SgPointerType* p_t = isSgPointerType(t);
     assert (p_t != NULL);
-    return createAliasedMemLocObject (p_t->get_base_type(), pedge);
+    return createAliasedMemLocObject (NULL, p_t->get_base_type(), pedge);
   }
 
   MemLocObjectPtr PointerNamedObj::getElements(PartEdgePtr pedge) // in case it is a pointer to array
@@ -1985,7 +2007,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
         if (var_decl)
         {
           SgVariableSymbol * s = SageInterface::getFirstVarSym(var_decl);
-          MemLocObjectPtr field_obj = createNamedMemLocObject(s, s->get_type(), pedge, lp, IndexVectorPtr()); // we don't store explicit index  for elements for now
+          MemLocObjectPtr field_obj = createNamedMemLocObject(NULL, s, s->get_type(), pedge, lp, IndexVectorPtr()); // we don't store explicit index  for elements for now
           boost::shared_ptr<LabeledAggregateField_Impl> f(new LabeledAggregateField_Impl (field_obj, lp));
           elements.push_back(f);
         }  
@@ -1994,12 +2016,14 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   }
 
   //----------------------
-  LabeledAggregateNamedObj::LabeledAggregateNamedObj(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv, PartEdgePtr pedge): NamedObj(s,t, p, iv)
+  LabeledAggregateNamedObj::LabeledAggregateNamedObj(SgNode* n, SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv, PartEdgePtr pedge): 
+    MemLocObject(n), LabeledAggregate_Impl(n), NamedObj(n, s,t, p, iv)
   {
     init(s, t, p, iv, pedge);
   }
   
-  LabeledAggregateNamedObj::LabeledAggregateNamedObj(const LabeledAggregateNamedObj& that): NamedObj(that.anchor_symbol, that.type, that.parent, that.array_index_vector)
+  LabeledAggregateNamedObj::LabeledAggregateNamedObj(const LabeledAggregateNamedObj& that): 
+    MemLocObject((const MemLocObject &)that), LabeledAggregate_Impl(that), NamedObj((const NamedObj&)that)
   {
     assert (that.anchor_symbol != NULL);
     assert (that.type != NULL);
@@ -2078,12 +2102,14 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   { return boost::make_shared<LabeledAggregateNamedObj>(*this); }
   
   //---------------------
-  ArrayNamedObj::ArrayNamedObj(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv, PartEdgePtr pedge): NamedObj (s,t, p, iv)
+  ArrayNamedObj::ArrayNamedObj(SgNode* n, SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv, PartEdgePtr pedge): 
+    MemLocObject(n), Array_Impl(n), NamedObj (n, s,t, p, iv)
   {
     init(s,t,p,iv);
   }
     
-  ArrayNamedObj::ArrayNamedObj(const ArrayNamedObj& that): NamedObj(that.anchor_symbol, that.getType(), that.parent, that.array_index_vector)
+  ArrayNamedObj::ArrayNamedObj(const ArrayNamedObj& that): 
+     MemLocObject((const MemLocObject &)that), Array_Impl(that), NamedObj((const NamedObj&)that)
   {
     init(that.anchor_symbol, that.getType(), that.parent, that.array_index_vector);
   }
@@ -2153,7 +2179,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     SgType* element_type = SageInterface::getArrayElementType (s->get_type());
     assert (element_type != NULL);
 
-    return createNamedMemLocObject(s, element_type, pedge, 
+    return createNamedMemLocObject(NULL, s, element_type, pedge, 
                                    boost::dynamic_pointer_cast<MemLocObject>(shared_from_this()), ai);
   }
 
@@ -2485,7 +2511,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     SgType* t = StxMemLocObject::getType();
     SgPointerType* p_t = isSgPointerType(t);
     assert (p_t != NULL);
-    return createAliasedMemLocObject (p_t->get_base_type(), pedge);
+    return createAliasedMemLocObject (NULL, p_t->get_base_type(), pedge);
   }
 
   /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
@@ -2598,7 +2624,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   }
   // creator for different objects
   // ------------------------------------------------------------------
-  MemLocObjectPtr createAliasedMemLocObject(SgType* t, PartEdgePtr pedge)  // One object per type, Type based alias analysis. A type of the object pointed to by a pointer
+  MemLocObjectPtr createAliasedMemLocObject(SgNode* n, SgType* t, PartEdgePtr pedge)  // One object per type, Type based alias analysis. A type of the object pointed to by a pointer
   {
     bool assert_flag = true; 
     assert (t!= NULL);
@@ -2610,19 +2636,19 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       if (SageInterface::isScalarType(t))
         // We define the following SgType as scalar types: 
         // char, short, int, long , void, Wchar, Float, double, long long, string, bool, complex, imaginary 
-      { rt = boost::make_shared<ScalarAliasedObj>(t, pedge); }
+      { rt = boost::make_shared<ScalarAliasedObj>(n, t, pedge); }
       else if (isSgPointerType(t))
-      { rt = boost::make_shared<PointerAliasedObj>(t, pedge); }
+      { rt = boost::make_shared<PointerAliasedObj>(n, t, pedge); }
       else if (isSgArrayType(t))
       {
         // TODO: We may wan to only generate a single array aliased obj for a multi-dimensional array
         // which will have multiple SgArrayType nodes , each per dimension
-        rt = boost::make_shared<ArrayAliasedObj>(t, pedge);
+        rt = boost::make_shared<ArrayAliasedObj>(n, t, pedge);
       }
       else if (isSgClassType(t))
-      { rt = boost::make_shared<LabeledAggregateAliasedObj>(t, pedge); }
+      { rt = boost::make_shared<LabeledAggregateAliasedObj>(n, t, pedge); }
       else if (isSgFunctionType(t))
-      { rt = boost::make_shared<FunctionAliasedObj>(t, pedge); }  
+      { rt = boost::make_shared<FunctionAliasedObj>(n, t, pedge); }  
       else
       {
         cerr<<"Warning: createAliasedMemLocObject(): unhandled type:"<<t->class_name()<<endl;
@@ -2650,7 +2676,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //  Pointer
   //  Array
   // ------------------------------------------------------------------
-  MemLocObjectPtr createNamedMemLocObject(SgSymbol* anchor_symbol, SgType* t, PartEdgePtr pedge, MemLocObjectPtr parent, IndexVectorPtr iv)
+  MemLocObjectPtr createNamedMemLocObject(SgNode* n, SgSymbol* anchor_symbol, SgType* t, PartEdgePtr pedge, MemLocObjectPtr parent, IndexVectorPtr iv)
   {
     MemLocObjectPtr rt;
 
@@ -2682,15 +2708,15 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     if (SageInterface::isScalarType(t) || (isSgReferenceType(t) && SageInterface::isScalarType(isSgReferenceType(t)->get_base_type())))
     // We define the following SgType as scalar types: 
     // char, short, int, long , void, Wchar, Float, double, long long, string, bool, complex, imaginary 
-    { rt = boost::make_shared<ScalarNamedObj>(anchor_symbol, t, parent, iv, pedge); }
+    { rt = boost::make_shared<ScalarNamedObj>(n, anchor_symbol, t, parent, iv, pedge); }
     else if (isSgFunctionType(t) || (isSgReferenceType(t) && isSgFunctionType(isSgReferenceType(t)->get_base_type())))
-    { rt = boost::make_shared<FunctionNamedObj>(anchor_symbol, pedge); }
+    { rt = boost::make_shared<FunctionNamedObj>(n, anchor_symbol, pedge); }
     else if (isSgPointerType(t) || (isSgReferenceType(t) && isSgPointerType(isSgReferenceType(t)->get_base_type())))
-    { rt = boost::make_shared<PointerNamedObj>(anchor_symbol, t, parent, iv, pedge); }
+    { rt = boost::make_shared<PointerNamedObj>(n, anchor_symbol, t, parent, iv, pedge); }
     else if (isSgClassType(t) || (isSgReferenceType(t) && isSgClassType(isSgReferenceType(t)->get_base_type())))
-    { rt = boost::make_shared<LabeledAggregateNamedObj>(anchor_symbol, t, parent, iv, pedge); }
+    { rt = boost::make_shared<LabeledAggregateNamedObj>(n, anchor_symbol, t, parent, iv, pedge); }
     else if (isSgArrayType(t) || (isSgReferenceType(t) && isSgArrayType(isSgReferenceType(t)->get_base_type()))) // This is for the entire array variable
-    { rt = boost::make_shared<ArrayNamedObj>(anchor_symbol, t, parent, iv, pedge); }
+    { rt = boost::make_shared<ArrayNamedObj>(n, anchor_symbol, t, parent, iv, pedge); }
     else
     {
       cerr<<"Warning: createNamedMemLocObject(): unhandled symbol:"<<anchor_symbol->class_name() << 
@@ -2711,7 +2737,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //     use lhs of SgDotExp/SgArrowExp as parent
   //         lhs could be SgVarRefExp: find the corresponding NamedObj as parent (top level object, labeled aggregate)
   //         lhs could be another SgDotExp: find its rhs's NamedObj as parent
-  MemLocObjectPtr createNamedMemLocObject(SgVarRefExp* r, PartEdgePtr pedge) // create NamedMemLocObject or aliased object from a variable reference 
+  MemLocObjectPtr createNamedMemLocObject(SgNode* n, SgVarRefExp* r, PartEdgePtr pedge) // create NamedMemLocObject or aliased object from a variable reference 
   {
     assert (r!=NULL);
     SgVariableSymbol * s = r->get_symbol();
@@ -2737,7 +2763,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       assert (lhs != NULL);
       if (isSgVarRefExp(lhs))
       {
-        p_obj = createNamedMemLocObject(isSgVarRefExp(lhs), pedge); // recursion here
+        p_obj = createNamedMemLocObject(NULL, isSgVarRefExp(lhs), pedge); // recursion here
       }
       else if (isSgBinaryOp (lhs)) // another SgDotExp or SgArrowExp
       { // find its rhs's NamedObj as parent
@@ -2746,16 +2772,16 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
         assert (d_e2 != NULL || a_e2 != NULL);
         SgExpression* rhs = isSgBinaryOp (lhs) -> get_rhs_operand_i();
         assert (isSgVarRefExp (rhs) != NULL); // there might be some more cases!!
-        p_obj = createNamedMemLocObject(isSgVarRefExp(rhs), pedge);
+        p_obj = createNamedMemLocObject(NULL, isSgVarRefExp(rhs), pedge);
       }
       // now create the child mem obj
-      MemLocObjectPtr mem_obj = createNamedMemLocObject(s, s->get_type(), pedge, p_obj, IndexVectorPtr()); // we don't explicitly store index for elements of labeled aggregates for now 
+      MemLocObjectPtr mem_obj = createNamedMemLocObject(n, s, s->get_type(), pedge, p_obj, IndexVectorPtr()); // we don't explicitly store index for elements of labeled aggregates for now 
       // assert (mem_obj != NULL); // we may return NULL for cases not yet handled
       return mem_obj;
     }
     else // other symbols
     {
-      MemLocObjectPtr mem_obj = createNamedMemLocObject(s, s->get_type(), pedge, MemLocObjectPtr(), IndexVectorPtr());
+      MemLocObjectPtr mem_obj = createNamedMemLocObject(n, s, s->get_type(), pedge, MemLocObjectPtr(), IndexVectorPtr());
       // assert (mem_obj != NULL); // We may return NULL for cases not yet handled
       return mem_obj;
     }
@@ -2779,15 +2805,16 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
        The creation interface should take care of avoiding duplicated creation of the entire array object.    
     2. Create the array element NamedMemLocObject for  a[4][6], based on parent a, and indexVector <4, 6>
   */
-  MemLocObjectPtr createNamedMemLocObject(SgPntrArrRefExp* r, PartEdgePtr pedge) 
+  MemLocObjectPtr createNamedMemLocObject(SgNode* n, SgPntrArrRefExp* r, PartEdgePtr pedge) 
   {
     MemLocObjectPtr mem_obj;
     assert (r!=NULL);
     MemLocObjectPtr whole_array_obj;
 
     SgPntrArrRefExp* arr_ref_parent = isSgPntrArrRefExp(r->get_parent());
-    //if (arr_ref_parent == NULL) // this is the top level SgPntrArrRefExp
-    if(!arr_ref_parent || !isSgPntrArrRefExp (arr_ref_parent->get_lhs_operand()))
+    // Only create Named objects for top-level SgPntrArrRefExps
+    // Or for SgPntrArrRefExps that denote the indexes inside SgPntrArrRefExps (e.g. array[array[i]])
+    if(!(arr_ref_parent && isSgPntrArrRefExp (arr_ref_parent->get_lhs_operand()) && arr_ref_parent->get_lhs_operand()==r))
     {
       // try to create the Obj for the whole array first
       SgExpression* arrayNameExp = NULL;
@@ -2818,7 +2845,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       // create the element access then, using symbol, parent, and index
       IndexVectorPtr iv = generateIndexVector(*subscripts);
       assert (iv != 0);
-      mem_obj = createNamedMemLocObject(s, r->get_type(), pedge, whole_array_obj, iv);
+      mem_obj = createNamedMemLocObject(n, s, r->get_type(), pedge, whole_array_obj, iv);
       
       // GB: Do we need to deallocate subscripts???
     }

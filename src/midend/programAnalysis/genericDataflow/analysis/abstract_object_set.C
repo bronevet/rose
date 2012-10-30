@@ -25,12 +25,47 @@ bool AbstractObjectSet::insert(AbstractObjectPtr that)
     return false;
   }
     
-    bool retval = false;
-    if(!containsMust(that)) {
-        items.push_back(that);
-        retval = true;
+  bool retval = false;
+  if(!containsMust(that)) {
+    items.push_back(that);
+    retval = true;
+  }
+  
+  /*if(!containsMust(that)) {
+    // The similarity between that and each AbstractObject currently in items
+    map<AbstractObjectPtr, simType> thatSimilarity;
+    
+    // Compute the similarity between this item and all the items currently in the set
+    for(std::list<AbstractObjectPtr>::iterator it = items.begin(); it != items.end(); it++) {
+      if((*it)->mayEqual(that, latPEdge)) thatSimilarity[*it] = mayEqual;
+      else                                thatSimilarity[*it] = notMayEqual;
     }
-    return retval;
+    
+    // If adding this item will not push this set beyond its maximum size
+    if(items.size()<maxElements) {
+      items.push_back(that);
+      
+      // Incorporate that's similarity information into itemSimilarity
+      for(map<AbstractObjectPtr, simType>::iterator item=thatSimilarity.begin(); item!=thatSimilarity.end(); item++) {
+        itemSimilarity[*item][that] = mayEqual;
+        itemSimilarity[that][*item] = mayEqual;
+      }
+    // Otherwise, find an existing item to merge this item into
+    } else {
+      // Records the similarity between each current item and the new item
+      map<AbstractObjectPtr, int> simScore;
+      for(std::list<AbstractObjectPtr>::iterator it = items.begin(); it != items.end(); it++) {
+        simScore[*it]=0;
+        for(std::map<AbstractObjectPtr, simType>::iterator itSim=items[*it].begin(); itSim!=items[*it].end(); itSim++) {
+          if(itSim->first != that) {
+          if(itSim->second == )
+        }
+      }
+    }
+    retval = true;
+  }*/
+  
+  return retval;
 }
 
 // return true on successfull removal
@@ -136,14 +171,16 @@ std::string AbstractObjectSet::strp(PartEdgePtr pedge, std::string indent)
     ostringstream oss;
   
     std::list<AbstractObjectPtr>::iterator it = items.begin();
+    oss << "[AbstractObjectSet ("<<items.size()<<")"<<endl;
     while(it != items.end()) {
-        if(it != items.begin()) oss << indent;
+        /*if(it != items.begin()) */oss << indent;
         oss << (*it)->strp(pedge, "&nbsp;&nbsp;&nbsp;&nbsp;");
         
         it++;
         if(it!=items.end())
           oss << std::endl;
     }
+    oss << "]";
     
     return oss.str();
 }

@@ -101,15 +101,15 @@ void FunctionState::setArgParamMap(PartPtr callPart, SgFunctionCallExp* call,
       itA!=args.end() && itP!=params.end(); 
       itA++, itP++)
   {
-    MemLocObjectPtrPair argP = composer->Expr2MemLoc(*itA, funcNode->outEdgeToAny(), analysis);
+    MemLocObjectPtrPair argP = composer->Expr2MemLoc(*itA, funcNode->inEdgeFromAny(), analysis);
     // The argument MemLoc is preferrably the argument expression but may be a memory location if the expression is not available
     MemLocObjectPtr arg;
     if(argP.expr) arg = argP.expr;
     else    arg = argP.mem;
     
-    Dbg::dbg << "argParamMap["<<arg->str()<<"]="<< composer->Expr2MemLoc(*itP, funcNode->outEdgeToAny(), analysis).mem->str()<<endl;
+    Dbg::dbg << "argParamMap["<<arg->str()<<"]="<< composer->Expr2MemLoc(*itP, funcNode->inEdgeFromAny(), analysis).mem->str()<<endl;
     argParamMap.insert(make_pair(arg,
-         composer->Expr2MemLoc(*itP, funcNode->outEdgeToAny(), analysis).mem));
+         composer->Expr2MemLoc(*itP, funcNode->inEdgeFromAny(), analysis).mem));
   }
 }
 

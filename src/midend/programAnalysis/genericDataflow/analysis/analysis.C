@@ -126,21 +126,6 @@ InterProceduralDataflow::InterProceduralDataflow(ComposedAnalysis* intraDataflow
       
       Dbg::dbg << "Initialized state of function "<<func.get_name().getString()<<"(), state="<<(&(funcS->state))<<endl;
       Dbg::dbg << "    "<<funcS->state.str(intraDataflowAnalysis, "    ")<<endl;
-      
-      // Initialize funcS->retState with initLats. 
-      // !!!Need to make a copy of initLats first
-      //funcS->retState.setLatticeBelow(intraAnalysis, initLats);
-      
-      // We do not initialize retState since we don't know the type of the lattice that will capture
-      // the projection of the normal lattice type on the return variables. However, there is no
-      // need to provide default lattices since DFStateAtReturns and MergeAllReturnStates can
-      // deal with Lattice* vectors that start out empty.
-      
-      // We do not need to deallocate facts in initFacts and lattices in initLats since setFacts() and
-      // setLattices() have taken the original facts in initFacts and did not make private copies of them
-      
-      /*const vector<Lattice*>* funcLatticesBefore = &(funcS->state.getLatticeAbove(intraAnalysis));
-      Dbg::dbg << "  funcLatticesBefore->size()="<<funcLatticesBefore->size()<<", intraAnalysis="<<intraAnalysis<<endl;*/
     }
   }
 }
@@ -316,12 +301,12 @@ MergeAllReturnStates::MergeAllReturnStates(ComposedAnalysis* analysis, const std
 
 void MergeAllReturnStates::visit(const Function& func, PartPtr part, NodeState& state)
 {
-  Dbg::region reg(1, 1, Dbg::region::topLevel, "MergeAllReturnStates::visit()");
-  Dbg::dbg << "part="<<part->str()<<endl;
+  Dbg::region reg(analysisDebugLevel, 2, Dbg::region::topLevel, "MergeAllReturnStates::visit()");
+  if(analysisDebugLevel>=2) Dbg::dbg << "part="<<part->str()<<endl;
   //if(analysisDebugLevel>=1) Dbg::dbg << "MergeAllReturnStates::visit() func="<<func.get_name().getString()<<"()"<<endl; // sgn="<<sgn<<"["<<Dbg::escape(sgn->unparseToString())<<" | "<<sgn->class_name()<<"]\n";
   //Dbg::dbg << "visit {{{: modified="<<modified<<endl;
   
-  Dbg::indent ind(analysisDebugLevel, 1);
+  Dbg::indent ind(analysisDebugLevel, 2);
   
   // Consider all the CFGNodes in the part to see if any are return statements or the end of the function
   // and merge their dataflow state

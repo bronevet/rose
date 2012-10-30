@@ -35,9 +35,11 @@ class CompSharedPtr : public printable
   public:
   CompSharedPtr() {}
   
-  // Wraps a raw pointer with a comparable shared poiunter
+  // Wraps a raw pointer of an object that has a dynamic copying method with a comparable shared pointer
   CompSharedPtr(Type* p) {
-    ptr = boost::shared_ptr<Type>(p);
+    Type* c = dynamic_cast<Type*>(p->copy());
+    ROSE_ASSERT(c);
+    ptr = boost::shared_ptr<Type>(c);
   }
     
   // Copy constructor
@@ -148,7 +150,14 @@ CompSharedPtr<Type> init_part(Type* p)
 }
 
 class Part : public printable {
+  protected:
+  ComposedAnalysis* analysis;
   public:
+  Part(ComposedAnalysis* analysis) : analysis(analysis) {}
+  Part(const Part& that) : analysis(that.analysis) {}
+  // Returns true if this PartEdge comes from the same analysis as that PartEdge and false otherwise
+  bool compatible(const Part& that) { return analysis == that.analysis; }
+  bool compatible(PartPtr that)     { return analysis == that->analysis; }
   
   virtual std::vector<PartEdgePtr> outEdges()=0;
   virtual std::vector<PartEdgePtr> inEdges()=0;
@@ -228,18 +237,37 @@ class Part : public printable {
   // If the filter accepts (returns true) on all of the CFGNodes within this part, return true)
   bool filterAll(bool (*filter) (CFGNode cfgn));
   
-  virtual bool operator==(const PartPtr& o) const=0;
-  virtual bool operator<(const PartPtr& o) const=0;
-  bool operator!=(const PartPtr& o) const;
-  bool operator>=(
-  const PartPtr& o) const;
-  bool operator<=(const PartPtr& o) const;
-  bool operator> (const PartPtr& o) const;
+  // The the base equality and comparison operators are implemented in Part and these functions
+  // call the equality and inequality test functions supplied by derived classes as needed
+  
+  // If this and that come from the same analysis, call the type-specific equality test implemented
+  // in the derived class. Otherwise, these Parts are not equal.
+  bool operator==(const PartPtr& that) const;
+  virtual bool equal(const PartPtr& that) const=0;
+  
+  // If this and that come from the same analysis, call the type-specific inequality test implemented
+  // in the derived class. Otherwise, determine inequality by comparing the analysis pointers.
+  bool operator<(const PartPtr& that) const;
+  virtual bool less(const PartPtr& that) const=0;
+  
+  bool operator!=(const PartPtr& that) const;
+  bool operator>=(const PartPtr& that) const;
+  bool operator<=(const PartPtr& that) const;
+  bool operator> (const PartPtr& that) const;
 };
 extern PartPtr NULLPart;
 
 class PartEdge : public printable {
+  protected:
+  ComposedAnalysis* analysis;
+  
   public:
+  PartEdge(ComposedAnalysis* analysis) : analysis(analysis) {}
+  PartEdge(const PartEdge& that) : analysis(that.analysis) {}
+  // Returns true if this PartEdge comes from the same analysis as that PartEdge and false otherwise
+  bool compatible(const PartEdge& that) { return analysis == that.analysis; }
+  bool compatible(PartEdgePtr that)     { return analysis == that->analysis; }
+  
   virtual PartPtr source()=0;
   virtual PartPtr target()=0;
   
@@ -261,12 +289,23 @@ class PartEdge : public printable {
   // this edge.
   virtual std::map<CFGNode, boost::shared_ptr<SgValueExp> > getPredicateValue()=0;
   
-  virtual bool operator==(const PartEdgePtr& o) const=0;
-  virtual bool operator<(const PartEdgePtr& o) const=0;
-  bool operator!=(const PartEdgePtr& o) const;
-  bool operator>=(const PartEdgePtr& o) const;
-  bool operator<=(const PartEdgePtr& o) const;
-  bool operator> (const PartEdgePtr& o) const;
+  // The the base equality and comparison operators are implemented in Part and these functions
+  // call the equality and inequality test functions supplied by derived classes as needed
+  
+  // If this and that come from the same analysis, call the type-specific equality test implemented
+  // in the derived class. Otherwise, these Parts are not equal.
+  bool operator==(const PartEdgePtr& that) const;
+  virtual bool equal(const PartEdgePtr& that) const=0;
+  
+  // If this and that come from the same analysis, call the type-specific inequality test implemented
+  // in the derived class. Otherwise, determine inequality by comparing the analysis pointers.
+  bool operator<(const PartEdgePtr& that) const;
+  virtual bool less(const PartEdgePtr& that) const=0;
+  
+  bool operator!=(const PartEdgePtr& that) const;
+  bool operator>=(const PartEdgePtr& that) const;
+  bool operator<=(const PartEdgePtr& that) const;
+  bool operator> (const PartEdgePtr& that) const;
 };
 extern PartEdgePtr NULLPartEdge;
 
@@ -286,8 +325,8 @@ class IntersectionPart : public Part
   
   public:
   
-  IntersectionPart(PartPtr part);
-  IntersectionPart(const std::list<PartPtr>& parts);
+  IntersectionPart(PartPtr part, ComposedAnalysis* analysis);
+  IntersectionPart(const std::list<PartPtr>& parts, ComposedAnalysis* analysis);
   
   void add(PartPtr part);
   
@@ -349,12 +388,12 @@ class IntersectionPart : public Part
   PartEdgePtr outEdgeToAny();
   
   // Two IntersectionParts are equal of all their constituent sub-parts are equal
-  bool operator==(const PartPtr& o) const;
+  bool equal(const PartPtr& that) const;
   
   // Lexicographic ordering: This IntersectionPart is < that IntersectionPart if this has fewer parts than that or
   // there exists an index i in this.parts and that.parts s.t. forall j<i. this.parts[j]==that.parts[j] and 
   // this.parts[i] < that.parts[i].
-  bool operator<(const PartPtr& o) const;
+  bool less(const PartPtr& that) const;
   
   std::string str(std::string indent="");
 };
@@ -370,8 +409,8 @@ class IntersectionPartEdge : public PartEdge
   
   public:
   
-  IntersectionPartEdge(PartEdgePtr edge);
-  IntersectionPartEdge(const std::list<PartEdgePtr>& edges);
+  IntersectionPartEdge(PartEdgePtr edge, ComposedAnalysis* analysis);
+  IntersectionPartEdge(const std::list<PartEdgePtr>& edges, ComposedAnalysis* analysis);
   
   void add(PartEdgePtr edge);
   
@@ -413,12 +452,12 @@ class IntersectionPartEdge : public PartEdge
 
   public:
   // Two IntersectionPartEdges are equal of all their constituent sub-parts are equal
-  bool operator==(const PartEdgePtr& o) const;
+  bool equal(const PartEdgePtr& o) const;
   
   // Lexicographic ordering: This IntersectionPartEdge is < that IntersectionPartEdge if this has fewer edges than that or
   // there exists an index i in this.edges and that.edges s.t. forall j<i. this.edges[j]==that.edges[j] and 
   // this.edges[i] < that.edges[i].
-  bool operator<(const PartEdgePtr& o) const;
+  bool less(const PartEdgePtr& o) const;
   
   std::string str(std::string indent="");
 };

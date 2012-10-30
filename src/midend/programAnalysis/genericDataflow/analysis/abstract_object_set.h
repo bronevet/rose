@@ -64,6 +64,11 @@ private:
     // NOTE: container only stores boost::shared_ptr pointer
     // NOTE: shared_ptr is assumed to be used by all analysis
     std::list<AbstractObjectPtr> items;
+    
+    /*typedef enum {mayEqual, notMayEqual} simType;
+    std::map<AbstractObjectPtr, std::map<AbstractObjectPtr, simType> > itemSimilarity;
+     int maxElements = 20;
+     */
   
     bool isFull;
     

@@ -69,10 +69,16 @@ class AbstractObject;
 typedef boost::shared_ptr<AbstractObject> AbstractObjectPtr;
 class AbstractObject : public printable
 {
+  SgNode* base;
+  
   public:
+  AbstractObject() { /*std::cout << "DEF this="<<this<<" base="<<base<<std::endl;*/ }
+  AbstractObject(SgNode* base) : base(base) { /*std::cout<< "BASE this="<<this<<" base="<<base<<std::endl;*/ }
+  AbstractObject(const AbstractObject& that) : base(that.base) { /*std::cout<< "COPY this="<<this<<" base="<<base<<std::endl;*/ }
+    
   // Returns whether this object may/must be equal to o within the given Part p
   virtual bool mayEqual(AbstractObjectPtr o, PartEdgePtr pedge)=0;
-  virtual bool mustEqual(AbstractObjectPtr o, PartEdgePtr pedge)=0;
+  virtual bool mustEqual(AbstractObjectPtr o, PartEdgePtr pedge);
   
   // Returns true if this object is live at the given part and false otherwise
   virtual bool isLive(PartEdgePtr pedge) const=0;
@@ -122,6 +128,10 @@ private:
   virtual bool mustEqualML(MemLocObjectPtr o, PartEdgePtr pedge)=0;
   
 public:
+//  MemLocObject() {}
+  MemLocObject(SgNode* base) : AbstractObject(base) {}
+  MemLocObject(const MemLocObject& that) : AbstractObject(that) {}
+  
   // General version of mayEqual and mustEqual that implements may/must equality with respect to ExprObj
   // and uses the derived class' may/mustEqual check for all the other cases
   bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge);
@@ -257,6 +267,10 @@ extern CodeLocObjectPtr NULLCodeLocObject;
 class CodeLocObject : public AbstractObject
 { 
   public:
+  CodeLocObject() {}
+  CodeLocObject(SgNode* base) : AbstractObject(base) {}
+  CodeLocObject(const MemLocObject& that) : AbstractObject(that) {}
+  
   // Returns whether this object may/must be equal to o within the given Part p
   virtual bool mayEqualCL(CodeLocObjectPtr o, PartEdgePtr pedge)=0;
   virtual bool mustEqualCL(CodeLocObjectPtr o, PartEdgePtr pedge)=0;
@@ -270,6 +284,9 @@ class CodeLocObject : public AbstractObject
   }
   bool mustEqual(CodeLocObjectPtr o, PartEdgePtr pedge)
   {
+    if(AbstractObject::mustEqual(boost::static_pointer_cast<AbstractObject>(o), pedge)) return true;
+    
+    if(AbstractObject::mustEqual(o, pedge)) return true;
     return mustEqualCL(o, pedge);
   }
   
@@ -282,6 +299,8 @@ class CodeLocObject : public AbstractObject
   
   bool mustEqual(AbstractObjectPtr o, PartEdgePtr pedge)
   {
+    if(AbstractObject::mustEqual(o, pedge)) return true;
+    
     CodeLocObjectPtr co = boost::dynamic_pointer_cast<CodeLocObject>(o);
     if(co) return mustEqual(co, pedge);
     else   return false;
@@ -368,6 +387,10 @@ extern ValueObjectPtr NULLValueObject;
 class ValueObject : public AbstractObject
 { 
   public:
+  ValueObject() {}
+  ValueObject(SgNode* base) : AbstractObject(base) {}
+  ValueObject(const MemLocObject& that) : AbstractObject(that) {}
+  
   // Returns whether this object may/must be equal to o within the given Part p
   virtual bool mayEqual(ValueObjectPtr o, PartEdgePtr pedge)=0;
   virtual bool mustEqual(ValueObjectPtr o, PartEdgePtr pedge)=0;
@@ -450,9 +473,12 @@ typedef boost::shared_ptr<UnionValueObject> UnionValueObjectPtr;
    ########################################### */
 
 //memory object that has no internal structure
-class Scalar : public virtual MemLocObject
+class Scalar : virtual public MemLocObject
 {
  public:
+   Scalar() : MemLocObject(NULL) {}
+   Scalar(SgNode* base) : MemLocObject(base) {}
+   Scalar(const Scalar& that) : MemLocObject(that) {}
    // Equality relations:
    // Returns true if this object and that object may/must refer to the same scalar memory object.
    //virtual bool operator == (const Scalar& that) const;
@@ -466,7 +492,9 @@ typedef boost::shared_ptr<Scalar> ScalarPtr;
 class FunctionMemLoc: public virtual MemLocObject
 {
 public:  
- 
+  FunctionMemLoc() : MemLocObject(NULL) {}
+  FunctionMemLoc(SgNode* base) : MemLocObject(base) {}
+  FunctionMemLoc(const FunctionMemLoc& that) : MemLocObject(that) {}
 };
 typedef boost::shared_ptr<FunctionMemLoc> FunctionMemLocPtr;
 
@@ -500,6 +528,10 @@ class LabeledAggregateField
 class LabeledAggregate: public virtual MemLocObject
 {
  public:
+   LabeledAggregate() : MemLocObject(NULL) {}
+   LabeledAggregate(SgNode* base) : MemLocObject(base) {}
+   LabeledAggregate(const LabeledAggregate& that) : MemLocObject(that) {}
+   
    // number of fields
    virtual size_t fieldCount(PartEdgePtr pedge);
 
@@ -587,6 +619,10 @@ class PointerOrArray: public MemLocObject
 class Array: public virtual MemLocObject
 {
  public:
+   Array() : MemLocObject(NULL) {}
+   Array(SgNode* base) : MemLocObject(base) {}
+   Array(const Array& that) : MemLocObject(that) {}
+   
    // Returns a memory object that corresponds to all the elements in the given array
    virtual MemLocObjectPtr getElements(PartEdgePtr pedge);
    // Returns the memory object that corresponds to the elements described by the given abstract index, 
@@ -607,6 +643,10 @@ class Array: public virtual MemLocObject
 class Pointer: public virtual MemLocObject
 {
  public:
+   Pointer() : MemLocObject(NULL) {}
+   Pointer(SgNode* base) : MemLocObject(base) {}
+   Pointer(const Pointer& that) : MemLocObject(that) {}
+   
    virtual MemLocObjectPtr getDereference(PartEdgePtr pedge) ;
    // Returns true if this object and that object may/must refer to the same pointer memory object.
    //virtual bool operator == (const Pointer & that) const;
