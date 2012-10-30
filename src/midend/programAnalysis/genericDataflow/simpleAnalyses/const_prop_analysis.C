@@ -11,19 +11,19 @@ int constantPropagationAnalysisDebugLevel = 2;
 //              ConstantPropagationLattice
 // **********************************************************************
 
-CPValueObject::CPValueObject(PartEdgePtr pedge) : Lattice(pedge), FiniteLattice(pedge)
+CPValueObject::CPValueObject(PartEdgePtr pedge) : Lattice(pedge), FiniteLattice(pedge), ValueObject(NULL)
 {
   this->value = 0;
   this->level = bottom;
 }
 
-CPValueObject::CPValueObject(int v, PartEdgePtr pedge) : Lattice(pedge), FiniteLattice(pedge)
+CPValueObject::CPValueObject(int v, PartEdgePtr pedge) : Lattice(pedge), FiniteLattice(pedge), ValueObject(NULL)
 {
   this->value = v;
   this->level = constantValue;
 }
 
-CPValueObject::CPValueObject(short level, int v, PartEdgePtr pedge) : Lattice(pedge), FiniteLattice(pedge)
+CPValueObject::CPValueObject(short level, int v, PartEdgePtr pedge) : Lattice(pedge), FiniteLattice(pedge), ValueObject(NULL)
 {
   this->value = v;
   this->level = level;
@@ -31,10 +31,10 @@ CPValueObject::CPValueObject(short level, int v, PartEdgePtr pedge) : Lattice(pe
 
 // This is the same as the implicit definition, so it might not be required to be defined explicitly.
 // I am searching for the minimal example of the use of the data flow classes.
-CPValueObject::CPValueObject(const CPValueObject & X) : Lattice(X.latPEdge), FiniteLattice(X.latPEdge)
+CPValueObject::CPValueObject(const CPValueObject & that) : Lattice(that.latPEdge), FiniteLattice(that.latPEdge), ValueObject(that)
 {
-  this->value = X.value;
-  this->level = X.level;
+  this->value = that.value;
+  this->level = that.level;
 }
 
 int
@@ -725,7 +725,7 @@ ValueObjectPtr ConstantPropagationAnalysis::Expr2Val(SgNode* n, PartEdgePtr pedg
   // If the source of this edge is a wildcard
   } else if(pedge->target()) {
     NodeState* state = NodeState::getNodeState(this, pedge->target());
-    Dbg::dbg << "state="<<state->str(this)<<endl;
+    Dbg::dbg << "state="<<state->str()<<endl;
     AbstractObjectMap* cpMap = dynamic_cast<AbstractObjectMap*>(state->getLatticeAbove(this, NULLPartEdge, 0));
     ROSE_ASSERT(cpMap);
 

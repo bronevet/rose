@@ -32,16 +32,11 @@ class DeadPathElimPart : public Part, public boost::enable_shared_from_this<Dead
   // The part (implemented by a server analysis) that this object is wrapping with live/dead status
   PartPtr base;
     
-  DPELevel level;
-  
   friend class DeadPathElimPartEdge;
   friend class DeadPathElimTransfer;
   
-  // The DeadPathElimAnalysis that created this part
-  DeadPathElimAnalysis* analysis;
-  
   public:
-  DeadPathElimPart(PartPtr base, DeadPathElimAnalysis* analysis, DPELevel level);
+  DeadPathElimPart(PartPtr base, ComposedAnalysis* analysis);
   DeadPathElimPart(const DeadPathElimPart& that);
   
   private:
@@ -73,18 +68,14 @@ class DeadPathElimPart : public Part, public boost::enable_shared_from_this<Dead
   // Returns a PartEdgePtr, where the target is a wild-card part (NULLPart) and the source is this Part
   PartEdgePtr outEdgeToAny();
   
-  bool operator==(const PartPtr& o) const;
-  bool operator<(const PartPtr& o)  const;
+  bool equal(const PartPtr& o) const;
+  bool less(const PartPtr& o)  const;
   
   // Pretty print for the object
   std::string str(std::string indent="");
 }; // class DeadPathElimPart
 
-class DeadPathElimPartEdge : public FiniteLattice, public PartEdge {
-  
-  // The edge (implemented by a server analysis) that this object is wrapping with live/dead status
-  //PartEdgePtr baseEdge;
-  
+class DeadPathElimPartEdge : public FiniteLattice, public PartEdge {  
   // The part that this object is wrapping with live/dead status
   DeadPathElimPartPtr src;
   DeadPathElimPartPtr tgt;
@@ -92,12 +83,9 @@ class DeadPathElimPartEdge : public FiniteLattice, public PartEdge {
   // For edges from parts that contain CFGNodes that correspond to conditionals (if, switch, while test, etc.)
   // records a mapping from these CFGNodes to the value outcome that leads control along this edge.
   std::map<CFGNode, boost::shared_ptr<SgValueExp> > predVals;
-  
+
   DPELevel level;
   
-  // The DeadPathElimAnalysis that created this part edge
-  DeadPathElimAnalysis* analysis;
- 
   friend class DeadPathElimPart; 
   friend class DeadPathElimTransfer;
   
@@ -107,13 +95,16 @@ class DeadPathElimPartEdge : public FiniteLattice, public PartEdge {
                        PartEdgePtr baseEdge, DeadPathElimAnalysis* analysis);*/
   
   // Constructor to be used when constructing the edges (e.g. from genInitLattice()).  
-  DeadPathElimPartEdge(PartEdgePtr baseEdge, DeadPathElimAnalysis* analysis, DPELevel level);
+  DeadPathElimPartEdge(PartEdgePtr baseEdge, ComposedAnalysis* analysis, DPELevel level);
   
   // Constructor to be used when traversing the part graph created by the DeadPathElimAnalysis, after
   // all the DeadPathElimPartEdges have been constructed and stored in NodeStates.
-  DeadPathElimPartEdge(PartEdgePtr baseEdge, DeadPathElimAnalysis* analysis);
+  DeadPathElimPartEdge(PartEdgePtr baseEdge, ComposedAnalysis* analysis);
   
   DeadPathElimPartEdge(const DeadPathElimPartEdge& that);
+  
+  // Returns a pointer to the DeadPathElimAnalysis that created this part edge
+  DeadPathElimAnalysis* dpeAnalysis();
   
   PartPtr source();
   PartPtr target();
@@ -142,8 +133,8 @@ class DeadPathElimPartEdge : public FiniteLattice, public PartEdge {
   // Empties out the mapping of CFGNodes to the outcomes of their predicates
   void clearPred2Val();
     
-  bool operator==(const PartEdgePtr& o) const;
-  bool operator<(const PartEdgePtr& o)  const;
+  bool equal(const PartEdgePtr& o) const;
+  bool less(const PartEdgePtr& o)  const;
   
   // Pretty print for the object
   std::string str(std::string indent="");
@@ -234,6 +225,22 @@ class DeadPathElimAnalysis : public IntraFWDataflow
   
   boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr part, CFGNode cn, 
                                                                NodeState& state, map<PartEdgePtr, vector<Lattice*> >& dfInfo);
+  
+  // Abstract interpretation functions that return this analysis' abstractions that 
+  // represent the outcome of the given SgExpression. The default implementations of 
+  // these throw NotImplementedException so that if a derived class does not implement 
+  // any of these functions, the Composer is informed.
+  //
+  // The objects returned by these functions are expected to be deallocated by their callers.
+  
+  // Calls composer->Expr2Val() on the base edge of pedge
+  ValueObjectPtr   Expr2Val    (SgNode* n, PartEdgePtr pedge);
+  
+  // Calls composer->Expr2CodeLoc() on the base edge of pedge
+  MemLocObjectPtr  Expr2MemLoc (SgNode* n, PartEdgePtr pedge);
+  
+  // Calls composer->Expr2CodeLoc() on the base edge of pedge
+  CodeLocObjectPtr Expr2CodeLoc(SgNode* n, PartEdgePtr pedge);
   
   // Return the anchor Parts of a given function
   PartPtr GetFunctionStartPart(const Function& func);

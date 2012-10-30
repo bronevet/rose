@@ -322,7 +322,9 @@ CodeLocMap* ChainComposer::NewCodeLocMap() { return new CodeLocMap(); }*/
 // ----- Composition Driver -----
 // ------------------------------
   
-ChainComposer::ChainComposer(int argc, char** argv, list<ComposedAnalysis*>& analyses, SgProject* project) : allAnalyses(analyses)
+ChainComposer::ChainComposer(int argc, char** argv, list<ComposedAnalysis*>& analyses, 
+                             ComposedAnalysis* testAnalysis, bool verboseTest, SgProject* project) : 
+    allAnalyses(analyses), testAnalysis(testAnalysis), verboseTest(verboseTest)
 {
   //cout << "#allAnalyses="<<allAnalyses.size()<<endl;
   // Create an instance of the syntactic analysis and insert it at the front of the done list.
@@ -332,9 +334,9 @@ ChainComposer::ChainComposer(int argc, char** argv, list<ComposedAnalysis*>& ana
   
   // Inform each analysis of the composer's identity
   //cout << "#allAnalyses="<<allAnalyses.size()<<endl;
-  for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++) {
+  for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++)
     (*a)->setComposer(this);
-  }
+  if(testAnalysis) testAnalysis->setComposer(this);
 
   // If a project object is provided, store it. Otherwise, run the front end now.  
   if(project) this->project = project;
@@ -375,6 +377,12 @@ void ChainComposer::runAnalysis()
     
     // Record that we've completed the given analysis
     doneAnalyses.push_back(*a);
+  }
+  
+  if(testAnalysis) {
+    //UnstructuredPassInterDataflow inter_up(testAnalysis);
+    ContextInsensitiveInterProceduralDataflow inter_up(testAnalysis, graph);
+    inter_up.runAnalysis();
   }
   
   return;

@@ -6,6 +6,16 @@ using namespace std;
 
 namespace dataflow
 {
+bool AbstractObject::mustEqual(AbstractObjectPtr o, PartEdgePtr pedge)
+{
+  // If both AbstractObjects have non-NULL bases, we can tell that they're must-equal by simply confirming
+  // that their bases are equal
+  if(base && o->base && base==o->base) {
+    Dbg::dbg << "AbstractObject::mustEqual() base="<<cfgUtils::SgNode2Str(base)<<" o->base="<<cfgUtils::SgNode2Str(o->base)<<endl;
+    return true;
+  // Otherwise, we don't know and must answer conservatively
+  } else return false;
+}
 
 /* ########################
    ##### MemLocObject ##### 
@@ -28,6 +38,8 @@ bool MemLocObject::mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)
 }
 bool MemLocObject::mustEqual(MemLocObjectPtr o, PartEdgePtr pedge)
 {
+  if(AbstractObject::mustEqual(boost::static_pointer_cast<AbstractObject>(o), pedge)) return true;
+  
   // If both this and that are both expression objects or both not expression objects, use the
   // derived class' equality check
   //Dbg::dbg << "MemLocObject::mustEqual() dynamic_cast<const ExprObj*>(this)="<<dynamic_cast<const ExprObj*>(this)<<"="<<const_cast<MemLocObject*>(this)->str("")<<endl;
@@ -48,6 +60,8 @@ bool MemLocObject::mayEqual(AbstractObjectPtr o, PartEdgePtr pedge)
 
 bool MemLocObject::mustEqual(AbstractObjectPtr o, PartEdgePtr pedge)
 {
+  if(AbstractObject::mustEqual(o, pedge)) return true;
+  
   MemLocObjectPtr mo = boost::dynamic_pointer_cast<MemLocObject>(o);
   if(mo) return mustEqual(mo, pedge);
   else   return false;
@@ -193,12 +207,12 @@ std::string MemLocObjectPtrPair::strp(PartEdgePtr pedge, std::string indent)
    ################################ */
 
 template <bool defaultMayEq>
-CombinedMemLocObject<defaultMayEq>::CombinedMemLocObject(MemLocObjectPtr memLoc) {
+CombinedMemLocObject<defaultMayEq>::CombinedMemLocObject(MemLocObjectPtr memLoc) : MemLocObject(NULL) {
   memLocs.push_back(memLoc);
 }
 
 template <bool defaultMayEq>
-CombinedMemLocObject<defaultMayEq>::CombinedMemLocObject(const std::list<MemLocObjectPtr>& memLocs) : memLocs(memLocs) {}
+CombinedMemLocObject<defaultMayEq>::CombinedMemLocObject(const std::list<MemLocObjectPtr>& memLocs) : MemLocObject(NULL), memLocs(memLocs) {}
 
 // Creates a new CombinedMemLocObject. If all the sub-objects have a given type (Scalar, FunctionMemLoc, 
 // LabeledAggregate, Array or Pointer), the created CombinedMemLocObject has hte same type. Otherwise, the
@@ -435,12 +449,12 @@ std::string CodeLocObjectPtrPair::strp(PartEdgePtr pedge, std::string indent)
    ################################# */
 
 template <bool defaultMayEq>
-CombinedCodeLocObject<defaultMayEq>::CombinedCodeLocObject(CodeLocObjectPtr codeLoc) {
+CombinedCodeLocObject<defaultMayEq>::CombinedCodeLocObject(CodeLocObjectPtr codeLoc): MemLocObject(NULL) {
   codeLocs.push_back(codeLoc);
 }
 
 template <bool defaultMayEq>
-CombinedCodeLocObject<defaultMayEq>::CombinedCodeLocObject(const list<CodeLocObjectPtr>& codeLocs) : codeLocs(codeLocs) {}
+CombinedCodeLocObject<defaultMayEq>::CombinedCodeLocObject(const list<CodeLocObjectPtr>& codeLocs) : MemLocObject(NULL), codeLocs(codeLocs) {}
 
 template <bool defaultMayEq>
 void CombinedCodeLocObject<defaultMayEq>::add(CodeLocObjectPtr codeLoc) {
@@ -532,6 +546,8 @@ ValueObjectPtr NULLValueObject;
 
 bool ValueObject::mayEqual(AbstractObjectPtr o, PartEdgePtr pedge)
 {
+  if(AbstractObject::mustEqual(boost::static_pointer_cast<AbstractObject>(o), pedge)) return true;
+  
   ValueObjectPtr vo = boost::dynamic_pointer_cast<ValueObject>(o);
   if(vo) return mayEqual(vo, pedge);
   else   return false;
@@ -539,6 +555,8 @@ bool ValueObject::mayEqual(AbstractObjectPtr o, PartEdgePtr pedge)
 
 bool ValueObject::mustEqual(AbstractObjectPtr o, PartEdgePtr pedge)
 {
+  if(AbstractObject::mustEqual(boost::static_pointer_cast<AbstractObject>(o), pedge)) return true;
+  
   ValueObjectPtr vo = boost::dynamic_pointer_cast<ValueObject>(o);
   if(vo) return mustEqual(vo, pedge);
   else   return false;
@@ -629,12 +647,12 @@ bool ValueObject::equalValueExp(SgValueExp* e1, SgValueExp* e2, SgType* t)
    ################################ */
 
 template <bool defaultMayEq>
-CombinedValueObject<defaultMayEq>::CombinedValueObject(ValueObjectPtr val) {
+CombinedValueObject<defaultMayEq>::CombinedValueObject(ValueObjectPtr val) : ValueObject(NULL) {
   vals.push_back(val);
 }
 
 template <bool defaultMayEq>
-CombinedValueObject<defaultMayEq>::CombinedValueObject(const list<ValueObjectPtr>& vals) : vals(vals) {}
+CombinedValueObject<defaultMayEq>::CombinedValueObject(const list<ValueObjectPtr>& vals) : ValueObject(NULL), vals(vals) {}
 
 template <bool defaultMayEq>
 void CombinedValueObject<defaultMayEq>::add(ValueObjectPtr val) {
@@ -971,7 +989,7 @@ MemLocObjectPtr Pointer::getDereference(PartEdgePtr pedge)
 
 template <bool defaultMayEq>
 CombinedScalar<defaultMayEq>::CombinedScalar(const std::list<MemLocObjectPtr>& memLocs) : 
-    CombinedMemLocObject<defaultMayEq>(memLocs) {}
+    MemLocObject(NULL), CombinedMemLocObject<defaultMayEq>(memLocs), Scalar(NULL) {}
 
 // pretty print for the object
 template <bool defaultMayEq>
@@ -1010,7 +1028,7 @@ std::string CombinedScalar<defaultMayEq>::strp(PartEdgePtr pedge, std::string in
 
 template <bool defaultMayEq>
 CombinedFunctionMemLoc<defaultMayEq>::CombinedFunctionMemLoc(const std::list<MemLocObjectPtr>& memLocs) : 
-    CombinedMemLocObject<defaultMayEq>(memLocs) {}
+    MemLocObject(NULL), CombinedMemLocObject<defaultMayEq>(memLocs), FunctionMemLoc(NULL) {}
 
 // pretty print for the object
 template <bool defaultMayEq>
@@ -1262,7 +1280,7 @@ boost::shared_ptr<CombinedMemLocObject<defaultMayEq> >
 
 template <bool defaultMayEq>
 CombinedLabeledAggregate<defaultMayEq>::CombinedLabeledAggregate(const list<MemLocObjectPtr>& memLocs) : 
-    CombinedMemLocObject<defaultMayEq>(memLocs)
+    MemLocObject(NULL), CombinedMemLocObject<defaultMayEq>(memLocs), LabeledAggregate(NULL)
 {
   for(list<MemLocObjectPtr>::const_iterator ml=memLocs.begin(); ml!=memLocs.end(); ml++) {
     ROSE_ASSERT((*ml)->isLabeledAggregate());
@@ -1492,7 +1510,7 @@ boost::shared_ptr<CombinedMemLocObject<defaultMayEq> >
 
 template <bool defaultMayEq>
 CombinedArray<defaultMayEq>::CombinedArray(const list<MemLocObjectPtr>& memLocs) : 
-    CombinedMemLocObject<defaultMayEq>(memLocs)
+    MemLocObject(NULL), CombinedMemLocObject<defaultMayEq>(memLocs), Array(NULL)
 {
   for(list<MemLocObjectPtr>::const_iterator ml=memLocs.begin(); ml!=memLocs.end(); ml++) {
     ROSE_ASSERT((*ml)->isArray());
@@ -1606,7 +1624,7 @@ boost::shared_ptr<CombinedPointer<defaultMayEq> >
 
 template <bool defaultMayEq>
 CombinedPointer<defaultMayEq>::CombinedPointer(const list<MemLocObjectPtr>& memLocs) : 
-    CombinedMemLocObject<defaultMayEq>(memLocs)
+    MemLocObject(NULL), CombinedMemLocObject<defaultMayEq>(memLocs), Pointer(NULL)
 {
   for(list<MemLocObjectPtr>::const_iterator ml=memLocs.begin(); ml!=memLocs.end(); ml++) {
     ROSE_ASSERT((*ml)->isPointer());

@@ -158,7 +158,7 @@ class LDMemLocObject : public virtual MemLocObject
   LiveDeadMemAnalysis* ldma;
 
   public:
-  LDMemLocObject(MemLocObjectPtr parent_, LiveDeadMemAnalysis* ldma);
+  LDMemLocObject(SgNode* n, MemLocObjectPtr parent_, LiveDeadMemAnalysis* ldma);
   LDMemLocObject(const LDMemLocObject& that);
 
   bool mayEqualML(MemLocObjectPtr o, PartEdgePtr pedge);
@@ -183,13 +183,13 @@ typedef boost::shared_ptr<LDMemLocObject> LDMemLocObjectPtr;
 
 // Creates an instance of an LDMemLocObject that belongs to one of the MemLocObject categories
 // (LDMemLocObject sub-classes): LDScalar, LDFunctionMemLoc, LDLabeledAggregate, LDArray or LDPointer.
-LDMemLocObjectPtr createLDMemLocObjectCategory(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
+LDMemLocObjectPtr createLDMemLocObjectCategory(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
 
 //memory object that has no internal structure
 class LDScalar : virtual public LDMemLocObject, virtual public Scalar
 {
  public:
-   LDScalar(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
+   LDScalar(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
    
   // Implement the required functions by calling the real copies in LDMemLocObject
   bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqual(o, pedge); }
@@ -205,7 +205,7 @@ typedef boost::shared_ptr<LDScalar> LDScalarPtr;
 class LDFunctionMemLoc: virtual public LDMemLocObject, virtual public FunctionMemLoc
 {
 public:  
-  LDFunctionMemLoc(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
+  LDFunctionMemLoc(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
   
   // Implement the required functions by calling the real copies in LDMemLocObject
   bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqual(o, pedge); }
@@ -221,7 +221,7 @@ typedef boost::shared_ptr<LDFunctionMemLoc> LDFunctionMemLocPtr;
 class LDLabeledAggregate: virtual public LDMemLocObject, virtual public LabeledAggregate
 {
  public:
-   LDLabeledAggregate(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
+   LDLabeledAggregate(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
    
    // number of fields
    size_t fieldCount(PartEdgePtr pedge);
@@ -243,7 +243,7 @@ typedef boost::shared_ptr<LDLabeledAggregate> LDLabeledAggregatePtr;
 class LDArray: virtual public LDMemLocObject, virtual public Array
 {
  public:
-   LDArray(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
+   LDArray(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
    
    // Returns a memory object that corresponds to all the elements in the given array
    MemLocObjectPtr getElements(PartEdgePtr pedge);
@@ -272,7 +272,7 @@ typedef boost::shared_ptr<LDArray> LDArrayPtr;
 class LDPointer: virtual public LDMemLocObject, virtual public Pointer
 {
  public:
-   LDPointer(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
+   LDPointer(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
    
    MemLocObjectPtr getDereference(PartEdgePtr pedge);
    
