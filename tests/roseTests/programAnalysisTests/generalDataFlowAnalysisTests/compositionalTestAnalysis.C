@@ -43,7 +43,7 @@ int main(int argc, char** argv)
   }
   // Add the correctness checking analysis to run after all the others
   checkDataflowInfoPass* cdip = new checkDataflowInfoPass();
-  //analyses.push_back(cdip);
+  analyses.push_back(cdip);
   
   ChainComposer cc(argc, argv, analyses, cdip, false, project);
   cc.runAnalysis();
