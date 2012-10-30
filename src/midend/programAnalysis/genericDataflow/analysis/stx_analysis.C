@@ -1958,8 +1958,11 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   
   // a helper function to fill up std::vector<LabeledAggregateField*>  from a class/structure type
   // TODO handle static members,they should be treated as global variables , not instances
-  void fillUpElements(LabeledAggregatePtr* p, std::list<LabeledAggregateFieldPtr > & elements, SgClassType* c_t, PartEdgePtr pedge)
+  void fillUpElements(MemLocObjectPtr p, std::list<LabeledAggregateFieldPtr > & elements, SgClassType* c_t, PartEdgePtr pedge)
   {
+    ROSE_ASSERT(p != NULL);
+    LabeledAggregatePtr lp = boost::dynamic_pointer_cast<LabeledAggregate>(p);
+    ROSE_ASSERT(lp != NULL);
     assert (c_t != NULL);
     SgDeclarationStatement * decl = c_t ->get_declaration();
     assert (decl != NULL);

@@ -41,10 +41,10 @@ warn-unused-sources:
 # taintedFlowAnalysisTest, and pointerAliasAnalysisTest are commented out by Sriram. Don't forget to de-comment the
 # *_CHECK_TARGETS lines below when you enable a test again. [RPM 2012-09-24]
 
-bin_PROGRAMS += constantPropagationTest
-constantPropagationTest_SOURCES = constantPropagationTest.C
-EXTRA_DIST += constantPropagation.h
-CONST_PROP = ./constantPropagationTest
+bin_PROGRAMS += compositionalTestAnalysis
+compositionalTestAnalysis_SOURCES = compositionalTestAnalysis.C
+#EXTRA_DIST += constantPropagation.h
+CONST_PROP = ./compositionalTestAnalysis
 
 #bin_PROGRAMS += liveDeadVarAnalysisTest
 #liveDeadVarAnalysisTest_SOURCES = liveDeadVarAnalysisTest.C
@@ -91,7 +91,7 @@ clean-taint-analysis:
 # C++ constant propagation tests on local specimens ("cxxcpls" unique prefix)
 ###############################################################################################################################
 
-CXX_CONSTPROP_LOCAL_SPECIMENS = cp_test1.C
+CXX_CONSTPROP_LOCAL_SPECIMENS = cp_test1.C compositionalTestInput1.C compositionalTestInput2.C compositionalTestInput3.C compositionalTestInput4.C
 EXTRA_DIST += $(CXX_CONSTPROP_LOCAL_SPECIMENS) constantPropagationTest.conf cp_test_status.txt
 CXX_CONSTPROP_LOCAL_TESTS = $(addprefix cxxcpls_, $(addsuffix .passed, $(CXX_CONSTPROP_LOCAL_SPECIMENS)))
 $(CXX_CONSTPROP_LOCAL_TESTS): cxxcpls_%.passed: $(srcdir)/% $(TEST_EXIT_STATUS) $(CONST_PROP) constantPropagationTest.conf
@@ -506,8 +506,6 @@ clean-cxx-pointer-alias:
 	rm -f $(CXX_POINTER_ALIAS_TESTS:.passed=.out) $(CXX_POINTER_ALIAS_TESTS:.passed=.err)
 	rm -f $(patsubst cxxpa_%.passed, %*.dot, $(CXX_POINTER_ALIAS_TESTS))
 	rm -f detail.html index.html summary.html
-
-
 
 ###############################################################################################################################
 ### Automake check and clean rules
