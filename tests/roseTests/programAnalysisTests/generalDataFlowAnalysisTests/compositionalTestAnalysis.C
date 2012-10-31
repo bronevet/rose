@@ -41,11 +41,9 @@ int main(int argc, char** argv)
       else if(strcmp(analysisName, "orthogonalarrayanalysis")==0)     analyses.push_back(new OrthogonalArrayAnalysis());
     }
   }
-  // Add the correctness checking analysis to run after all the others
   checkDataflowInfoPass* cdip = new checkDataflowInfoPass();
-  analyses.push_back(cdip);
   
-  ChainComposer cc(argc, argv, analyses, cdip, false, project);
+  ChainComposer cc(argc, argv, analyses, cdip, false);
   cc.runAnalysis();
 
   if(cdip->getNumErrors() > 0) cout << cdip->getNumErrors() << " Errors Reported!"<<endl;
