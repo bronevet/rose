@@ -44,7 +44,7 @@ warn-unused-sources:
 bin_PROGRAMS += compositionalTestAnalysis
 compositionalTestAnalysis_SOURCES = compositionalTestAnalysis.C
 #EXTRA_DIST += constantPropagation.h
-CONST_PROP = ./compositionalTestAnalysis
+COMP_CONST_PROP = ./compositionalTestAnalysis
 
 #bin_PROGRAMS += liveDeadVarAnalysisTest
 #liveDeadVarAnalysisTest_SOURCES = liveDeadVarAnalysisTest.C
@@ -94,7 +94,7 @@ clean-taint-analysis:
 CXX_CONSTPROP_LOCAL_SPECIMENS = cp_test1.C compositionalTestInput1.C compositionalTestInput2.C compositionalTestInput3.C compositionalTestInput4.C
 EXTRA_DIST += $(CXX_CONSTPROP_LOCAL_SPECIMENS) constantPropagationTest.conf cp_test_status.txt
 CXX_CONSTPROP_LOCAL_TESTS = $(addprefix cxxcpls_, $(addsuffix .passed, $(CXX_CONSTPROP_LOCAL_SPECIMENS)))
-$(CXX_CONSTPROP_LOCAL_TESTS): cxxcpls_%.passed: $(srcdir)/% $(TEST_EXIT_STATUS) $(CONST_PROP) constantPropagationTest.conf
+$(CXX_CONSTPROP_LOCAL_TESTS): cxxcpls_%.passed: $(srcdir)/% $(TEST_EXIT_STATUS) $(COMP_CONST_PROP) constantPropagationTest.conf
 	@$(RTH_RUN) INPUT=$< ROSE_FLAGS=$(ROSE_FLAGS) CONST_PROP_INCL= $(srcdir)/constantPropagationTest.conf  $@
 
 C_CHECK_TARGETS += check-cxx-constprop-local
@@ -119,6 +119,10 @@ clean-cxx-constprop-local:
 # names to EXTRA_DIST since they are in some other directory.  Additional comments about the failing tests can be found
 # scattered through out commit c8f4d3c of this file.
 CXX_TESTDIR = $(top_srcdir)/tests/CompileTests/Cxx_tests
+
+#Run livedeadmem and constant propagation for all analysis using the following flag
+CP_ROSE_FLAGS ="-dataflow:livedeadmemanalysis -dataflow:constantpropagationanalysis"
+
 CXX_CONSTPROP_SPECIMENS =													 \
 	X.C lexPhase2003_01.C math.C test2001_01.C test2001_02.C test2001_05.C test2001_06.C test2001_07.C test2001_08.C	 \
 	test2001_09.C test2001_10.C test2001_11.C test2001_12.C test2001_13.C test2001_15.C test2001_16.C test2001_17.C		 \
@@ -225,8 +229,8 @@ CXX_CONSTPROP_SPECIMENS_HANGING = \
 	test2005_114.C
 
 CXX_CONSTPROP_TESTS = $(addprefix cxxcp_, $(addsuffix .passed, $(CXX_CONSTPROP_SPECIMENS)))
-$(CXX_CONSTPROP_TESTS): cxxcp_%.passed: $(CXX_TESTDIR)/% $(CONST_PROP) constantPropagationTest.conf
-	@$(RTH_RUN) INPUT=$< ROSE_FLAGS=$(ROSE_FLAGS) CONST_PROP_INCL=-I$(CXX_TESTDIR) $(srcdir)/constantPropagationTest.conf $@
+$(CXX_CONSTPROP_TESTS): cxxcp_%.passed: $(CXX_TESTDIR)/% $(COMP_CONST_PROP) constantPropagationTest.conf
+	@$(RTH_RUN) INPUT=$< ROSE_FLAGS=$(CP_ROSE_FLAGS) CONST_PROP_INCL=-I$(CXX_TESTDIR) $(srcdir)/constantPropagationTest.conf $@
 
 C_CHECK_TARGETS += check-cxx-constprop
 .PHONY: check-cxx-constprop
@@ -276,9 +280,9 @@ C_CONSTPROP_SPECIMENS_FAILING =											     \
 
 # The EXAMPLE_C_TESTCODES_VERIFIED_TO_PASS have ".C" extentions, not ".c", so we need to first copy each one to a new name.
 C_CONSTPROP_TESTS = $(addprefix ccp_, $(addsuffix .passed, $(C_CONSTPROP_SPECIMENS)))
-$(C_CONSTPROP_TESTS): ccp_%.passed: $(CXX_TESTDIR)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
+$(C_CONSTPROP_TESTS): ccp_%.passed: $(CXX_TESTDIR)/% $(TEST_EXIT_STATUS) $(COMP_CONST_PROP)
 	cp $< ${@:.C.passed=.c}
-	@$(RTH_RUN) INPUT=$< ROSE_FLAGS=$(ROSE_FLAGS) CONST_PROP_INCL=-I$(CXX_TESTDIR) $(srcdir)/constantPropagationTest.conf $@
+	@$(RTH_RUN) INPUT=$< ROSE_FLAGS=$(CP_ROSE_FLAGS) CONST_PROP_INCL=-I$(CXX_TESTDIR) $(srcdir)/constantPropagationTest.conf $@
 
 C_CHECK_TARGETS += check-c-constprop
 .PHONY: check-c-constprop
@@ -305,8 +309,8 @@ C99_CONSTPROP_SPECIMENS = bool.c complex_01.c complex_03.c constants.c test2005_
 C99_CONSTPROP_SPECIMENS_FAILING = test2008_01.c
 
 C99_CONSTPROP_TESTS = $(addprefix c99cp_, $(addsuffix .passed, $(C99_CONSTPROP_SPECIMENS)))
-$(C99_CONSTPROP_TESTS): c99cp_%.passed: $(C99_TESTDIR)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
-	@$(RTH_RUN) INPUT=$< ROSE_FLAGS=$(ROSE_FLAGS) CONST_PROP_INCL=-I$(C99_TESTDIR) $(srcdir)/constantPropagationTest.conf $@
+$(C99_CONSTPROP_TESTS): c99cp_%.passed: $(C99_TESTDIR)/% $(TEST_EXIT_STATUS) $(COMP_CONST_PROP)
+	@$(RTH_RUN) INPUT=$< ROSE_FLAGS=$(CP_ROSE_FLAGS) CONST_PROP_INCL=-I$(C99_TESTDIR) $(srcdir)/constantPropagationTest.conf $@
 
 
 C_CHECK_TARGETS += check-c99-constprop
@@ -347,8 +351,8 @@ F77_CONSTPROP_SPECIMENS_FAILING_CFG =										 \
 	test2007_227.f test2007_256.f test2007_258.f
 
 F77_CONSTPROP_TESTS = $(addprefix f77cp_, $(addsuffix .passed, $(F77_CONSTPROP_SPECIMENS)))
-$(F77_CONSTPROP_TESTS): f77cp_%.passed: $(F77_TESTDIR)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
-	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -rose:f77 -c $<" $(TEST_EXIT_STATUS) $@
+$(F77_CONSTPROP_TESTS): f77cp_%.passed: $(F77_TESTDIR)/% $(TEST_EXIT_STATUS) $(COMP_CONST_PROP)
+	@$(RTH_RUN) CMD="$(CONST_PROP) $(CP_ROSE_FLAGS) -rose:f77 -c $<" $(TEST_EXIT_STATUS) $@
 
 #!# FIXME: This needs to be de-commented eventually. Commented out by Sriram. [RPM 2012-10-04]
 #!#
@@ -399,8 +403,8 @@ F90_CONSTPROP_SPECIMENS_FAILING_CFG =									   \
 	test2007_99.f90
 
 F90_CONSTPROP_TESTS = $(addprefix f90cp_, $(addsuffix .passed, $(F90_CONSTPROP_SPECIMENS)))
-$(F90_CONSTPROP_TESTS): f90cp_%.passed: $(F90_TESTDIR)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
-	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -rose:f90 -c $<" $(TEST_EXIT_STATUS) $@
+$(F90_CONSTPROP_TESTS): f90cp_%.passed: $(F90_TESTDIR)/% $(TEST_EXIT_STATUS) $(COMP_CONST_PROP)
+	@$(RTH_RUN) CMD="$(CONST_PROP) $(CP_ROSE_FLAGS) -rose:f90 -c $<" $(TEST_EXIT_STATUS) $@
 
 #!# FIXME: This needs to be de-commented eventually. Commented out by Sriram. [RPM 2012-10-04]
 #!#
@@ -434,8 +438,8 @@ F03_CONSTPROP_SPECIMENS_FAILING_CFG =									  \
 	test2007_30.f03 test2007_35.f03 test2007_43.f03 test2007_45.f03
 
 F03_CONSTPROP_TESTS = $(addprefix f03cp_, $(addsuffix .passed, $(F03_CONSTPROP_SPECIMENS)))
-$(F03_CONSTPROP_TESTS): f03cp_%.passed: $(F03_TESTDIR)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
-	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -rose:skip_syntax_check -rose:skipfinalCompileStep -rose:f2003 -c $<" \
+$(F03_CONSTPROP_TESTS): f03cp_%.passed: $(F03_TESTDIR)/% $(TEST_EXIT_STATUS) $(COMP_CONST_PROP)
+	@$(RTH_RUN) CMD="$(CONST_PROP) $(CP_ROSE_FLAGS) -rose:skip_syntax_check -rose:skipfinalCompileStep -rose:f2003 -c $<" \
 		$(TEST_EXIT_STATUS) $@
 
 #!# FIXME: This needs to be de-commented eventually. Commented out by Sriram. [RPM 2012-10-04]

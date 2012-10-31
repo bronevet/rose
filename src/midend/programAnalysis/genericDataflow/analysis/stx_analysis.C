@@ -2707,27 +2707,27 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     // We define the following SgType as scalar types: 
     // char, short, int, long , void, Wchar, Float, double, long long, string, bool, complex, imaginary 
     { 
-        rt = boost::make_shared<ScalarNamedObj>(anchor_symbol, t, parent, iv, pedge); 
+        rt = boost::make_shared<ScalarNamedObj>(n, anchor_symbol, t, parent, iv, pedge); 
     }
     else if (isSgFunctionType(t) || (isSgReferenceType(t) && isSgFunctionType(isSgReferenceType(t)->get_base_type())))
     { 
-        rt = boost::make_shared<FunctionNamedObj>(anchor_symbol, pedge); 
+        rt = boost::make_shared<FunctionNamedObj>(n, anchor_symbol, pedge); 
     }
     else if (isSgPointerType(t) || (isSgReferenceType(t) && isSgPointerType(isSgReferenceType(t)->get_base_type())))
     { 
-        rt = boost::make_shared<PointerNamedObj>(anchor_symbol, t, parent, iv, pedge); 
+        rt = boost::make_shared<PointerNamedObj>(n, anchor_symbol, t, parent, iv, pedge); 
     }
     else if (isSgClassType(t) || (isSgReferenceType(t) && isSgClassType(isSgReferenceType(t)->get_base_type())))
     {
         // #SA 10/15/12
         // Stripping init() from constructor
         // 
-        rt = boost::make_shared<LabeledAggregateNamedObj>(anchor_symbol, t, parent, iv, pedge);
+        rt = boost::make_shared<LabeledAggregateNamedObj>(n, anchor_symbol, t, parent, iv, pedge);
         boost::dynamic_pointer_cast<LabeledAggregateNamedObj>(rt)->init(anchor_symbol, t, parent, iv, pedge);
     }
     else if (isSgArrayType(t) || (isSgReferenceType(t) && isSgArrayType(isSgReferenceType(t)->get_base_type()))) // This is for the entire array variable
     { 
-        rt = boost::make_shared<ArrayNamedObj>(anchor_symbol, t, parent, iv, pedge); 
+        rt = boost::make_shared<ArrayNamedObj>(n, anchor_symbol, t, parent, iv, pedge); 
     }
     else
     {
