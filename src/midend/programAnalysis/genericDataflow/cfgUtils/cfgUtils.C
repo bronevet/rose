@@ -16,30 +16,6 @@ using std::cout;
 
 namespace cfgUtils
 {
-  SgProject* project;
-
-  // =true if initCFGUtils has been called and =false otherwise
-  static bool CFGinitialized=false;
-
-  // initializes the cfgUtils module
-  void initCFGUtils(SgProject* project_arg)
-  {
-    // if the cfgUtils has not been initialized
-    if(project==NULL)
-    {
-      project = project_arg;
-      srand(time(NULL));
-    }
-    else
-      ROSE_ASSERT(project==project_arg);
-
-    CFGinitialized=true;
-  }
-
-  SgProject* getProject()
-  {
-    return project;
-  }
 // returns whether a given AST node that represents a constant is an integer and
 // sets val to be the numeric value of that integer (all integer types are included
 // but not floating point, characters, etc.)
@@ -130,7 +106,7 @@ CFGNode cfgUtils::getFuncStartCFG(SgFunctionDefinition* func)
   // We should never get here
   ROSE_ASSERT(0);
   
-  /*ROSE_STL_Container<SgNode*> funcParamL = NodeQuery::querySubTree(cfgUtils::getProject(), V_SgFunctionParameterList);
+  /*ROSE_STL_Container<SgNode*> funcParamL = NodeQuery::querySubTree(SageInterface::getSageInterface::getProject()(), V_SgFunctionParameterList);
   ROSE_ASSERT(funcParamL.size()==1);
   return CFGNode(*funcParamL.begin(), 0);*/
 }
@@ -148,7 +124,7 @@ string cfgUtils::genUniqueName()
 {
   string name = "temp_";
 
-  Rose_STL_Container<SgNode*> initNames = NodeQuery::querySubTree(project, V_SgInitializedName);
+  Rose_STL_Container<SgNode*> initNames = NodeQuery::querySubTree(SageInterface::getProject(), V_SgInitializedName);
   for(Rose_STL_Container<SgNode*>::iterator it = initNames.begin(); it!= initNames.end(); it++)
   {
     SgInitializedName *curName;
@@ -165,7 +141,7 @@ string cfgUtils::genUniqueName()
     }
   }
 
-  Rose_STL_Container<SgNode*> funcDecls = NodeQuery::querySubTree(project, V_SgFunctionDeclaration);
+  Rose_STL_Container<SgNode*> funcDecls = NodeQuery::querySubTree(SageInterface::getProject(), V_SgFunctionDeclaration);
   for(Rose_STL_Container<SgNode*>::iterator it = funcDecls.begin(); it!= funcDecls.end(); it++)
   {
     SgFunctionDeclaration *curDecl;
@@ -186,7 +162,7 @@ string cfgUtils::genUniqueName()
 // returns the SgFunctionDeclaration for the function with the given name
 SgFunctionDeclaration* cfgUtils::getFuncDecl(string name)
 {
-  Rose_STL_Container<SgNode*> funcDecls = NodeQuery::querySubTree(project, V_SgFunctionDeclaration);
+  Rose_STL_Container<SgNode*> funcDecls = NodeQuery::querySubTree(SageInterface::getProject(), V_SgFunctionDeclaration);
   for(Rose_STL_Container<SgNode*>::iterator it = funcDecls.begin(); it!= funcDecls.end(); it++)
   {
     SgFunctionDeclaration *curDecl;
@@ -204,12 +180,11 @@ SgFunctionDeclaration* cfgUtils::getFuncDecl(string name)
 // handles the case where decl->get_definition()==NULL
 SgFunctionDefinition* cfgUtils::funcDeclToDef(SgFunctionDeclaration* decl)
 {
-  ROSE_ASSERT(CFGinitialized);
   if(decl->get_definition())
     return decl->get_definition();
   else
   {
-    Rose_STL_Container<SgNode*> funcDefs = NodeQuery::querySubTree(project, V_SgFunctionDefinition);
+    Rose_STL_Container<SgNode*> funcDefs = NodeQuery::querySubTree(SageInterface::getProject(), V_SgFunctionDefinition);
     for(Rose_STL_Container<SgNode*>::iterator it = funcDefs.begin(); it!= funcDefs.end(); it++)
     {
       ROSE_ASSERT(isSgFunctionDefinition(*it));

@@ -78,9 +78,7 @@ class OrthogonalArrayAnalysis : virtual public IntraUndirDataflow
 {
   public:
   OrthogonalArrayAnalysis() : IntraUndirDataflow() {}
-  
-  void runAnalysis(const Function&  func, NodeState* state, bool, std::set<Function>) { }
-  
+    
   // The genInitLattice, genInitFact and transfer functions are not implemented since this 
   // is not a dataflow analysis.
    

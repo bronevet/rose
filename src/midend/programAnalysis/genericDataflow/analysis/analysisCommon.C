@@ -1,31 +1,25 @@
 #include "analysisCommon.h"
-
+#include "sageInterface.h"
 using namespace cfgUtils;
+using namespace SageInterface;
 
-//static SgProject* project;
+namespace dataflow {
 static SgIncidenceDirectedGraph* callGraph;
 
-void initAnalysis(SgProject* project)
+void initAnalysis()
 {
-        //project = p;
-        initCFGUtils(project);
-        
         // Create the Call Graph
-        CallGraphBuilder cgb(project);
+        CallGraphBuilder cgb(getProject());
         cgb.buildCallGraph();
         callGraph = cgb.getGraph(); 
         //GenerateDotGraph(graph, "test_example.callgraph.dot");
         
         // Create unique annotations on each expression to make it possible to assign each expression a unique variable name
-        SageInterface::annotateExpressionsWithUniqueNames(project);
+        SageInterface::annotateExpressionsWithUniqueNames(getProject());
 }
 
-/*SgProject* getProject()
-{
-        return project;
-}
-*/
 SgIncidenceDirectedGraph* getCallGraph()
 {
         return callGraph;
 }
+};

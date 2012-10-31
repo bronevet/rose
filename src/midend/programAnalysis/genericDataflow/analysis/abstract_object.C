@@ -391,6 +391,7 @@ CodeLocObjectPtr NULLCodeLocObject;
    ##### CodeLocObjectPtrPair ##### 
    ################################ */
 
+
 // Returns whether this object may/must be equal to o within the given Part p
 bool CodeLocObjectPtrPair::mayEqual(CodeLocObjectPtrPair that, PartEdgePtr pedge)
 {
@@ -449,12 +450,12 @@ std::string CodeLocObjectPtrPair::strp(PartEdgePtr pedge, std::string indent)
    ################################# */
 
 template <bool defaultMayEq>
-CombinedCodeLocObject<defaultMayEq>::CombinedCodeLocObject(CodeLocObjectPtr codeLoc): MemLocObject(NULL) {
+CombinedCodeLocObject<defaultMayEq>::CombinedCodeLocObject(CodeLocObjectPtr codeLoc): CodeLocObject(NULL) {
   codeLocs.push_back(codeLoc);
 }
 
 template <bool defaultMayEq>
-CombinedCodeLocObject<defaultMayEq>::CombinedCodeLocObject(const list<CodeLocObjectPtr>& codeLocs) : MemLocObject(NULL), codeLocs(codeLocs) {}
+CombinedCodeLocObject<defaultMayEq>::CombinedCodeLocObject(const list<CodeLocObjectPtr>& codeLocs) : CodeLocObject(NULL), codeLocs(codeLocs) {}
 
 template <bool defaultMayEq>
 void CombinedCodeLocObject<defaultMayEq>::add(CodeLocObjectPtr codeLoc) {
@@ -469,7 +470,7 @@ bool CombinedCodeLocObject<defaultMayEq>::mayEqualCL(CodeLocObjectPtr o, PartEdg
   boost::shared_ptr<CombinedCodeLocObject> that = boost::dynamic_pointer_cast<CombinedCodeLocObject>(o);
   // If the two combination objects include different numbers of CodeLocObjects, say that they may be equal since 
   // we can't be sure either way.
-  if(codeLocs.size() != that.codeLocs.size()) return true;
+  if(codeLocs.size() != that->codeLocs.size()) return true;
   
   // Compare all the pairs of CodeLocObjects in codeLocs and that.codeLocs, returning defaultMayEq if any pair
   // returns defaultMayEq since we're looking for the tightest (if defaultMayEq=false) / loosest (if defaultMayEq=true) 
@@ -490,7 +491,7 @@ bool CombinedCodeLocObject<defaultMayEq>::mustEqualCL(CodeLocObjectPtr o, PartEd
   boost::shared_ptr<CombinedCodeLocObject> that = boost::dynamic_pointer_cast<CombinedCodeLocObject>(o);
   // If the two combination  objects include different numbers of CodeLocObjects, say that they are not must equal since 
   // we can't be sure either way.
-  if(codeLocs.size() != that.codeLocs.size()) return false;
+  if(codeLocs.size() != that->codeLocs.size()) return false;
   
   // Compare all the pairs of CodeLocObjects in codeLocs and that.codeLocs, returning !defaultMayEq if any pair
   // returns !defaultMayEqual since we're looking for the tightest answer that any CodeLocObject in codeLocs can give
@@ -510,7 +511,7 @@ bool CombinedCodeLocObject<defaultMayEq>::isLive(PartEdgePtr pedge) const
 {
   // If this is a union type (defaultMayEq=true), an object is live if any of its components are live (weakest constraint)
   // If this is an intersection type (defaultMayEq=false), an object is dead if any of its components are dead (strongest constraint)
-  for(list<CodeLocObjectPtr>::iterator cl=codeLocs.begin(); cl!=codeLocs.end(); cl++)
+  for(list<CodeLocObjectPtr>::const_iterator cl=codeLocs.begin(); cl!=codeLocs.end(); cl++)
     if((*cl)->isLive(pedge) == defaultMayEq) return defaultMayEq;
   
   return !defaultMayEq;
@@ -536,6 +537,21 @@ std::string CombinedCodeLocObject<defaultMayEq>::str(std::string indent)
   oss << "]";
   
   return oss.str();
+}
+
+// Create a function that uses examples of combined objects to force the compiler to generate these classes
+static void exampleCombinedCodeLocObjects2(CodeLocObjectPtr cl, std::list<CodeLocObjectPtr> cls, IntersectCodeLocObject& i, UnionCodeLocObject& u, IntersectCodeLocObject& i2, UnionCodeLocObject& u2);
+static void exampleCombinedCodeLocObjects(CodeLocObjectPtr cl, std::list<CodeLocObjectPtr> cls)
+{
+  IntersectCodeLocObject exampleIntersectObject(cl);
+  UnionCodeLocObject     exampleUnionObject(cl);
+  IntersectCodeLocObject exampleIntersectObject2(cls);
+  UnionCodeLocObject     exampleUnionObject2(cls);
+  exampleCombinedCodeLocObjects2(cl, cls, exampleIntersectObject, exampleUnionObject, exampleIntersectObject2, exampleUnionObject2);
+}
+static void exampleCombinedCodeLocObjects2(CodeLocObjectPtr cl, std::list<CodeLocObjectPtr> cls, IntersectCodeLocObject& i, UnionCodeLocObject& u, IntersectCodeLocObject& i2, UnionCodeLocObject& u2)
+{
+  exampleCombinedCodeLocObjects(cl, cls);
 }
 
 /* #######################

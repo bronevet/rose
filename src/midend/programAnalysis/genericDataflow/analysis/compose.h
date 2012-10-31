@@ -23,255 +23,11 @@
 
 namespace dataflow {
 extern int composerDebugLevel;
-class ComposedAnalysis;
-class Composer
-{
-  public:
-   // Abstract interpretation functions that return this analysis' abstractions that 
-   // represent the outcome of the given SgExpression at the end of all execution prefixes
-   // that terminate at PartEdge pedge
-   // The objects returned by these functions are expected to be deallocated by their callers.
-   
-   virtual ValueObjectPtr       Expr2Val(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client)=0;
-   // Variant of Expr2Val that inquires about the value of the memory location denoted by the operand of the 
-   // given node n, where the part edge denotes the set of execution prefixes that terminate at SgNode n.
-   virtual ValueObjectPtr OperandExpr2Val(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client)=0;
-   
-   virtual MemLocObjectPtrPair  Expr2MemLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client)=0;
-   // Variant of Expr2MemLoc that inquires about the memory location denoted by the operand of the given node n, where
-   // the part denotes the set of prefixes that terminate at SgNode n.
-   virtual MemLocObjectPtrPair OperandExpr2MemLoc(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client)=0;
-   
-   virtual CodeLocObjectPtrPair Expr2CodeLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client)=0;
-   
-   // Return the anchor Parts of a given function
-   virtual PartPtr GetFunctionStartPart(const Function& func, ComposedAnalysis* client)=0;
-   virtual PartPtr GetFunctionEndPart(const Function& func, ComposedAnalysis* client)=0;
-
-   // Maps and Sets
-   /*virtual MemLocSet* NewValueSet()=0;
-   virtual ValueSet*  NewValueMap()=0;
-   
-   virtual MemLocSet* NewMemLocSet()=0;
-   virtual MemLocSet* NewMemLocMap()=0;
-   
-   virtual CodeLocSet* NewCodeLocSet()=0;
-   virtual CodeLocSet* NewCodeLocMap()=0;*/
-};
-typedef boost::shared_ptr<Composer> ComposerPtr;
-
-/*// Wraps all the information required to invoke methods within the composer from
-// within a given part and analysis
-class ComposerInv
-{
-protected:
-  Composer&         composer;
-  PartPtr           part;
-  ComposedAnalysis& analysis;
-
-public:
-  ComposerInv(Composer& _composer, PartPtr _part, ComposedAnalysis& _analysis) :
-  composer(_composer), part(_part), analysis(_analysis)
-  {}
-
-  // Abstract interpretation functions that return this analysis' abstractions that 
-  // represent the outcome of the given SgExpression. 
-  // The objects returned by these functions are expected to be deallocated by their callers.
-  ValueObjectPtr   Expr2Val(SgNode* n)
-  { return composer.Expr2Val(n, part, &analysis); }
-  MemLocObjectPtrPair Expr2MemLoc(SgNode* n)
-  { return composer.Expr2MemLoc(n, part, &analysis); }
-  CodeLocObjectPtrPair Expr2CodeLoc(SgNode* n)
-  { return composer.Expr2CodeLoc(n, part, &analysis); }
-  
-  // Return the anchor Parts of a given function
-  PartPtr GetFunctionStartPart(const Function& func)
-  { return composer.getFunctionStartPart(func); }
-  PartPtr GetFunctionEndPart(const Function& func)
-  { return composer.getFunctionEndPart(func); }
-  
-  friend class ComposerExpr2Obj;
-  friend class ComposerExpr2Val;
-  friend class ComposerExpr2MemLoc;
-  friend class ComposerExpr2CodeLoc;
-  friend class ComposerGetFunctionStartPart;
-  friend class ComposerGetFunctionEndPart;
-};
-typedef boost::shared_ptr<ComposerInv> ComposerInvPtr;*/
-
-// Wraps all the information requires to invoke the Expr2* method of the composer.
-// This class is instantiated with specific classes for invoking Expr2Val, Expr2MemLoc 
-// and Expr2CodeLoc and these instances can be passed down to generic data structures
-// to enable them to create a specific type of AbstractObject without knowing the type
-// of object they're creating.
-// GREG: Eliminating the common Expr2Obj method since now not all Expr2* methods return
-//       AbstractObjectPtrs
-class ComposerExpr2Obj
-{
-  protected:
-  Composer&         composer;
-  PartEdgePtr           pedge;
-  ComposedAnalysis& analysis;
-  
-  public:
-  ComposerExpr2Obj(Composer& composer, PartEdgePtr pedge, ComposedAnalysis& analysis) :
-  composer(composer), pedge(pedge), analysis(analysis) {}
-};
-typedef boost::shared_ptr<ComposerExpr2Obj> ComposerExpr2ObjPtr;
-
-class ComposerExpr2Val: public ComposerExpr2Obj
-{
-  public:
-  ComposerExpr2Val(Composer& composer, PartEdgePtr pedge, ComposedAnalysis& analysis) :
-      ComposerExpr2Obj(composer, pedge, analysis) {}
-  //ComposerExpr2Val(ComposerInv civ) : ComposerExpr2Obj(civ.composer, civ.part, civ.analysis) {}
-  
-  ValueObjectPtr Expr2Obj(SgNode* n)
-  { return composer.Expr2Val(n, pedge, &analysis); }
-};
-typedef boost::shared_ptr<ComposerExpr2Val> ComposerExpr2ValPtr;
-
-class ComposerExpr2MemLoc: public ComposerExpr2Obj
-{
-  public:
-  ComposerExpr2MemLoc(Composer& composer, PartEdgePtr pedge, ComposedAnalysis& analysis) :
-  ComposerExpr2Obj(composer, pedge, analysis) {}
-  //ComposerExpr2MemLoc(ComposerInv civ) : ComposerExpr2Obj(civ.composer, civ.part, civ.analysis) {}
-  
-  MemLocObjectPtrPair Expr2Obj(SgNode* n)
-  { return composer.Expr2MemLoc(n, pedge, &analysis); }
-};
-typedef boost::shared_ptr<ComposerExpr2MemLoc> ComposerExpr2MemLocPtr;
-
-class ComposerExpr2CodeLoc: public ComposerExpr2Obj
-{
-  public:
-  ComposerExpr2CodeLoc(Composer& composer, PartEdgePtr pedge, ComposedAnalysis& analysis) :
-    ComposerExpr2Obj(composer, pedge, analysis) {}
-  //ComposerExpr2CodeLoc(ComposerInv civ) : ComposerExpr2Obj(civ.composer, civ.part, civ.analysis) {}
-  
-  CodeLocObjectPtrPair Expr2Obj(SgNode* n)
-  { return composer.Expr2CodeLoc(n, pedge, &analysis); }
-};
-typedef boost::shared_ptr<ComposerExpr2CodeLoc> ComposerExpr2CodeLocPtr;
-
-class ComposerGetFunctionStartPart
-{
-  protected:
-  Composer&         composer;
-  ComposedAnalysis& analysis;
-  
-  public:
-  ComposerGetFunctionStartPart(Composer& composer, ComposedAnalysis& analysis) : composer(composer), analysis(analysis) {}
-  PartPtr GetFunctionStartPart(const Function& func)
-  { return composer.GetFunctionStartPart(func, &analysis); }
-};
-typedef boost::shared_ptr<ComposerGetFunctionStartPart> ComposerGetFunctionStartPartPtr;
-
-class ComposerGetFunctionEndPart
-{
-  protected:
-  Composer&         composer;
-  ComposedAnalysis& analysis;
-  
-  public:
-  ComposerGetFunctionEndPart(Composer& composer, ComposedAnalysis& analysis) : composer(composer), analysis(analysis) {}
-  PartPtr GetFunctionEndPart(const Function& func)
-  { return composer.GetFunctionStartPart(func, &analysis); }
-};
-typedef boost::shared_ptr<ComposerGetFunctionEndPart> ComposerGetFunctionEndPartPtr;
-
-// Classes FuncCaller and FuncCallerArgs wrap the functionality to call functions
-// Expr2* and ComposerGetFunction*Part on analyses inside the ChainComposer. FuncCaller
-// exposes the () operator that takes FuncCallerArgs as the argument. Specific implementations
-// decide what function the () operator actually calls and what the arguments actually are
-// but by abstracting these details away we can get a general algorithm for the ChainComposer to 
-// choose the analysis that implements a given function.
-/*class FuncCallerArgs : public printable
-{ 
-  // Dummy virtual methods to allow dynamic casting on classes derived from FuncCallerArgs
-  virtual void dummy() {}
-};
-*/
-template<class RetObject, class ArgsObject>
-class FuncCaller
-{
-  public:
-  // Calls the given analysis' implementation of Expr2*. The current Part
-  // is provided in case the implementation needs it
-  //virtual boost::shared_ptr<RetObject> operator()(SgNode* n, PartPtr part, ComposedAnalysis* a)=0;
-  virtual RetObject operator()(ArgsObject& args, ComposedAnalysis* client)=0;
-  // Returns the name of the function being called, for debugging purposes
-  virtual string funcName() const=0;
-};
-
-// Simple implementation of a Composer where the analyses form a linear sequence of 
-// dependences
-class ChainComposer : public Composer
-{
-  SgProject* project;
-  list<ComposedAnalysis*> allAnalyses;
-  list<ComposedAnalysis*> doneAnalyses;
-  // The optional pass that tests the results of the other analyses
-  ComposedAnalysis* testAnalysis;
-  // If true, the debug output of testAnalysis is emitted.
-  bool verboseTest;
-  
-  public:
-  ChainComposer(int argc, char** argv, list<ComposedAnalysis*>& analyses, ComposedAnalysis* testAnalysis, bool verboseTest, SgProject* project=NULL);
-  
-  //bool runAnalysis(const Function& func, NodeState* state);
-  void runAnalysis();
-  
-  // Generic function that looks up the composition chain from the given client 
-  // analysis and returns the result produced by the first instance of the function 
-  // called by the caller object found along the way.
-  template<class RetObject, class ArgsObject>
-  RetObject callServerAnalysisFunc(ArgsObject& args, ComposedAnalysis* client, 
-                                   FuncCaller<RetObject, const ArgsObject>& caller);
-  
-  // Abstract interpretation functions that return this analysis' abstractions that 
-  // represent the outcome of the given SgExpression. 
-  // The objects returned by these functions are expected to be deallocated by their callers.
-  ValueObjectPtr Expr2Val(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
-  // Variant of Expr2Val that inquires about the value of the memory location denoted by the operand of the 
-  // given node n, where the part denotes the set of prefixes that terminate at SgNode n.
-  ValueObjectPtr OperandExpr2Val(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client);
-  
-  MemLocObjectPtrPair Expr2MemLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
-  
-  private:
-  MemLocObjectPtrPair Expr2MemLoc_ex(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
-  
-  public:
-  // Variant of Expr2MemLoc that inquires about the memory location denoted by the operand of the given node n, where
-  // the part denotes the set of prefixes that terminate at SgNode n.
-  MemLocObjectPtrPair OperandExpr2MemLoc(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client);
-  
-  CodeLocObjectPtrPair Expr2CodeLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
-  
-  // Return the anchor Parts of a given function
-  PartPtr GetFunctionStartPart(const Function& func, ComposedAnalysis* client);
-  PartPtr GetFunctionEndPart(const Function& func, ComposedAnalysis* client);
-  
-  // Maps and Sets 
-  // (when analyses can implement these internally, these functions will also invoke 
-  //  callServerAnalysisFunc)
-  /*ValueSet* NewValueSet()  { return new ValueSet(); }
-  ValueMap* NewValueMap()  { return new ValueMap(); }
-  
-  MemLocSet* NewMemLocSet() { return new MemLocSet(); }
-  MemLocMap* NewMemLocMap() { return new MemLocMap(); }
-  
-  CodeLocSet* NewCodeLocSet() { return new CodeLocSet(); }
-  CodeLocMap* NewCodeLocMap() { return new CodeLocMap(); }*/
-};
-}; //namespace dataflow
+class Composer;
 
 // --------------------
 // ----- Analyses -----
 // --------------------
-namespace dataflow {
 class FunctionState;
   
 class NotImplementedException
@@ -458,7 +214,7 @@ class IntraUndirDataflow  : public ComposedAnalysis
   //void transferFunctionCall(const Function &func, PartPtr callPart, CFGNode callCFG, NodeState *state) {};
   vector<PartPtr> getDescendants(PartPtr p) { vector<PartPtr> empty; return empty; }
   vector<PartEdgePtr> getEdgesToDescendants(PartPtr part) { vector<PartEdgePtr> empty; return empty; }
-  PartPtr getUltimate(const Function &func) { return getComposer()->GetFunctionEndPart(func, this); }
+  PartPtr getUltimate(const Function &func) { return NULLPart; } 
   dataflowPartIterator* getIterator(const Function &func) { return NULL; }
   
   direction getDirection() { return none; }
@@ -468,8 +224,6 @@ class IntraUndirDataflow  : public ComposedAnalysis
     return true;
   }
 };
-
-
 
 // #####################################
 // ##### INTER-PROCEDURAL ANALYSES #####
@@ -757,6 +511,302 @@ class SetAllReturnStates : public UnstructuredPassIntraAnalysis
 
   // Returns the value of modified
   bool getModified() { return modified; }
+};
+
+// #####################
+// ##### COMPOSERS #####
+// #####################
+
+class Composer
+{
+  public:
+   // Abstract interpretation functions that return this analysis' abstractions that 
+   // represent the outcome of the given SgExpression at the end of all execution prefixes
+   // that terminate at PartEdge pedge
+   // The objects returned by these functions are expected to be deallocated by their callers.
+   
+   virtual ValueObjectPtr       Expr2Val(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client)=0;
+   // Variant of Expr2Val that inquires about the value of the memory location denoted by the operand of the 
+   // given node n, where the part edge denotes the set of execution prefixes that terminate at SgNode n.
+   virtual ValueObjectPtr OperandExpr2Val(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client)=0;
+   
+   virtual MemLocObjectPtrPair  Expr2MemLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client)=0;
+   // Variant of Expr2MemLoc that inquires about the memory location denoted by the operand of the given node n, where
+   // the part denotes the set of prefixes that terminate at SgNode n.
+   virtual MemLocObjectPtrPair OperandExpr2MemLoc(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client)=0;
+   
+   virtual CodeLocObjectPtrPair Expr2CodeLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client)=0;
+   
+   // Return the anchor Parts of a given function
+   virtual PartPtr GetFunctionStartPart(const Function& func, ComposedAnalysis* client)=0;
+   virtual PartPtr GetFunctionEndPart(const Function& func, ComposedAnalysis* client)=0;
+
+   // Maps and Sets
+   /*virtual MemLocSet* NewValueSet()=0;
+   virtual ValueSet*  NewValueMap()=0;
+   
+   virtual MemLocSet* NewMemLocSet()=0;
+   virtual MemLocSet* NewMemLocMap()=0;
+   
+   virtual CodeLocSet* NewCodeLocSet()=0;
+   virtual CodeLocSet* NewCodeLocMap()=0;*/
+};
+typedef boost::shared_ptr<Composer> ComposerPtr;
+
+/*// Wraps all the information required to invoke methods within the composer from
+// within a given part and analysis
+class ComposerInv
+{
+protected:
+  Composer&         composer;
+  PartPtr           part;
+  ComposedAnalysis& analysis;
+
+public:
+  ComposerInv(Composer& _composer, PartPtr _part, ComposedAnalysis& _analysis) :
+  composer(_composer), part(_part), analysis(_analysis)
+  {}
+
+  // Abstract interpretation functions that return this analysis' abstractions that 
+  // represent the outcome of the given SgExpression. 
+  // The objects returned by these functions are expected to be deallocated by their callers.
+  ValueObjectPtr   Expr2Val(SgNode* n)
+  { return composer.Expr2Val(n, part, &analysis); }
+  MemLocObjectPtrPair Expr2MemLoc(SgNode* n)
+  { return composer.Expr2MemLoc(n, part, &analysis); }
+  CodeLocObjectPtrPair Expr2CodeLoc(SgNode* n)
+  { return composer.Expr2CodeLoc(n, part, &analysis); }
+  
+  // Return the anchor Parts of a given function
+  PartPtr GetFunctionStartPart(const Function& func)
+  { return composer.getFunctionStartPart(func); }
+  PartPtr GetFunctionEndPart(const Function& func)
+  { return composer.getFunctionEndPart(func); }
+  
+  friend class ComposerExpr2Obj;
+  friend class ComposerExpr2Val;
+  friend class ComposerExpr2MemLoc;
+  friend class ComposerExpr2CodeLoc;
+  friend class ComposerGetFunctionStartPart;
+  friend class ComposerGetFunctionEndPart;
+};
+typedef boost::shared_ptr<ComposerInv> ComposerInvPtr;*/
+
+// Wraps all the information requires to invoke the Expr2* method of the composer.
+// This class is instantiated with specific classes for invoking Expr2Val, Expr2MemLoc 
+// and Expr2CodeLoc and these instances can be passed down to generic data structures
+// to enable them to create a specific type of AbstractObject without knowing the type
+// of object they're creating.
+// GREG: Eliminating the common Expr2Obj method since now not all Expr2* methods return
+//       AbstractObjectPtrs
+class ComposerExpr2Obj
+{
+  protected:
+  Composer&         composer;
+  PartEdgePtr           pedge;
+  ComposedAnalysis& analysis;
+  
+  public:
+  ComposerExpr2Obj(Composer& composer, PartEdgePtr pedge, ComposedAnalysis& analysis) :
+  composer(composer), pedge(pedge), analysis(analysis) {}
+};
+typedef boost::shared_ptr<ComposerExpr2Obj> ComposerExpr2ObjPtr;
+
+class ComposerExpr2Val: public ComposerExpr2Obj
+{
+  public:
+  ComposerExpr2Val(Composer& composer, PartEdgePtr pedge, ComposedAnalysis& analysis) :
+      ComposerExpr2Obj(composer, pedge, analysis) {}
+  //ComposerExpr2Val(ComposerInv civ) : ComposerExpr2Obj(civ.composer, civ.part, civ.analysis) {}
+  
+  ValueObjectPtr Expr2Obj(SgNode* n)
+  { return composer.Expr2Val(n, pedge, &analysis); }
+};
+typedef boost::shared_ptr<ComposerExpr2Val> ComposerExpr2ValPtr;
+
+class ComposerExpr2MemLoc: public ComposerExpr2Obj
+{
+  public:
+  ComposerExpr2MemLoc(Composer& composer, PartEdgePtr pedge, ComposedAnalysis& analysis) :
+  ComposerExpr2Obj(composer, pedge, analysis) {}
+  //ComposerExpr2MemLoc(ComposerInv civ) : ComposerExpr2Obj(civ.composer, civ.part, civ.analysis) {}
+  
+  MemLocObjectPtrPair Expr2Obj(SgNode* n)
+  { return composer.Expr2MemLoc(n, pedge, &analysis); }
+};
+typedef boost::shared_ptr<ComposerExpr2MemLoc> ComposerExpr2MemLocPtr;
+
+class ComposerExpr2CodeLoc: public ComposerExpr2Obj
+{
+  public:
+  ComposerExpr2CodeLoc(Composer& composer, PartEdgePtr pedge, ComposedAnalysis& analysis) :
+    ComposerExpr2Obj(composer, pedge, analysis) {}
+  //ComposerExpr2CodeLoc(ComposerInv civ) : ComposerExpr2Obj(civ.composer, civ.part, civ.analysis) {}
+  
+  CodeLocObjectPtrPair Expr2Obj(SgNode* n)
+  { return composer.Expr2CodeLoc(n, pedge, &analysis); }
+};
+typedef boost::shared_ptr<ComposerExpr2CodeLoc> ComposerExpr2CodeLocPtr;
+
+class ComposerGetFunctionStartPart
+{
+  protected:
+  Composer&         composer;
+  ComposedAnalysis& analysis;
+  
+  public:
+  ComposerGetFunctionStartPart(Composer& composer, ComposedAnalysis& analysis) : composer(composer), analysis(analysis) {}
+  PartPtr GetFunctionStartPart(const Function& func)
+  { return composer.GetFunctionStartPart(func, &analysis); }
+};
+typedef boost::shared_ptr<ComposerGetFunctionStartPart> ComposerGetFunctionStartPartPtr;
+
+class ComposerGetFunctionEndPart
+{
+  protected:
+  Composer&         composer;
+  ComposedAnalysis& analysis;
+  
+  public:
+  ComposerGetFunctionEndPart(Composer& composer, ComposedAnalysis& analysis) : composer(composer), analysis(analysis) {}
+  PartPtr GetFunctionEndPart(const Function& func)
+  { return composer.GetFunctionStartPart(func, &analysis); }
+};
+typedef boost::shared_ptr<ComposerGetFunctionEndPart> ComposerGetFunctionEndPartPtr;
+
+// Classes FuncCaller and FuncCallerArgs wrap the functionality to call functions
+// Expr2* and ComposerGetFunction*Part on analyses inside the ChainComposer. FuncCaller
+// exposes the () operator that takes FuncCallerArgs as the argument. Specific implementations
+// decide what function the () operator actually calls and what the arguments actually are
+// but by abstracting these details away we can get a general algorithm for the ChainComposer to 
+// choose the analysis that implements a given function.
+/*class FuncCallerArgs : public printable
+{ 
+  // Dummy virtual methods to allow dynamic casting on classes derived from FuncCallerArgs
+  virtual void dummy() {}
+};
+*/
+template<class RetObject, class ArgsObject>
+class FuncCaller
+{
+  public:
+  // Calls the given analysis' implementation of Expr2*. The current Part
+  // is provided in case the implementation needs it
+  //virtual boost::shared_ptr<RetObject> operator()(SgNode* n, PartPtr part, ComposedAnalysis* a)=0;
+  virtual RetObject operator()(ArgsObject& args, ComposedAnalysis* client)=0;
+  // Returns the name of the function being called, for debugging purposes
+  virtual string funcName() const=0;
+};
+
+// Simple implementation of a Composer where the analyses form a linear sequence of 
+// dependences
+class ChainComposer : public Composer
+{
+  SgProject* project;
+  list<ComposedAnalysis*> allAnalyses;
+  list<ComposedAnalysis*> doneAnalyses;
+  // The optional pass that tests the results of the other analyses
+  ComposedAnalysis* testAnalysis;
+  // If true, the debug output of testAnalysis is emitted.
+  bool verboseTest;
+  
+  public:
+  ChainComposer(int argc, char** argv, std::list<ComposedAnalysis*>& analyses, 
+                ComposedAnalysis* testAnalysis, bool verboseTest);
+  
+  //bool runAnalysis(const Function& func, NodeState* state);
+  void runAnalysis();
+  
+  // Generic function that looks up the composition chain from the given client 
+  // analysis and returns the result produced by the first instance of the function 
+  // called by the caller object found along the way.
+  template<class RetObject, class ArgsObject>
+  RetObject callServerAnalysisFunc(ArgsObject& args, ComposedAnalysis* client, 
+                                   FuncCaller<RetObject, const ArgsObject>& caller);
+
+  // Abstract interpretation functions that return this analysis' abstractions that 
+  // represent the outcome of the given SgExpression. 
+  // The objects returned by these functions are expected to be deallocated by their callers.
+  ValueObjectPtr Expr2Val(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
+  // Variant of Expr2Val that inquires about the value of the memory location denoted by the operand of the 
+  // given node n, where the part denotes the set of prefixes that terminate at SgNode n.
+  ValueObjectPtr OperandExpr2Val(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client);
+  
+  MemLocObjectPtrPair Expr2MemLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
+  
+  private:
+  MemLocObjectPtrPair Expr2MemLoc_ex(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
+  
+  public:
+  // Variant of Expr2MemLoc that inquires about the memory location denoted by the operand of the given node n, where
+  // the part denotes the set of prefixes that terminate at SgNode n.
+  MemLocObjectPtrPair OperandExpr2MemLoc(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client);
+  
+  CodeLocObjectPtrPair Expr2CodeLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
+  
+  // Return the anchor Parts of a given function
+  PartPtr GetFunctionStartPart(const Function& func, ComposedAnalysis* client);
+  PartPtr GetFunctionEndPart(const Function& func, ComposedAnalysis* client);
+};
+
+// Composer that invokes multiple analyses in parallel (they do not interact) and runs them to completion independently.
+// It also implements the ComposedAnalysis interface and can be used by another Composer as an analysis. Thus, when this
+// Composer's constituent analyses ask a query on the composer, it merely forwards this query to its parent Composer.
+// Further, when its parent Composer makes queries of it, this Composer forwards those queries to its constituent 
+// analyses and returns an Intersection object that contains their responses.
+class LooseParallelComposer : public Composer, public IntraUndirDataflow
+{
+  list<ComposedAnalysis*> allAnalyses;
+  
+  public:
+  LooseParallelComposer(int argc, char** argv, list<ComposedAnalysis*>& analyses);
+
+  // ---------------------------------
+  // ----- Methods from Composer -----
+  // ---------------------------------
+  void runAnalysis();
+  
+  // The Expr2* and GetFunction*Part functions are implemented by calling the same functions in the parent composer
+  
+  // Abstract interpretation functions that return this analysis' abstractions that 
+  // represent the outcome of the given SgExpression. 
+  // The objects returned by these functions are expected to be deallocated by their callers.
+  ValueObjectPtr Expr2Val(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
+  // Variant of Expr2Val that inquires about the value of the memory location denoted by the operand of the 
+  // given node n, where the part denotes the set of prefixes that terminate at SgNode n.
+  ValueObjectPtr OperandExpr2Val(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client);
+  
+  MemLocObjectPtrPair Expr2MemLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
+  // Variant of Expr2MemLoc that inquires about the memory location denoted by the operand of the given node n, where
+  // the part denotes the set of prefixes that terminate at SgNode n.
+  MemLocObjectPtrPair OperandExpr2MemLoc(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client);
+  
+  CodeLocObjectPtrPair Expr2CodeLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
+  
+  // Return the anchor Parts of a given function
+  PartPtr GetFunctionStartPart(const Function& func, ComposedAnalysis* client);
+  PartPtr GetFunctionEndPart(const Function& func, ComposedAnalysis* client);
+  
+  // -----------------------------------------
+  // ----- Methods from ComposedAnalysis -----
+  // -----------------------------------------
+  
+  // The Expr2* and GetFunction*Part functions are implemented by calling the same functions in each of the 
+  // constituent analyses and returning an Intersection object that includes their responses
+  
+  // Abstract interpretation functions that return this analysis' abstractions that 
+  // represent the outcome of the given SgExpression. The default implementations of 
+  // these throw NotImplementedException so that if a derived class does not implement 
+  // any of these functions, the Composer is informed.
+  //
+  // The objects returned by these functions are expected to be deallocated by their callers.
+  ValueObjectPtr   Expr2Val    (SgNode* n, PartEdgePtr pedge);
+  MemLocObjectPtr  Expr2MemLoc (SgNode* n, PartEdgePtr pedge);
+  CodeLocObjectPtr Expr2CodeLoc(SgNode* n, PartEdgePtr pedge);
+  
+  // Return the anchor Parts of a given function
+  PartPtr GetFunctionStartPart(const Function& func);
+  PartPtr GetFunctionEndPart(const Function& func) ;
 };
 
 

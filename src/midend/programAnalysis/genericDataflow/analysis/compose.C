@@ -8,6 +8,262 @@ namespace dataflow
 {
 int composerDebugLevel=1;
 
+/****************************
+ ***** ComposedAnalysis *****
+ ****************************/
+
+std::map<PartEdgePtr, std::vector<Lattice*> > IntraUndirDataflow::emptyMap;
+
+// Generates the initial lattice state for the given dataflow node, in the given function. Implementations 
+// fill in the lattices above and below this part, as well as the facts, as needed. Since in many cases
+// the lattices above and below each node are the same, implementors can alternately implement the 
+// genInitLattice and genInitFact functions, which are called by the default implementation of initializeState.
+void ComposedAnalysis::initializeState(const Function& func, PartPtr part, NodeState& state)
+{
+  if(getDirection()==none) return;
+  
+  // Analyses associate all arriving information with a single NULL edge and all departing information
+  // with the edge on which the information departs
+  if(getDirection()==fw) {
+    std::vector<Lattice*> lats;
+    genInitLattice(func, part, part->inEdgeFromAny(), lats);
+    state.setLatticeAbove(this, lats);
+  } else if(getDirection()==bw) {
+    std::vector<Lattice*> lats;
+    genInitLattice(func, part, part->outEdgeToAny(), lats);
+    state.setLatticeBelow(this, lats);
+  }
+  
+  // Don't initialize the departing informaiton. This will be set by ComposedAnalysis::runAnalysis() when
+  // it first touches the part
+  /*vector<PartEdgePtr> edges = part->outEdges();
+  for(vector<PartEdgePtr>::iterator e=edges.begin(); e!=edges.end(); e++) {
+    std::vector<Lattice*> lats;
+    genInitLattice(func, part, *e, lats);
+
+    if(getDirection()==fw)      state.setLatticeBelow(this, *e, lats);
+    else if(getDirection()==bw) state.setLatticeAbove(this, *e, lats);
+  }*/
+  
+  vector<NodeFact*> initFacts;
+  genInitFact(func, part, initFacts);
+  state.setFacts(this, initFacts);
+}
+
+
+/******************************************************
+ ***      printDataflowInfoPass         ***
+ *** Prints out the dataflow information associated ***
+ *** with a given analysis for every CFG node a     ***
+ *** function.              ***
+ ******************************************************/
+
+// Initializes the state of analysis lattices at the given function, part and edge into our out of the part
+// by setting initLattices to refer to freshly-allocated Lattice objects.
+void printDataflowInfoPass::genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
+                                           std::vector<Lattice*>& initLattices)
+{
+  initLattices.push_back((Lattice*)(new BoolAndLattice(0, pedge)));
+}
+  
+bool printDataflowInfoPass::transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
+                                     std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo)
+{
+  Dbg::dbg << "-----#############################--------\n";
+  Dbg::dbg << "Node: ["<<part->str()<<"\n";
+  Dbg::dbg << "State:\n";
+  Dbg::indent ind(analysisDebugLevel, 1); 
+  Dbg::dbg << state.str(analysis)<<endl;
+  
+  return dynamic_cast<BoolAndLattice*>(dfInfo[NULLPartEdge][0])->set(true);
+}
+
+/***************************************************
+ ***            checkDataflowInfoPass            ***
+ *** Checks the results of the composed analysis ***
+ *** chain at special assert calls.              ***
+ ***************************************************/
+
+// Initializes the state of analysis lattices at the given function, part and edge into our out of the part
+// by setting initLattices to refer to freshly-allocated Lattice objects.
+void checkDataflowInfoPass::genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
+                                           std::vector<Lattice*>& initLattices)
+{
+  initLattices.push_back((Lattice*)(new BoolAndLattice(0, pedge)));
+}
+  
+bool checkDataflowInfoPass::transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
+                                     std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo)
+{
+  set<CFGNode> nodes = part->CFGNodes();
+  for(set<CFGNode>::iterator n=nodes.begin(); n!=nodes.end(); n++) {
+    if(SgFunctionCallExp* call = isSgFunctionCallExp(n->getNode())) {
+      Function func(call);
+      if(func.get_name().getString() == "CompDebugAssert") {
+        SgExpressionPtrList args = call->get_args()->get_expressions();
+        for(SgExpressionPtrList::iterator a=args.begin(); a!=args.end(); a++) {
+          ValueObjectPtr v = getComposer()->OperandExpr2Val(call, *a, part->inEdgeFromAny(), this);
+          ostringstream errorMesg;
+          if(!v->isConcrete())
+            errorMesg << "Debug assertion at "<<call->get_file_info()->get_filenameString()<<":"<<call->get_file_info()->get_line()<<" failed: concrete interpretation not available! test="<<(*a)->unparseToString()<<" v="<<v->str();
+          else if(!ValueObject::isValueBoolCompatible(v->getConcreteValue()))
+            errorMesg << "Debug assertion at "<<call->get_file_info()->get_filenameString()<<":"<<call->get_file_info()->get_line()<<" failed: interpretation not convertible to a boolean! test="<<(*a)->unparseToString()<<" v="<<v->str()<<" v->getConcreteValue()="<<cfgUtils::SgNode2Str(v->getConcreteValue().get());
+          else if(!ValueObject::SgValue2Bool(v->getConcreteValue())) 
+            errorMesg << "Debug assertion at "<<call->get_file_info()->get_filenameString()<<":"<<call->get_file_info()->get_line()<<" failed: test evaluates to false! test="<<(*a)->unparseToString()<<" v="<<v->str()<<" v->getConcreteValue()="<<cfgUtils::SgNode2Str(v->getConcreteValue().get());
+          
+          if(errorMesg.str() != "") {
+            cerr << errorMesg.str() << endl;
+            Dbg::dbg << "<h1><font color=\"#ff0000\">"<<errorMesg.str()<<"</font></h1>"<<endl;
+            numErrors++;
+          }
+        }
+      }
+    }
+  }
+  
+  return dynamic_cast<BoolAndLattice*>(dfInfo[NULLPartEdge][0])->set(true);
+}
+
+// #####################
+// ##### COMPOSERS #####
+// #####################
+
+// --------------------------
+// ----- Chain Composer -----
+// --------------------------
+  
+ChainComposer::ChainComposer(int argc, char** argv, list<ComposedAnalysis*>& analyses, 
+                             ComposedAnalysis* testAnalysis, bool verboseTest) : 
+    allAnalyses(analyses), testAnalysis(testAnalysis), verboseTest(verboseTest)
+{
+  //cout << "#allAnalyses="<<allAnalyses.size()<<endl;
+  // Create an instance of the syntactic analysis and insert it at the front of the done list.
+  // This analysis will be called last if matching functions do not exist in any other
+  // analysis and does not need a round of fixed-point iteration to produce its results.
+  doneAnalyses.push_front((ComposedAnalysis*)new SyntacticAnalysis());
+  
+  // Inform each analysis of the composer's identity
+  //cout << "#allAnalyses="<<allAnalyses.size()<<endl;
+  for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++)
+    (*a)->setComposer(this);
+  if(testAnalysis) testAnalysis->setComposer(this);
+  
+  initAnalysis();
+  Dbg::init("Composed Analysis", ".", "index.html");
+}
+
+void ChainComposer::runAnalysis()
+{
+  int i=1;
+  for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++, i++) {
+    ostringstream label; label << "Running Analysis "<<i<<": "<<(*a)->str("");
+    Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
+    
+    ContextInsensitiveInterProceduralDataflow inter_cc(*a, getCallGraph());
+    inter_cc.runAnalysis();
+    /*UnstructuredPassInterDataflow up_cc(*a);
+    up_cc.runAnalysis();*/
+    
+    if(composerDebugLevel >= 3) {
+      Dbg::region reg(composerDebugLevel, 3, Dbg::region::topLevel, label.str()+" Final State");
+      std::vector<int> factNames;
+      std::vector<int> latticeNames;
+      latticeNames.push_back(0);
+      printAnalysisStates paa(*a, factNames, latticeNames, printAnalysisStates::below);
+      UnstructuredPassInterAnalysis up_paa(paa);
+      up_paa.runAnalysis();
+    }
+    
+    // Record that we've completed the given analysis
+    doneAnalyses.push_back(*a);
+  }
+  
+  if(testAnalysis) {
+    //UnstructuredPassInterDataflow inter_up(testAnalysis);
+    ContextInsensitiveInterProceduralDataflow inter_up(testAnalysis, getCallGraph());
+    inter_up.runAnalysis();
+  }
+  
+  return;
+}
+ 
+// Generic function that looks up the composition chain from the given client 
+// analysis and returns the result produced by the first instance of the function 
+// called by the caller object found along the way.
+template<class RetObject, class FuncCallerArgs>
+RetObject ChainComposer::callServerAnalysisFunc(FuncCallerArgs& args, ComposedAnalysis* client,
+                                   FuncCaller<RetObject, const FuncCallerArgs>& caller) {
+  if(composerDebugLevel>=2) Dbg::dbg << "ChainComposer::callServerAnalysisFunc() "<<caller.funcName()<<" #doneAnalyses="<<doneAnalyses.size()<<endl;
+  ROSE_ASSERT(doneAnalyses.size()>0);
+  /*for(list<ComposedAnalysis*>::reverse_iterator a=doneAnalyses.rbegin(); a!=doneAnalyses.rend(); a++) {
+      Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<(*a)->str("")<<" : "<<(*a)<<endl;
+  }*/
+  list<ComposedAnalysis*> doneAnalyses_back;
+  // Iterate backwards looking for an analysis that implements caller() behind in the chain of completed analyses
+  list<ComposedAnalysis*>::reverse_iterator a=doneAnalyses.rbegin();
+  while(doneAnalyses.size() >= 0) {
+    std::ostringstream label; label << caller.funcName() << "  : " << (*a)->str("") << " " << args.str();
+    Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
+    ComposedAnalysis* curAnalysis = *a;
+    // Move the current analysis from doneAnalyses onto a backup list to ensure that in recursive calls
+    // to callServerAnalysisFunc() doneAnalyses excludes the current analysis. doneAnalyses will be restored
+    // at the end of this function.
+    doneAnalyses_back.push_front(curAnalysis);
+    doneAnalyses.pop_back();
+    a=doneAnalyses.rbegin();
+    
+    /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Post-pop doneAnalysis="<<endl;
+    for(list<ComposedAnalysis*>::iterator a=doneAnalyses.begin(); a!=doneAnalyses.end(); a++)
+    { Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"<<(*a)->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl; }
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Post-pop doneAnalyses_back="<<endl;
+    for(list<ComposedAnalysis*>::iterator a=doneAnalyses_back.begin(); a!=doneAnalyses_back.end(); a++)
+    { Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"<<(*a)->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl; }
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Post-pop a="<<(a!=doneAnalyses.rend()?(*a)->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"):"END")<<endl;*/
+    
+    try {
+      //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;In TRY, caller="<<caller.funcName()<<endl;
+      RetObject v(caller(args, curAnalysis));
+      ROSE_ASSERT(v);
+      // If control reaches here, we know that the current analysis does 
+      // implement this method, so reconstruct doneAnalyses and return its reply
+
+      /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Pre-splice doneAnalysis="<<endl;
+        for(list<ComposedAnalysis*>::iterator a=doneAnalyses.begin(); a!=doneAnalyses.end(); a++)
+        Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"<<(*a)->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+        Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Pre-splice doneAnalyses_back="<<endl;
+        for(list<ComposedAnalysis*>::iterator a=doneAnalyses_back.begin(); a!=doneAnalyses_back.end(); a++)
+        { Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"<<(*a)->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl; }
+        Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Pre-splice a="<<(a!=doneAnalyses.rend()?(*a)->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"):"END")<<endl;*/
+      
+      // Restore doneAnalyses by pushing back all the analyses that were removed for the sake of recursive
+      // calls to callServerAnalysisFunc().
+      doneAnalyses.splice(doneAnalyses.end(), doneAnalyses_back);
+      
+      /*Dbg::dbg << "Final State of doneAnalysis="<<endl;
+      for(list<ComposedAnalysis*>::iterator a=doneAnalyses.begin(); a!=doneAnalyses.end(); a++)
+        Dbg::dbg << "    "<<(*a)->str("        ")<<endl;*/
+      if(composerDebugLevel>=1) {
+        /*if(boost::dynamic_pointer_cast<AbstractObject>(v)) {
+          ROSE_ASSERT(reinterpret_cast<const FuncCallerArgs_Expr2Any*>(&args));
+          Dbg::dbg << "Returning "<<boost::dynamic_pointer_cast<AbstractObject>(v)->
+                strp(reinterpret_cast<const FuncCallerArgs_Expr2Any*>(&args)->part, "")<<endl;
+        } else*/ Dbg::dbg << "Returning "<<v.get()->str("")<<endl;
+      }
+      return v;
+    } catch (NotImplementedException exc) {
+      if(composerDebugLevel>=1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<caller.funcName()<<" Not Implemented. Advancing to "<<(*a)->str("")<<endl;
+      // If control reaches here then the current analysis must not implement 
+      // this method so we keep looking further back in the chain
+      continue;
+    }
+  }
+  
+  // The first analysis in the chain must implement every optional method so 
+  // control should never reach this point
+  cerr << "ERROR: no analysis implements method "<<caller.funcName()<<"(SgExpression)";
+  ROSE_ASSERT(0);
+}
+
 // -------------------------------------
 // ----- Expression Interpretation -----
 // -------------------------------------
@@ -304,63 +560,35 @@ PartPtr ChainComposer::GetFunctionEndPart(const Function& func, ComposedAnalysis
   return callServerAnalysisFunc<PartPtr, const Function>(func, client, c);
 }
 
-
-
-// Maps and Sets 
-// (when analyses can implement these internally, these functions will also invoke 
-//  callServerAnalysisFunc)
-/*ValueSet* ChainComposer::NewValueSet()  { return new ValueSet(); }
-ValueMap* ChainComposer::NewValueMap()  { return new ValueMap(); }
-
-MemLocSet* ChainComposer::NewMemLocSet() { return new MemLocSet(); }
-MemLocMap* ChainComposer::NewMemLocMap() { return new MemLocMap(); }
-
-CodeLocSet* ChainComposer::NewCodeLocSet() { return new CodeLocSet(); }
-CodeLocMap* ChainComposer::NewCodeLocMap() { return new CodeLocMap(); }*/
-
-// ------------------------------
-// ----- Composition Driver -----
-// ------------------------------
+// -----------------------------------
+// ----- Loose Parallel Composer -----
+// -----------------------------------
   
-ChainComposer::ChainComposer(int argc, char** argv, list<ComposedAnalysis*>& analyses, 
-                             ComposedAnalysis* testAnalysis, bool verboseTest, SgProject* project) : 
-    allAnalyses(analyses), testAnalysis(testAnalysis), verboseTest(verboseTest)
+LooseParallelComposer::LooseParallelComposer(int argc, char** argv, list<ComposedAnalysis*>& analyses) : 
+    allAnalyses(analyses)
 {
-  //cout << "#allAnalyses="<<allAnalyses.size()<<endl;
-  // Create an instance of the syntactic analysis and insert it at the front of the done list.
-  // This analysis will be called last if matching functions do not exist in any other
-  // analysis and does not need a round of fixed-point iteration to produce its results.
-  doneAnalyses.push_front((ComposedAnalysis*)new SyntacticAnalysis());
-  
   // Inform each analysis of the composer's identity
   //cout << "#allAnalyses="<<allAnalyses.size()<<endl;
   for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++)
     (*a)->setComposer(this);
-  if(testAnalysis) testAnalysis->setComposer(this);
-
-  // If a project object is provided, store it. Otherwise, run the front end now.  
-  if(project) this->project = project;
-  else        this->project = frontend(argc,argv);
-
-  initAnalysis(project);
-  Dbg::init("Composed Analysis", ".", "index.html");
   
-  composerDebugLevel = 1;
+  initAnalysis();
+  Dbg::init("Composed Analysis", ".", "index.html");
 }
 
-void ChainComposer::runAnalysis()
-//void ChainComposer::runAnalysis(int argc, char** argv)
+// ---------------------------------
+// ----- Methods from Composer -----
+// ---------------------------------
+
+void LooseParallelComposer::runAnalysis()
 {
-  CallGraphBuilder cgb(project);
-  cgb.buildCallGraph();
-  SgIncidenceDirectedGraph* graph = cgb.getGraph();
-  
+  // Run all the analyses without any interactions between them
   int i=1;
   for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++, i++) {
     ostringstream label; label << "Running Analysis "<<i<<": "<<(*a)->str("");
     Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
     
-    ContextInsensitiveInterProceduralDataflow inter_cc(*a, graph);
+    ContextInsensitiveInterProceduralDataflow inter_cc(*a, getCallGraph());
     inter_cc.runAnalysis();
     /*UnstructuredPassInterDataflow up_cc(*a);
     up_cc.runAnalysis();*/
@@ -374,211 +602,189 @@ void ChainComposer::runAnalysis()
       UnstructuredPassInterAnalysis up_paa(paa);
       up_paa.runAnalysis();
     }
-    
-    // Record that we've completed the given analysis
-    doneAnalyses.push_back(*a);
-  }
-  
-  if(testAnalysis) {
-    //UnstructuredPassInterDataflow inter_up(testAnalysis);
-    ContextInsensitiveInterProceduralDataflow inter_up(testAnalysis, graph);
-    inter_up.runAnalysis();
   }
   
   return;
 }
- 
-// Generic function that looks up the composition chain from the given client 
-// analysis and returns the result produced by the first instance of the function 
-// called by the caller object found along the way.
-template<class RetObject, class FuncCallerArgs>
-RetObject ChainComposer::callServerAnalysisFunc(FuncCallerArgs& args, ComposedAnalysis* client,
-                                   FuncCaller<RetObject, const FuncCallerArgs>& caller) {
-  if(composerDebugLevel>=2) Dbg::dbg << "ChainComposer::callServerAnalysisFunc() "<<caller.funcName()<<" #doneAnalyses="<<doneAnalyses.size()<<endl;
-  ROSE_ASSERT(doneAnalyses.size()>0);
-  /*for(list<ComposedAnalysis*>::reverse_iterator a=doneAnalyses.rbegin(); a!=doneAnalyses.rend(); a++) {
-      Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<(*a)->str("")<<" : "<<(*a)<<endl;
-  }*/
-  list<ComposedAnalysis*> doneAnalyses_back;
-  // Iterate backwards looking for an analysis that implements caller() behind in the chain of completed analyses
-  list<ComposedAnalysis*>::reverse_iterator a=doneAnalyses.rbegin();
-  while(doneAnalyses.size() >= 0) {
-    std::ostringstream label; label << caller.funcName() << "  : " << (*a)->str("") << " " << args.str();
-    Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
-    ComposedAnalysis* curAnalysis = *a;
-    // Move the current analysis from doneAnalyses onto a backup list to ensure that in recursive calls
-    // to callServerAnalysisFunc() doneAnalyses excludes the current analysis. doneAnalyses will be restored
-    // at the end of this function.
-    doneAnalyses_back.push_front(curAnalysis);
-    doneAnalyses.pop_back();
-    a=doneAnalyses.rbegin();
-    
-    /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Post-pop doneAnalysis="<<endl;
-    for(list<ComposedAnalysis*>::iterator a=doneAnalyses.begin(); a!=doneAnalyses.end(); a++)
-    { Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"<<(*a)->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl; }
-    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Post-pop doneAnalyses_back="<<endl;
-    for(list<ComposedAnalysis*>::iterator a=doneAnalyses_back.begin(); a!=doneAnalyses_back.end(); a++)
-    { Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"<<(*a)->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl; }
-    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Post-pop a="<<(a!=doneAnalyses.rend()?(*a)->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"):"END")<<endl;*/
-    
-    try {
-      //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;In TRY, caller="<<caller.funcName()<<endl;
-      RetObject v(caller(args, curAnalysis));
-      ROSE_ASSERT(v);
-      // If control reaches here, we know that the current analysis does 
-      // implement this method, so reconstruct doneAnalyses and return its reply
 
-      /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Pre-splice doneAnalysis="<<endl;
-        for(list<ComposedAnalysis*>::iterator a=doneAnalyses.begin(); a!=doneAnalyses.end(); a++)
-        Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"<<(*a)->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
-        Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Pre-splice doneAnalyses_back="<<endl;
-        for(list<ComposedAnalysis*>::iterator a=doneAnalyses_back.begin(); a!=doneAnalyses_back.end(); a++)
-        { Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"<<(*a)->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl; }
-        Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Pre-splice a="<<(a!=doneAnalyses.rend()?(*a)->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"):"END")<<endl;*/
-      
-      // Restore doneAnalyses by pushing back all the analyses that were removed for the sake of recursive
-      // calls to callServerAnalysisFunc().
-      doneAnalyses.splice(doneAnalyses.end(), doneAnalyses_back);
-      
-      /*Dbg::dbg << "Final State of doneAnalysis="<<endl;
-      for(list<ComposedAnalysis*>::iterator a=doneAnalyses.begin(); a!=doneAnalyses.end(); a++)
-        Dbg::dbg << "    "<<(*a)->str("        ")<<endl;*/
-      if(composerDebugLevel>=1) {
-        /*if(boost::dynamic_pointer_cast<AbstractObject>(v)) {
-          ROSE_ASSERT(reinterpret_cast<const FuncCallerArgs_Expr2Any*>(&args));
-          Dbg::dbg << "Returning "<<boost::dynamic_pointer_cast<AbstractObject>(v)->
-                strp(reinterpret_cast<const FuncCallerArgs_Expr2Any*>(&args)->part, "")<<endl;
-        } else*/ Dbg::dbg << "Returning "<<v.get()->str("")<<endl;
-      }
-      return v;
+// The Expr2* and GetFunction*Part functions are implemented by calling the same functions in the parent composer
+
+// Abstract interpretation functions that return this analysis' abstractions that 
+// represent the outcome of the given SgExpression. 
+// The objects returned by these functions are expected to be deallocated by their callers.
+ValueObjectPtr LooseParallelComposer::Expr2Val(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client)
+{
+  return getComposer()->Expr2Val(n, pedge, this);
+}
+
+// Variant of Expr2Val that inquires about the value of the memory location denoted by the operand of the 
+// given node n, where the part denotes the set of prefixes that terminate at SgNode n.
+ValueObjectPtr LooseParallelComposer::OperandExpr2Val(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client)
+{
+  return getComposer()->OperandExpr2Val(n, operand, pedge, this);
+}
+
+MemLocObjectPtrPair LooseParallelComposer::Expr2MemLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client)
+{
+  return getComposer()->Expr2MemLoc(n, pedge, this);
+}
+
+// Variant of Expr2MemLoc that inquires about the memory location denoted by the operand of the given node n, where
+// the part denotes the set of prefixes that terminate at SgNode n.
+MemLocObjectPtrPair LooseParallelComposer::OperandExpr2MemLoc(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client)
+{
+  return getComposer()->OperandExpr2MemLoc(n, operand, pedge, this);
+}
+
+CodeLocObjectPtrPair LooseParallelComposer::Expr2CodeLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client)
+{
+  return getComposer()->Expr2CodeLoc(n, pedge, this);
+}
+
+// Return the anchor Parts of a given function
+PartPtr LooseParallelComposer::GetFunctionStartPart(const Function& func, ComposedAnalysis* client)
+{
+  return getComposer()->GetFunctionStartPart(func, this);
+}
+
+PartPtr LooseParallelComposer::GetFunctionEndPart(const Function& func, ComposedAnalysis* client)
+{
+  return getComposer()->GetFunctionEndPart(func, this);
+}
+
+
+// -----------------------------------------
+// ----- Methods from ComposedAnalysis -----
+// -----------------------------------------
+
+// The Expr2* and GetFunction*Part functions are implemented by calling the same functions in each of the 
+// constituent analyses and returning an Intersection object that includes their responses
+
+// Abstract interpretation functions that return this analysis' abstractions that 
+// represent the outcome of the given SgExpression. The default implementations of 
+// these throw NotImplementedException so that if a derived class does not implement 
+// any of these functions, the Composer is informed.
+//
+// The objects returned by these functions are expected to be deallocated by their callers.
+ValueObjectPtr   LooseParallelComposer::Expr2Val    (SgNode* n, PartEdgePtr pedge)
+{
+  // List of values that will be intersected and returned
+  list<ValueObjectPtr> vals;
+  
+  for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++) {
+    std::ostringstream label; label << "Expr2Val  : " << (*a)->str("");
+    Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
+
+    try {
+      ValueObjectPtr val = (*a)->Expr2Val(n, pedge);
+      Dbg::dbg << "Returning "<<val->str("")<<endl;
+      vals.push_back(val);
     } catch (NotImplementedException exc) {
-      if(composerDebugLevel>=1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<caller.funcName()<<" Not Implemented. Advancing to "<<(*a)->str("")<<endl;
+      if(composerDebugLevel>=1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Expr2Val() Not Implemented."<<endl;
       // If control reaches here then the current analysis must not implement 
-      // this method so we keep looking further back in the chain
+      // this method so we ask the remaining analyses
       continue;
     }
   }
   
-  // The first analysis in the chain must implement every optional method so 
-  // control should never reach this point
-  cerr << "ERROR: no analysis implements method "<<caller.funcName()<<"(SgExpression)";
-  ROSE_ASSERT(0);
+  return boost::make_shared<IntersectValueObject>(vals);
 }
 
-/****************************
- ***** ComposedAnalysis *****
- ****************************/
-
-std::map<PartEdgePtr, std::vector<Lattice*> > IntraUndirDataflow::emptyMap;
-
-// Generates the initial lattice state for the given dataflow node, in the given function. Implementations 
-// fill in the lattices above and below this part, as well as the facts, as needed. Since in many cases
-// the lattices above and below each node are the same, implementors can alternately implement the 
-// genInitLattice and genInitFact functions, which are called by the default implementation of initializeState.
-void ComposedAnalysis::initializeState(const Function& func, PartPtr part, NodeState& state)
+MemLocObjectPtr  LooseParallelComposer::Expr2MemLoc (SgNode* n, PartEdgePtr pedge)
 {
-  if(getDirection()==none) return;
+  // List of memory location that will be intersected and returned
+  list<MemLocObjectPtr> mls;
   
-  // Analyses associate all arriving information with a single NULL edge and all departing information
-  // with the edge on which the information departs
-  if(getDirection()==fw) {
-    std::vector<Lattice*> lats;
-    genInitLattice(func, part, part->inEdgeFromAny(), lats);
-    state.setLatticeAbove(this, lats);
-  } else if(getDirection()==bw) {
-    std::vector<Lattice*> lats;
-    genInitLattice(func, part, part->outEdgeToAny(), lats);
-    state.setLatticeBelow(this, lats);
-  }
-  
-  // Don't initialize the departing informaiton. This will be set by ComposedAnalysis::runAnalysis() when
-  // it first touches the part
-  /*vector<PartEdgePtr> edges = part->outEdges();
-  for(vector<PartEdgePtr>::iterator e=edges.begin(); e!=edges.end(); e++) {
-    std::vector<Lattice*> lats;
-    genInitLattice(func, part, *e, lats);
+  for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++) {
+    std::ostringstream label; label << "Expr2MemLoc  : " << (*a)->str("");
+    Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
 
-    if(getDirection()==fw)      state.setLatticeBelow(this, *e, lats);
-    else if(getDirection()==bw) state.setLatticeAbove(this, *e, lats);
-  }*/
-  
-  vector<NodeFact*> initFacts;
-  genInitFact(func, part, initFacts);
-  state.setFacts(this, initFacts);
-}
-
-
-/******************************************************
- ***      printDataflowInfoPass         ***
- *** Prints out the dataflow information associated ***
- *** with a given analysis for every CFG node a     ***
- *** function.              ***
- ******************************************************/
-
-// Initializes the state of analysis lattices at the given function, part and edge into our out of the part
-// by setting initLattices to refer to freshly-allocated Lattice objects.
-void printDataflowInfoPass::genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
-                                           std::vector<Lattice*>& initLattices)
-{
-  initLattices.push_back((Lattice*)(new BoolAndLattice(0, pedge)));
-}
-  
-bool printDataflowInfoPass::transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
-                                     std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo)
-{
-  Dbg::dbg << "-----#############################--------\n";
-  Dbg::dbg << "Node: ["<<part->str()<<"\n";
-  Dbg::dbg << "State:\n";
-  Dbg::indent ind(analysisDebugLevel, 1); 
-  Dbg::dbg << state.str(analysis)<<endl;
-  
-  return dynamic_cast<BoolAndLattice*>(dfInfo[NULLPartEdge][0])->set(true);
-}
-
-/***************************************************
- ***            checkDataflowInfoPass            ***
- *** Checks the results of the composed analysis ***
- *** chain at special assert calls.              ***
- ***************************************************/
-
-// Initializes the state of analysis lattices at the given function, part and edge into our out of the part
-// by setting initLattices to refer to freshly-allocated Lattice objects.
-void checkDataflowInfoPass::genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
-                                           std::vector<Lattice*>& initLattices)
-{
-  initLattices.push_back((Lattice*)(new BoolAndLattice(0, pedge)));
-}
-  
-bool checkDataflowInfoPass::transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
-                                     std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo)
-{
-  set<CFGNode> nodes = part->CFGNodes();
-  for(set<CFGNode>::iterator n=nodes.begin(); n!=nodes.end(); n++) {
-    if(SgFunctionCallExp* call = isSgFunctionCallExp(n->getNode())) {
-      Function func(call);
-      if(func.get_name().getString() == "CompDebugAssert") {
-        SgExpressionPtrList args = call->get_args()->get_expressions();
-        for(SgExpressionPtrList::iterator a=args.begin(); a!=args.end(); a++) {
-          ValueObjectPtr v = getComposer()->OperandExpr2Val(call, *a, part->inEdgeFromAny(), this);
-          ostringstream errorMesg;
-          if(!v->isConcrete())
-            errorMesg << "Debug assertion at "<<call->get_file_info()->get_filenameString()<<":"<<call->get_file_info()->get_line()<<" failed: concrete interpretation not available! test="<<(*a)->unparseToString()<<" v="<<v->str();
-          else if(!ValueObject::isValueBoolCompatible(v->getConcreteValue()))
-            errorMesg << "Debug assertion at "<<call->get_file_info()->get_filenameString()<<":"<<call->get_file_info()->get_line()<<" failed: interpretation not convertible to a boolean! test="<<(*a)->unparseToString()<<" v="<<v->str()<<" v->getConcreteValue()="<<cfgUtils::SgNode2Str(v->getConcreteValue().get());
-          else if(!ValueObject::SgValue2Bool(v->getConcreteValue())) 
-            errorMesg << "Debug assertion at "<<call->get_file_info()->get_filenameString()<<":"<<call->get_file_info()->get_line()<<" failed: test evaluates to false! test="<<(*a)->unparseToString()<<" v="<<v->str()<<" v->getConcreteValue()="<<cfgUtils::SgNode2Str(v->getConcreteValue().get());
-          
-          if(errorMesg.str() != "") {
-            cerr << errorMesg.str() << endl;
-            Dbg::dbg << "<h1><font color=\"#ff0000\">"<<errorMesg.str()<<"</font></h1>"<<endl;
-            numErrors++;
-          }
-        }
-      }
+    try {
+      MemLocObjectPtr ml = (*a)->Expr2MemLoc(n, pedge);
+      Dbg::dbg << "Returning "<<ml->str("")<<endl;
+      mls.push_back(ml);
+    } catch (NotImplementedException exc) {
+      if(composerDebugLevel>=1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Expr2MemLoc() Not Implemented."<<endl;
+      // If control reaches here then the current analysis must not implement 
+      // this method so we ask the remaining analyses
+      continue;
     }
   }
   
-  return dynamic_cast<BoolAndLattice*>(dfInfo[NULLPartEdge][0])->set(true);
+  return boost::make_shared<IntersectMemLocObject>(mls);
+}
+
+CodeLocObjectPtr LooseParallelComposer::Expr2CodeLoc(SgNode* n, PartEdgePtr pedge)
+{
+  // List of code location that will be intersected and returned
+  list<CodeLocObjectPtr> cls;
+  
+  for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++) {
+    std::ostringstream label; label << "Expr2CodeLoc  : " << (*a)->str("");
+    Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
+
+    try {
+      CodeLocObjectPtr cl = (*a)->Expr2CodeLoc(n, pedge);
+      Dbg::dbg << "Returning "<<cl->str("")<<endl;
+      cls.push_back(cl);
+    } catch (NotImplementedException exc) {
+      if(composerDebugLevel>=1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Expr2CodeLoc() Not Implemented."<<endl;
+      // If control reaches here then the current analysis must not implement 
+      // this method so we ask the remaining analyses
+      continue;
+    }
+  }
+  
+  return boost::make_shared<IntersectCodeLocObject>(cls);
+}
+
+// Return the anchor Parts of a given function
+PartPtr LooseParallelComposer::GetFunctionStartPart(const Function& func)
+{
+  // List of parts that will be intersected and returned
+  list<PartPtr> parts;
+  
+  for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++) {
+    std::ostringstream label; label << "GetFunctionEndPart  : " << (*a)->str("");
+    Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
+
+    try {
+      PartPtr part = (*a)->GetFunctionStartPart(func);
+      Dbg::dbg << "Returning "<<part->str("")<<endl;
+      parts.push_back(part);
+    } catch (NotImplementedException exc) {
+      if(composerDebugLevel>=1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;GetFunctionStartPart() Not Implemented."<<endl;
+      // If control reaches here then the current analysis must not implement 
+      // this method so we ask the remaining analyses
+      continue;
+    }
+  }
+  
+  return makePart<IntersectionPart>(parts, this);
+}
+
+PartPtr LooseParallelComposer::GetFunctionEndPart(const Function& func)
+{
+  // List of parts that will be intersected and returned
+  list<PartPtr> parts;
+  
+  for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++) {
+    std::ostringstream label; label << "GetFunctionEndPart  : " << (*a)->str("");
+    Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
+
+    try {
+      PartPtr part = (*a)->GetFunctionEndPart(func);
+      Dbg::dbg << "Returning "<<part->str("")<<endl;
+      parts.push_back(part);
+    } catch (NotImplementedException exc) {
+      if(composerDebugLevel>=1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;GetFunctionEndPart() Not Implemented."<<endl;
+      // If control reaches here then the current analysis must not implement 
+      // this method so we ask the remaining analyses
+      continue;
+    }
+  }
+  
+  return makePart<IntersectionPart>(parts, this);
 }
 
 }; //namespace dataflow;
