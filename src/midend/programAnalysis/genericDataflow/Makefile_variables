@@ -32,6 +32,7 @@ mpaGenericDataflow_la_sources=\
 	$(mpaGenericDataflowPath)/simpleAnalyses/ortho_array_analysis.C \
 	$(mpaGenericDataflowPath)/simpleAnalyses/printAnalysisStates.C \
 	$(mpaGenericDataflowPath)/simpleAnalyses/saveDotAnalysis.C \
+	$(mpaGenericDataflowPath)/simpleAnalyses/taintAnalysis.C \
 	$(mpaGenericDataflowPath)/state/functionState.C \
 	$(mpaGenericDataflowPath)/state/nodeState.C
 
@@ -79,7 +80,8 @@ mpaGenericDataflow_includeHeaders=\
 	$(mpaGenericDataflowPath)/simpleAnalyses/live_dead_analysis.h \
 	$(mpaGenericDataflowPath)/simpleAnalyses/ortho_array_analysis.h \
 	$(mpaGenericDataflowPath)/simpleAnalyses/printAnalysisStates.h \
-	$(mpaGenericDataflowPath)/simpleAnalyses/saveDotAnalysis.h 
+	$(mpaGenericDataflowPath)/simpleAnalyses/saveDotAnalysis.h \
+	$(mpaGenericDataflowPath)/simpleAnalyses/taintAnalysis.h
 
 #	$(mpaGenericDataflowPath)/analysis/partitionedAnalysis.h \
 #	$(mpaGenericDataflowPath)/lattice/affineInequality.h \
