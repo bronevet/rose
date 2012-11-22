@@ -1632,23 +1632,19 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   
   // Return whether there exists a CFGNode within this part that is inside the function in which the anchor symbol
   // is defined.
-  bool matchAnchorPart(SgFunctionDefinition* anchorFD, const CFGNode& n) {
-    SgFunctionDefinition* partFD;
-    // If the current CFGNode is an initialized variable name
-    if(isSgInitializedName(n.getNode()))
-      partFD = SageInterface::getEnclosingFunctionDefinition(isSgInitializedName(n.getNode())->get_scope(), true);
-    else if(isSgFunctionParameterList(n.getNode())) {
-      ROSE_ASSERT(isSgFunctionDeclaration(isSgFunctionParameterList(n.getNode())->get_parent()));
-      partFD = isSgFunctionDeclaration(isSgFunctionParameterList(n.getNode())->get_parent())->get_definition();
-    } else 
-      partFD = SageInterface::getEnclosingFunctionDefinition(n.getNode(), true);
-    ROSE_ASSERT(partFD);
-    return anchorFD == partFD;
+  bool matchAnchorPart(SgScopeStatement* anchor_scope, const CFGNode& n) {
+      SgScopeStatement* part_scope = SageInterface::getScope(n.getNode());
+      ROSE_ASSERT(part_scope);
+      if(anchor_scope == part_scope) 
+          return true;
+      else
+          return SageInterface::isAncestor(anchor_scope, part_scope);
   }
   
   // Returns true if this MemLocObject is in-scope at the given part and false otherwise
   bool NamedObj::isLive(PartEdgePtr pedge) const
   {
+      return true;
     // This variable is in-scope if part.getNode() is inside the scope that contains its declaration
     SgScopeStatement* anchor_scope;
     ROSE_ASSERT(isSgVariableSymbol(anchor_symbol) || isSgFunctionSymbol(anchor_symbol));
@@ -1656,40 +1652,19 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       anchor_scope = isSgVariableSymbol(anchor_symbol)->get_declaration()->get_declaration()->get_scope();
     else if(isSgFunctionSymbol(anchor_symbol))
       anchor_scope = isSgFunctionSymbol(anchor_symbol)->get_declaration()->get_scope();
-    
-    /*cout << "part.getNode()=["<<part.getNode()->unparseToString()<<" | "<<part.getNode()->class_name()<<"]"<<endl;
-    SgScopeStatement* partScope = SageInterface::getScope(part.getNode());
-    while(partScope!=NULL && partScope!=anchor_scope) {
-      cout << "partScope=["<<partScope->unparseToString()<<" | "<<partScope->class_name()<<"]"<<endl;
-      partScope = SageInterface::getScope(partScope->get_parent());
-    }
-    
-    // The variable is in-scope if part.getNode() is inside its declaration scope
-    Dbg::region reg(1,1, Dbg::region::topLevel, "NamedObj::isLive");
-    Dbg::dbg << "anchor_symbol=["<<anchor_symbol->unparseToString()<<" | "<<anchor_symbol->class_name()<<"]"<<endl;
-    Dbg::dbg << "part=["<<part.getNode()->unparseToString()<<" | "<<part.getNode()->class_name()<<"]"<<endl;
-    Dbg::dbg << (partScope!=NULL ? "IN-SCOPE" : "OUT-OF-SCOPE")<<endl;
-    return partScope!=NULL;*/
-   
-    if(isSgFunctionSymbol(anchor_symbol)) return true;
-    else if(isSgVariableSymbol(anchor_symbol)) {
-      // Get the FunctionDefinition of the funciton that the anchor symbol is defined in
-      SgFunctionDefinition* anchorFD;
-      ROSE_ASSERT(isSgVariableSymbol(anchor_symbol) || isSgFunctionSymbol(anchor_symbol));
-      if(isSgVariableSymbol(anchor_symbol)) {
-        anchorFD = SageInterface::getEnclosingFunctionDefinition(isSgVariableSymbol(anchor_symbol)->get_declaration()->get_scope(), true);
-        ROSE_ASSERT(anchorFD);
-      } else
-        anchorFD = NULL;
+
+    ROSE_ASSERT(anchor_scope);
       
+    if(isSgFunctionSymbol(anchor_symbol)) return true;
+    else if(isSgVariableSymbol(anchor_symbol)) {      
       //Dbg::dbg << "anchor_symbol="<<cfgUtils::SgNode2Str(anchor_symbol)<<" pedge="<<pedge->str()<<endl;
       // GB 2012-10-18 - I'm not sure what to do here about edges with wildcard sources or targets.
       //                 It seems like to be fully general we need to say that something is live if it is live at
       //                 any source and any destination, meaning that we need consider all the outcomes of a wildcard.
       //                 For example, what happens when an edge may cross a scope boundary for one but not all
       //                 of the wildcard outcomes?
-      return (pedge->source() ? pedge->source()->mapCFGNodeANY<bool>(boost::bind(&matchAnchorPart, anchorFD, _1)) : false) ||
-             (pedge->target() ? pedge->target()->mapCFGNodeANY<bool>(boost::bind(&matchAnchorPart, anchorFD, _1)) : false);
+      return (pedge->source() ? pedge->source()->mapCFGNodeANY<bool>(boost::bind(&matchAnchorPart, anchor_scope, _1)) : false) ||
+             (pedge->target() ? pedge->target()->mapCFGNodeANY<bool>(boost::bind(&matchAnchorPart, anchor_scope, _1)) : false);
     } else
       return false;
  
