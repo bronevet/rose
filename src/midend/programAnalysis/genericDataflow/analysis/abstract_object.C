@@ -1311,7 +1311,6 @@ template <bool defaultMayEq>
 list<LabeledAggregateFieldPtr> CombinedLabeledAggregate<defaultMayEq>::getElements(PartEdgePtr pedge) const
 {
   list<LabeledAggregateFieldPtr> combinedFields;
-    
   // The vector contains an entry for each field of the CombinedLabeledAggregate, and this entry contains a list
   // of LabeledAggregateField objects for that field, one from each sub-aggregate in labAggrs.
   vector<list<LabeledAggregateFieldPtr> > fields2aggr;
@@ -1319,12 +1318,13 @@ list<LabeledAggregateFieldPtr> CombinedLabeledAggregate<defaultMayEq>::getElemen
   // Get the fields from each LabeledAggregate  in labAggrs
   for(list<LabeledAggregatePtr>::const_iterator la=labAggrs.begin(); la!=labAggrs.end(); la++) {
     list<LabeledAggregateFieldPtr> curMLElements = (*la)->getElements(pedge);
-    int i=0;
-    for(list<LabeledAggregateFieldPtr>::iterator f=curMLElements.begin(); f!=curMLElements.end(); f++, i++) {
-      fields2aggr[i].push_back(*f);
-    }
+    fields2aggr.push_back(curMLElements);
+    // int i=0;
+    // for(list<LabeledAggregateFieldPtr>::iterator f=curMLElements.begin(); f!=curMLElements.end(); f++, i++) {
+    //     std::cout << "curMLelemnts field: " << (*f)->strp(pedge) << std::endl;
+    //   fields2aggr[i].push_back(*f);
+    // }
   }
-
   // From each of these field lists attempt to construct a CombinedLabeledAggregateField
   for(vector<list<LabeledAggregateFieldPtr> >::iterator fml=fields2aggr.begin(); fml!=fields2aggr.end(); fml++) {
     /*boost::shared_ptr<CombinedLabeledAggregateField<defaultMayEq> > comboField =
@@ -1338,7 +1338,6 @@ list<LabeledAggregateFieldPtr> CombinedLabeledAggregate<defaultMayEq>::getElemen
     
     combinedFields.push_back(boost::shared_ptr<LabeledAggregateField>(boost::make_shared<CombinedLabeledAggregateField<defaultMayEq> >(*fml)));
   }
-
   // All the fields must have the same structure
   //ROSE_ASSERT(combinedFields.size() == fields2aggr.size());
   
