@@ -12,7 +12,47 @@ int composerDebugLevel=1;
  ***** ComposedAnalysis *****
  ****************************/
 
+// Return the anchor Parts of a given function
+PartPtr ComposedAnalysis::GetFunctionStartPart(const Function& func)
+{
+  // If the result of this function has been computed, return it
+  map<Function, PartPtr>::iterator part;
+  if((part=func2StartPart.find(func)) != func2StartPart.end()) return part->second;
+  
+  // Cache the result
+  PartPtr result = GetFunctionStartPart_Spec(func);
+  func2StartPart[func] = result;
+  return result;
+}
+
+PartPtr ComposedAnalysis::GetFunctionEndPart(const Function& func)
+{
+  // If the result of this function has been computed, return it
+  map<Function, PartPtr>::iterator part;
+  if((part=func2EndPart.find(func)) != func2EndPart.end()) return part->second;
+  
+  // Cache the result
+  PartPtr result = GetFunctionEndPart_Spec(func);
+  func2EndPart[func] = result;
+  return result;
+}
+
+/****************************
+ ***** ComposedAnalysis *****
+ ****************************/
+
 std::map<PartEdgePtr, std::vector<Lattice*> > IntraUndirDataflow::emptyMap;
+
+// Runs the analysis, combining the intra-analysis with the inter-analysis of its choice
+void ComposedAnalysis::runAnalysis()
+{
+  ContextInsensitiveInterProceduralDataflow inter_cc(this, getCallGraph());
+  inter_cc.runAnalysis();
+  
+  if(composerDebugLevel >= 1) Dbg::dbg << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< ComposedAnalysis::runAnalysis" << endl;
+  /*UnstructuredPassInterDataflow up_cc(this);
+  up_cc.runAnalysis();*/
+}
 
 // Generates the initial lattice state for the given dataflow node, in the given function. Implementations 
 // fill in the lattices above and below this part, as well as the facts, as needed. Since in many cases
@@ -132,37 +172,33 @@ bool checkDataflowInfoPass::transfer(const Function& func, PartPtr part, CFGNode
 // ----- Chain Composer -----
 // --------------------------
   
-ChainComposer::ChainComposer(int argc, char** argv, list<ComposedAnalysis*>& analyses, 
+ChainComposer::ChainComposer(list<ComposedAnalysis*>& analyses, 
                              ComposedAnalysis* testAnalysis, bool verboseTest) : 
     allAnalyses(analyses), testAnalysis(testAnalysis), verboseTest(verboseTest)
 {
-  //cout << "#allAnalyses="<<allAnalyses.size()<<endl;
+  initAnalysis();
+  
   // Create an instance of the syntactic analysis and insert it at the front of the done list.
   // This analysis will be called last if matching functions do not exist in any other
   // analysis and does not need a round of fixed-point iteration to produce its results.
   doneAnalyses.push_front((ComposedAnalysis*)new SyntacticAnalysis());
   
   // Inform each analysis of the composer's identity
-  //cout << "#allAnalyses="<<allAnalyses.size()<<endl;
   for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++)
     (*a)->setComposer(this);
   if(testAnalysis) testAnalysis->setComposer(this);
-  
-  initAnalysis();
-  Dbg::init("Composed Analysis", ".", "index.html");
 }
 
+// Runs the analysis, combining the intra-analysis with the inter-analysis of its choice
+// ChainComposer invokes the runAnalysis methods of all its constituent analyses in sequence
 void ChainComposer::runAnalysis()
 {
   int i=1;
   for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++, i++) {
-    ostringstream label; label << "Running Analysis "<<i<<": "<<(*a)->str("");
+    ostringstream label; label << "ChainComposer Running Analysis "<<i<<": "<<(*a)->str("");
     Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
     
-    ContextInsensitiveInterProceduralDataflow inter_cc(*a, getCallGraph());
-    inter_cc.runAnalysis();
-    /*UnstructuredPassInterDataflow up_cc(*a);
-    up_cc.runAnalysis();*/
+    (*a)->runAnalysis();
     
     if(composerDebugLevel >= 3) {
       Dbg::region reg(composerDebugLevel, 3, Dbg::region::topLevel, label.str()+" Final State");
@@ -352,7 +388,7 @@ class Expr2MemLocCaller : public FuncCaller<MemLocObjectPtr, const FuncCallerArg
 MemLocObjectPtrPair ChainComposer::Expr2MemLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client) {
   // Call Expr2MemLoc_ex() and wrap the results of the memory MemLocObject with a UnionMemLocObject
   MemLocObjectPtrPair p = Expr2MemLoc_ex(n, pedge, client);
-  Dbg::dbg << "Expr2MemLoc() p="<<p.str("&npsb;&npsb;&npsb;&npsb;")<<endl;
+  //Dbg::dbg << "Expr2MemLoc() p="<<p.str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
   if(p.mem)  p.mem  = boost::static_pointer_cast<MemLocObject>(UnionMemLocObject::create(p.mem));
   //if(p.expr) p.expr = boost::static_pointer_cast<MemLocObject>(UnionMemLocObject::create(p.expr));
   return p;
@@ -383,12 +419,12 @@ MemLocObjectPtrPair ChainComposer::Expr2MemLoc_ex(SgNode* n, PartEdgePtr pedge, 
 // the part denotes the set of prefixes that terminate at SgNode n.
 MemLocObjectPtrPair ChainComposer::OperandExpr2MemLoc(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client)
 {
-  Dbg::dbg << "ChainComposer::OperandExpr2MemLoc()"<<endl << "n="<<cfgUtils::SgNode2Str(n)<<endl << "operand("<<operand<<")="<<cfgUtils::SgNode2Str(operand)<<endl << "pedge="<<pedge->str()<<endl;
+  if(composerDebugLevel>=2) Dbg::dbg << "ChainComposer::OperandExpr2MemLoc()"<<endl << "n="<<cfgUtils::SgNode2Str(n)<<endl << "operand("<<operand<<")="<<cfgUtils::SgNode2Str(operand)<<endl << "pedge="<<pedge->str()<<endl;
   
   // Get the parts of the execution prefixes that terminate at the operand before continuing directly 
   // to SgNode n in the given part
   list<PartEdgePtr> opPartEdges = pedge->getOperandPartEdge(n, operand);
-  Dbg::dbg << "opPartEdges(#"<<opPartEdges.size()<<")="<<endl;
+  //Dbg::dbg << "opPartEdges(#"<<opPartEdges.size()<<")="<<endl;
   for(list<PartEdgePtr>::iterator opE=opPartEdges.begin(); opE!=opPartEdges.end(); opE++) {
     Dbg::indent ind;
     Dbg::dbg << (*opE)->str()<<endl;
@@ -564,48 +600,25 @@ PartPtr ChainComposer::GetFunctionEndPart(const Function& func, ComposedAnalysis
 // ----- Loose Parallel Composer -----
 // -----------------------------------
   
-LooseParallelComposer::LooseParallelComposer(int argc, char** argv, list<ComposedAnalysis*>& analyses) : 
+LooseParallelComposer::LooseParallelComposer(list<ComposedAnalysis*>& analyses) : 
     allAnalyses(analyses)
 {
-  // Inform each analysis of the composer's identity
-  //cout << "#allAnalyses="<<allAnalyses.size()<<endl;
-  for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++)
-    (*a)->setComposer(this);
-  
   initAnalysis();
-  Dbg::init("Composed Analysis", ".", "index.html");
+  
+  // Inform each analysis of the composer's identity
+  //Dbg::dbg << "LPC: #allAnalyses="<<allAnalyses.size()<<endl;
+  //Dbg::indent ind;
+  for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++) {
+    (*a)->setComposer(this);
+    //Dbg::dbg << (*a)->str()<<endl;
+  }
+  
+  subAnalysesImplementPartitions = Unknown;
 }
 
 // ---------------------------------
 // ----- Methods from Composer -----
 // ---------------------------------
-
-void LooseParallelComposer::runAnalysis()
-{
-  // Run all the analyses without any interactions between them
-  int i=1;
-  for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++, i++) {
-    ostringstream label; label << "Running Analysis "<<i<<": "<<(*a)->str("");
-    Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
-    
-    ContextInsensitiveInterProceduralDataflow inter_cc(*a, getCallGraph());
-    inter_cc.runAnalysis();
-    /*UnstructuredPassInterDataflow up_cc(*a);
-    up_cc.runAnalysis();*/
-    
-    if(composerDebugLevel >= 3) {
-      Dbg::region reg(composerDebugLevel, 3, Dbg::region::topLevel, label.str()+" Final State");
-      std::vector<int> factNames;
-      std::vector<int> latticeNames;
-      latticeNames.push_back(0);
-      printAnalysisStates paa(*a, factNames, latticeNames, printAnalysisStates::below);
-      UnstructuredPassInterAnalysis up_paa(paa);
-      up_paa.runAnalysis();
-    }
-  }
-  
-  return;
-}
 
 // The Expr2* and GetFunction*Part functions are implemented by calling the same functions in the parent composer
 
@@ -652,10 +665,37 @@ PartPtr LooseParallelComposer::GetFunctionEndPart(const Function& func, Composed
   return getComposer()->GetFunctionEndPart(func, this);
 }
 
-
 // -----------------------------------------
 // ----- Methods from ComposedAnalysis -----
 // -----------------------------------------
+
+// Runs the analysis, combining the intra-analysis with the inter-analysis of its choice
+// LooseParallelComposer invokes the runAnalysis methods of all its constituent analyses in sequence
+void LooseParallelComposer::runAnalysis()
+{
+  // Run all the analyses without any interactions between them
+  int i=1;
+  for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++, i++) {
+    ostringstream label; label << "LooseParallelComposer Running Analysis "<<i<<": "<<(*a)->str("");
+    Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
+    
+    (*a)->runAnalysis();
+    
+    Dbg::dbg << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Analysis finished" << endl;
+    
+    if(composerDebugLevel >= 3) {
+      Dbg::region reg(composerDebugLevel, 3, Dbg::region::topLevel, label.str()+" Final State");
+      std::vector<int> factNames;
+      std::vector<int> latticeNames;
+      latticeNames.push_back(0);
+      printAnalysisStates paa(*a, factNames, latticeNames, printAnalysisStates::below);
+      UnstructuredPassInterAnalysis up_paa(paa);
+      up_paa.runAnalysis();
+    }
+  }
+  
+  return;
+}
 
 // The Expr2* and GetFunction*Part functions are implemented by calling the same functions in each of the 
 // constituent analyses and returning an Intersection object that includes their responses
@@ -674,9 +714,9 @@ ValueObjectPtr   LooseParallelComposer::Expr2Val    (SgNode* n, PartEdgePtr pedg
   for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++) {
     std::ostringstream label; label << "Expr2Val  : " << (*a)->str("");
     Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
-
+    
     try {
-      ValueObjectPtr val = (*a)->Expr2Val(n, pedge);
+      ValueObjectPtr val = (*a)->Expr2Val(n, getEdgeForAnalysis(pedge, *a));
       Dbg::dbg << "Returning "<<val->str("")<<endl;
       vals.push_back(val);
     } catch (NotImplementedException exc) {
@@ -687,7 +727,11 @@ ValueObjectPtr   LooseParallelComposer::Expr2Val    (SgNode* n, PartEdgePtr pedg
     }
   }
   
-  return boost::make_shared<IntersectValueObject>(vals);
+  // If no sub-analysis implements this query, forward it to the composer
+  if(vals.size()==0) {
+    return getComposer()->Expr2Val(n, pedge, this);
+  } else 
+    return boost::make_shared<IntersectValueObject>(vals);
 }
 
 MemLocObjectPtr  LooseParallelComposer::Expr2MemLoc (SgNode* n, PartEdgePtr pedge)
@@ -698,10 +742,10 @@ MemLocObjectPtr  LooseParallelComposer::Expr2MemLoc (SgNode* n, PartEdgePtr pedg
   for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++) {
     std::ostringstream label; label << "Expr2MemLoc  : " << (*a)->str("");
     Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
-
+    
     try {
-      MemLocObjectPtr ml = (*a)->Expr2MemLoc(n, pedge);
-      Dbg::dbg << "Returning "<<ml->str("")<<endl;
+      MemLocObjectPtr ml = (*a)->Expr2MemLoc(n, getEdgeForAnalysis(pedge, *a));
+      if(composerDebugLevel >= 1) { Dbg::dbg << "Returning "<<ml->str("")<<endl; }
       mls.push_back(ml);
     } catch (NotImplementedException exc) {
       if(composerDebugLevel>=1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Expr2MemLoc() Not Implemented."<<endl;
@@ -711,7 +755,13 @@ MemLocObjectPtr  LooseParallelComposer::Expr2MemLoc (SgNode* n, PartEdgePtr pedg
     }
   }
   
-  return boost::make_shared<IntersectMemLocObject>(mls);
+  // If no sub-analysis implements this query, forward it to the composer
+  if(mls.size()==0) {
+    MemLocObjectPtrPair p = getComposer()->Expr2MemLoc(n, pedge, this);
+    if(p.mem) return p.mem;
+    else      return p.expr;
+  } else 
+    return IntersectMemLocObject::create(mls);
 }
 
 CodeLocObjectPtr LooseParallelComposer::Expr2CodeLoc(SgNode* n, PartEdgePtr pedge)
@@ -724,8 +774,8 @@ CodeLocObjectPtr LooseParallelComposer::Expr2CodeLoc(SgNode* n, PartEdgePtr pedg
     Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
 
     try {
-      CodeLocObjectPtr cl = (*a)->Expr2CodeLoc(n, pedge);
-      Dbg::dbg << "Returning "<<cl->str("")<<endl;
+      CodeLocObjectPtr cl = (*a)->Expr2CodeLoc(n, getEdgeForAnalysis(pedge, *a));
+      if(composerDebugLevel >= 1) Dbg::dbg << "Returning "<<cl->str("")<<endl;
       cls.push_back(cl);
     } catch (NotImplementedException exc) {
       if(composerDebugLevel>=1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Expr2CodeLoc() Not Implemented."<<endl;
@@ -735,56 +785,129 @@ CodeLocObjectPtr LooseParallelComposer::Expr2CodeLoc(SgNode* n, PartEdgePtr pedg
     }
   }
   
-  return boost::make_shared<IntersectCodeLocObject>(cls);
+  // If no sub-analysis implements this query, forward it to the composer
+  if(cls.size()==0) {
+    CodeLocObjectPtrPair p = getComposer()->Expr2CodeLoc(n, pedge, this);
+    if(p.mem) return p.mem;
+    else      return p.expr;
+  } else 
+    return boost::make_shared<IntersectCodeLocObject>(cls);
 }
 
 // Return the anchor Parts of a given function
-PartPtr LooseParallelComposer::GetFunctionStartPart(const Function& func)
+PartPtr LooseParallelComposer::GetFunctionStartPart_Spec(const Function& func)
 {
-  // List of parts that will be intersected and returned
-  list<PartPtr> parts;
+  // The parts that will be intersected and returned
+  map<ComposedAnalysis*, PartPtr> parts;
   
-  for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++) {
-    std::ostringstream label; label << "GetFunctionEndPart  : " << (*a)->str("");
-    Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
+  // Construct the intersection of the sub-analyses responses to the GetFunctionStartPart query if we know
+  // that at least one implements or if we don't yet know if any do
+  if(subAnalysesImplementPartitions==True || subAnalysesImplementPartitions==Unknown) {
+    for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++) {
+      std::ostringstream label; label << "GetFunctionStartPart  : " << (*a)->str("");
+      Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
 
-    try {
-      PartPtr part = (*a)->GetFunctionStartPart(func);
-      Dbg::dbg << "Returning "<<part->str("")<<endl;
-      parts.push_back(part);
-    } catch (NotImplementedException exc) {
-      if(composerDebugLevel>=1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;GetFunctionStartPart() Not Implemented."<<endl;
-      // If control reaches here then the current analysis must not implement 
-      // this method so we ask the remaining analyses
-      continue;
+      try {
+        PartPtr part = (*a)->GetFunctionStartPart(func);
+        if(composerDebugLevel >= 1) Dbg::dbg << "Returning "<<part->str("")<<endl;
+        parts[*a] = part;
+      } catch (NotImplementedException exc) {
+        if(composerDebugLevel>=1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;GetFunctionStartPart() Not Implemented."<<endl;
+        // If control reaches here then the current analysis must not implement 
+        // this method so we ask the remaining analyses
+        continue;
+      }
     }
+  
+    // Since analyses either always implement GetFunctionStartPart and GetFunctionEndPart or they do not,
+    // update our knowledge about partition implementations
+    subAnalysesImplementPartitions = (parts.size()>0? True: False);
   }
   
-  return makePart<IntersectionPart>(parts, this);
+  // If no sub-analysis implements this query, forward it to the composer
+  if(subAnalysesImplementPartitions==False) {
+    ROSE_ASSERT(parts.size()==0);
+    return getComposer()->GetFunctionStartPart(func, this);
+  } else {
+    ROSE_ASSERT(parts.size()>0);
+    return makePart<IntersectionPart>(parts, getComposer()->GetFunctionStartPart(func, this), this);
+  }
 }
 
-PartPtr LooseParallelComposer::GetFunctionEndPart(const Function& func)
+PartPtr LooseParallelComposer::GetFunctionEndPart_Spec(const Function& func)
 {
-  // List of parts that will be intersected and returned
-  list<PartPtr> parts;
+  // The parts that will be intersected and returned
+  map<ComposedAnalysis*, PartPtr> parts;
   
-  for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++) {
-    std::ostringstream label; label << "GetFunctionEndPart  : " << (*a)->str("");
-    Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
+  // Construct the intersection of the sub-analyses responses to the GetFunctionStartPart query if we know
+  // that at least one implements or if we don't yet know if any do
+  if(subAnalysesImplementPartitions==True || subAnalysesImplementPartitions==Unknown) {
+    for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++) {
+      std::ostringstream label; label << "GetFunctionEndPart  : " << (*a)->str("");
+      Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
 
-    try {
-      PartPtr part = (*a)->GetFunctionEndPart(func);
-      Dbg::dbg << "Returning "<<part->str("")<<endl;
-      parts.push_back(part);
-    } catch (NotImplementedException exc) {
-      if(composerDebugLevel>=1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;GetFunctionEndPart() Not Implemented."<<endl;
-      // If control reaches here then the current analysis must not implement 
-      // this method so we ask the remaining analyses
-      continue;
+      try {
+        PartPtr part = (*a)->GetFunctionEndPart(func);
+        if(composerDebugLevel >= 1) Dbg::dbg << "Returning "<<part->str("")<<endl;
+        parts[*a] = part;
+      } catch (NotImplementedException exc) {
+        if(composerDebugLevel>=1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;GetFunctionEndPart() Not Implemented."<<endl;
+        // If control reaches here then the current analysis must not implement 
+        // this method so we ask the remaining analyses
+        continue;
+      }
     }
+    
+    // Since analyses either always implement GetFunctionStartPart and GetFunctionEndPart or they do not,
+    // update our knowledge about partition implementations
+    subAnalysesImplementPartitions = (parts.size()>0? True: False);
   }
   
-  return makePart<IntersectionPart>(parts, this);
+  // If no sub-analysis implements this query, forward it to the composer
+  if(subAnalysesImplementPartitions==False) {
+    ROSE_ASSERT(parts.size()==0);
+    return getComposer()->GetFunctionEndPart(func, this);
+  } else {
+    ROSE_ASSERT(parts.size()>0);
+    return makePart<IntersectionPart>(parts, getComposer()->GetFunctionEndPart(func, this), this);
+  }
+}
+
+// When Expr2* is queried for a particular analysis on edge pedge, exported by this LooseParallelComposer 
+// this function translates from the pedge that the LooseParallelComposer::Expr2* is given to the PartEdge 
+// that this particular sub-analysis runs on. If some of the analyses that were composed in parallel with 
+// this analysis (may include this analysis) implement partition graphs, we know that 
+// GetFunctionStartPart/GetFunctionEndPart wrapped them in IntersectionPartEdges. In this case this function
+// converts pedge into an IntersectionPartEdge and queries its getPartEdge method. Otherwise, 
+// GetFunctionStartPart/GetFunctionEndPart do no wrapping and thus, we can return pedge directly.
+PartEdgePtr LooseParallelComposer::getEdgeForAnalysis(PartEdgePtr pedge, ComposedAnalysis* analysis)
+{
+  ROSE_ASSERT(subAnalysesImplementPartitions != Unknown);
+  
+  // If some sub-analyses of this composer do implement partition graphs, unwrap the IntersectionPartEdge
+  // that combines their edges
+  if(subAnalysesImplementPartitions==True) {
+    IntersectionPartEdgePtr iEdge = dynamic_part_cast<IntersectionPartEdge>(pedge);
+    ROSE_ASSERT(iEdge);
+    //Dbg::dbg << "getEdgeForAnalysis iEdge="<<iEdge->str()<<endl;
+    return iEdge->getPartEdge(analysis);
+  // Otherwise, pass back the raw edge that came from analyses that precede the composer
+  } else {
+    //Dbg::dbg << "getEdgeForAnalysis pedge="<<pedge->str()<<endl;
+    return pedge;
+  }
+}
+
+string LooseParallelComposer::str(string indent) {
+  ostringstream oss;
+  oss << "[LooseParallelComposer: ";
+  for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); ) {
+    oss << (*a)->str();
+    a++;
+    if(a!=allAnalyses.end()) oss << ", ";
+  }
+  oss << "]";
+  return oss.str();
 }
 
 }; //namespace dataflow;

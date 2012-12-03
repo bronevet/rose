@@ -200,7 +200,10 @@ SgFunctionDefinition* cfgUtils::funcDeclToDef(SgFunctionDeclaration* decl)
 std::string cfgUtils::SgNode2Str(SgNode* sgn)
 {
   ostringstream oss;
-  oss << "[" << sgn->unparseToString() << " | " << sgn->class_name() << "]";
+  if(isSgNullStatement(sgn))
+    oss << "[" << sgn->class_name() << "]";
+  else
+    oss << "[" << sgn->unparseToString() << " | " << sgn->class_name() << "]";
   return oss.str();
 }
 
@@ -208,7 +211,10 @@ std::string cfgUtils::SgNode2Str(SgNode* sgn)
 std::string cfgUtils::CFGNode2Str(CFGNode n)
 {
   ostringstream oss;
-  oss << "[" << n.getNode()->unparseToString() << " | " << n.getNode()->class_name() << " | " << n.getIndex() << "]";
+  if(isSgNullStatement(n.getNode()))
+    oss << "[" << n.getNode()->class_name() << " | " << n.getIndex() << "]";
+  else
+    oss << "[" << n.getNode()->unparseToString() << " | " << n.getNode()->class_name() << " | " << n.getIndex() << "]";
   return oss.str();
 }
 

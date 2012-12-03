@@ -113,8 +113,8 @@ IntraFWDataflow::getInitialWorklist(const Function &func, bool analyzeFromDirect
       
       // If the current node is tainted, taint its successors
       / *if(pTaint)
-      vector<PartPtr> desc = IntraFWDataflow::getDescendants(p);
-      for(vector<PartPtr>::iterator d=desc.begin(); d!=desc.end(); d++)
+      list<PartPtr> desc = IntraFWDataflow::getDescendants(p);
+      for(list<PartPtr>::iterator d=desc.begin(); d!=desc.end(); d++)
         tainted.insert(*d);* /
     }
   }*/
@@ -193,30 +193,30 @@ void IntraBWDataflow::transferFunctionCall(const Function &caller, PartPtr callP
   // NEED TO INCORPORATE INFORMATION ABOUT RETURN INTO DATAFLOW SOMEHOW
 }*/
 
-vector<PartPtr> IntraFWDataflow::getDescendants(PartPtr part)
+list<PartPtr> IntraFWDataflow::getDescendants(PartPtr part)
 { 
-  vector<PartPtr> descendants;
-  vector<PartEdgePtr> outEdges = part->outEdges();
-  for(vector<PartEdgePtr>::iterator ei=outEdges.begin(); ei!=outEdges.end(); ei++)
+  list<PartPtr> descendants;
+  list<PartEdgePtr> outEdges = part->outEdges();
+  for(list<PartEdgePtr>::iterator ei=outEdges.begin(); ei!=outEdges.end(); ei++)
     descendants.push_back((*ei)->target());
   return descendants;
 }
 
-vector<PartPtr> IntraBWDataflow::getDescendants(PartPtr part)
+list<PartPtr> IntraBWDataflow::getDescendants(PartPtr part)
 { 
-  vector<PartPtr> descendants;
-  vector<PartEdgePtr> inEdges = part->inEdges();
-  for(vector<PartEdgePtr>::iterator ei=inEdges.begin(); ei!=inEdges.end(); ei++)
+  list<PartPtr> descendants;
+  list<PartEdgePtr> inEdges = part->inEdges();
+  for(list<PartEdgePtr>::iterator ei=inEdges.begin(); ei!=inEdges.end(); ei++)
     descendants.push_back((*ei)->source());
   return descendants;
 }
 
-vector<PartEdgePtr> IntraFWDataflow::getEdgesToDescendants(PartPtr part)
+list<PartEdgePtr> IntraFWDataflow::getEdgesToDescendants(PartPtr part)
 { 
   return part->outEdges();
 }
 
-vector<PartEdgePtr> IntraBWDataflow::getEdgesToDescendants(PartPtr part)
+list<PartEdgePtr> IntraBWDataflow::getEdgesToDescendants(PartPtr part)
 { 
   return part->inEdges();
 }
@@ -354,39 +354,45 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
                 
         // The transfer function must have either left dfInfoPost's NULL edge key alone or created one key for each
         // descendant edge
-        vector<PartEdgePtr> descEdges = getEdgesToDescendants(part);
+        list<PartEdgePtr> descEdges = getEdgesToDescendants(part);
         // If the key is still the NULL edge
         if(dfInfoPost.size()==1 && (dfInfoPost.find(NULLPartEdge) != dfInfoPost.end())) {
           // Adjust dfInfoPost to make one copy of the value for each descendant edge
           
           Dbg::dbg << "Descendant edges: #descEdges="<<descEdges.size()<<endl;
-          for(vector<PartEdgePtr>::iterator e=descEdges.begin(); e!=descEdges.end(); e++)
-          { Dbg::indent ind; Dbg::dbg << ":" << (*e)->str() << endl; }
+          /*for(list<PartEdgePtr>::iterator e=descEdges.begin(); e!=descEdges.end(); e++)
+          { Dbg::indent ind; Dbg::dbg << ":" << (*e)->str() << endl; }*/
           Dbg::dbg << "dfInfoPost="<<endl;
           { Dbg::indent ind; Dbg::dbg << NodeState::str(dfInfoPost) << endl; }
           
-          vector<PartEdgePtr>::iterator first=descEdges.begin();
-          // First, map the original key to the first descendant edge
-          dfInfoPost[*first] = dfInfoPost[NULLPartEdge];
-          dfInfoPost.erase(NULLPartEdge);
-          
-          // Set to *first the PartEdge of all the lattices stored under this edge
-          for(vector<Lattice*>::iterator l=dfInfoPost[*first].begin(); l!=dfInfoPost[*first].end(); l++)
-            (*l)->setPartEdge(*first); //modified = (*l)->setPartEdge(*first) || modified;
-          
-          // Now copy its value to the other descendant edges
-          vector<PartEdgePtr>::iterator e=first;
-          for(e++; e!=descEdges.end(); e++) {
-            NodeState::copyLatticesOW(dfInfoPost, *e, dfInfoPost, *first, true);
-            // Set to *e the PartEdge of all the lattices stored under this edge
-            for(vector<Lattice*>::iterator l=dfInfoPost[*e].begin(); l!=dfInfoPost[*e].end(); l++)
-              (*l)->setPartEdge(*e);//modified = (*l)->setPartEdge(*e) || modified;
+          if(descEdges.size() > 0) {
+            list<PartEdgePtr>::iterator first=descEdges.begin();
+            // First, map the original key to the first descendant edge
+            dfInfoPost[*first] = dfInfoPost[NULLPartEdge];
+            dfInfoPost.erase(NULLPartEdge);
+
+            // Set to *first the PartEdge of all the lattices stored under this edge
+            for(vector<Lattice*>::iterator l=dfInfoPost[*first].begin(); l!=dfInfoPost[*first].end(); l++) {
+              //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;first="<<(*first)->str()<<endl;
+              (*l)->setPartEdge(*first); //modified = (*l)->setPartEdge(*first) || modified;
+            }
+
+            // Now copy its value to the other descendant edges
+            list<PartEdgePtr>::iterator e=first;
+            for(e++; e!=descEdges.end(); e++) {
+              NodeState::copyLatticesOW(dfInfoPost, *e, dfInfoPost, *first, true);
+              // Set to *e the PartEdge of all the lattices stored under this edge
+              for(vector<Lattice*>::iterator l=dfInfoPost[*e].begin(); l!=dfInfoPost[*e].end(); l++) {
+                //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;e="<<(*e)->str()<<endl;
+                (*l)->setPartEdge(*e);//modified = (*l)->setPartEdge(*e) || modified;
+              }
+            }
           }
         // If the key has been changed
         } else {
           // First, verify that it has been changed correctly
           ROSE_ASSERT(descEdges.size() == dfInfoPost.size());
-          for(vector<PartEdgePtr>::iterator e=descEdges.begin(); e!=descEdges.end(); e++)
+          for(list<PartEdgePtr>::iterator e=descEdges.begin(); e!=descEdges.end(); e++)
             ROSE_ASSERT(dfInfoPost.find(*e) != dfInfoPost.end());
         }
         
@@ -422,8 +428,8 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
       
       if(**curNodeIt != ultimatePart)
       {
-        vector<PartPtr> descendants = getDescendants(part);
-        vector<PartEdgePtr> descEdges = getEdgesToDescendants(part);
+        list<PartPtr> descendants = getDescendants(part);
+        list<PartEdgePtr> descEdges = getEdgesToDescendants(part);
         
         if(analysisDebugLevel>=1){
           Dbg::dbg << " ==================================  "<<endl;
@@ -432,8 +438,8 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
         Dbg::indent ind(analysisDebugLevel, 1);
         
         // Iterate over all descendants
-        vector<PartPtr>::iterator d;
-        vector<PartEdgePtr>::iterator de;
+        list<PartPtr>::iterator d;
+        list<PartEdgePtr>::iterator de;
         for(d = descendants.begin(), de = descEdges.begin(); d != descendants.end(); d++, de++)
         {
           // The CFG node corresponding to the current descendant of n
@@ -474,6 +480,8 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
       (*curNodeIt)++;
     } // while(curNodeIt!=dataflowPartIterator::end())
   } // for(list<PartPtr>::iterator start=startingParts.begin(); start!=startingParts.end(); start++) {
+  
+  Dbg::dbg << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< ComposedAnalysis::runAnalysis" << endl;
 }
 
 }; // namespace dataflow

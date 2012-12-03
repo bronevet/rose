@@ -33,6 +33,9 @@ class FunctionState;
 class NotImplementedException
 {};
 
+// Represents the state of our knowledge about some fact
+typedef enum {Unknown=-1, False=0, True=1} knowledgeT;
+
 // #####################################
 // ##### INTRA-PROCEDURAL ANALYSES #####
 // #####################################
@@ -55,6 +58,10 @@ class ComposedAnalysis : public virtual IntraUnitDataflow, public printable
   }
   
   public:
+    
+  // Runs the analysis, combining the intra-analysis with the inter-analysis of its choice
+  virtual void runAnalysis();
+  
   // The transfer function for this analysis
   //GOAL: virtual void transfer(SgNode &n, Part& p)=0;
   //LEGACY: virtual bool transfer(const Function& func, const PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo)=0;
@@ -69,9 +76,19 @@ class ComposedAnalysis : public virtual IntraUnitDataflow, public printable
   virtual MemLocObjectPtr  Expr2MemLoc (SgNode* n, PartEdgePtr pedge) { throw NotImplementedException(); }
   virtual CodeLocObjectPtr Expr2CodeLoc(SgNode* n, PartEdgePtr pedge)  { throw NotImplementedException(); }
   
+  private:
+  // Cached copies of the results of GetFunctionStartPart and GetFunctionEndPart
+  map<Function, PartPtr> func2StartPart;
+  map<Function, PartPtr> func2EndPart;  
+  
+  public:
   // Return the anchor Parts of a given function
-  virtual PartPtr GetFunctionStartPart(const Function& func) { throw NotImplementedException(); }
-  virtual PartPtr GetFunctionEndPart(const Function& func)   { throw NotImplementedException(); }
+  PartPtr GetFunctionStartPart(const Function& func);
+  PartPtr GetFunctionEndPart(const Function& func);
+  
+  // Specific Composers implement these two functions
+  virtual PartPtr GetFunctionStartPart_Spec(const Function& func) { throw NotImplementedException(); }
+  virtual PartPtr GetFunctionEndPart_Spec(const Function& func)   { throw NotImplementedException(); }
   
   // In the long term we will want analyses to return their own implementations of 
   // maps and sets. This is not strictly required to produce correct code and is 
@@ -136,8 +153,8 @@ class IntraUniDirectionalDataflow : public ComposedAnalysis
   // analysis to determine the effect of this function call on the dataflow state.
   //virtual void transferFunctionCall(const Function &caller, PartPtr callPart, CFGNode callCFG, NodeState *state) = 0;
 
-  virtual vector<PartPtr> getDescendants(PartPtr p) = 0;
-  virtual vector<PartEdgePtr> getEdgesToDescendants(PartPtr part) = 0;
+  virtual list<PartPtr> getDescendants(PartPtr p) = 0;
+  virtual list<PartEdgePtr> getEdgesToDescendants(PartPtr part) = 0;
   virtual PartPtr getUltimate(const Function &func) = 0;
   virtual dataflowPartIterator* getIterator(const Function &func) = 0;
   
@@ -161,8 +178,8 @@ class IntraFWDataflow  : public ComposedAnalysis
   void setLatticePost(NodeState *state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, bool overwrite);
   
   //void transferFunctionCall(const Function &func, PartPtr callPart, CFGNode callCFG, NodeState *state);
-  vector<PartPtr> getDescendants(PartPtr p);
-  vector<PartEdgePtr> getEdgesToDescendants(PartPtr part);
+  list<PartPtr> getDescendants(PartPtr p);
+  list<PartEdgePtr> getEdgesToDescendants(PartPtr part);
   PartPtr getUltimate(const Function &func);
   dataflowPartIterator* getIterator(const Function &func);
   
@@ -185,8 +202,8 @@ class IntraBWDataflow  : public ComposedAnalysis
   void setLatticeAnte(NodeState *state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, bool overwrite);
   void setLatticePost(NodeState *state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, bool overwrite);
   //void transferFunctionCall(const Function &func, PartPtr callPart, CFGNode callCFG, NodeState *state);
-  vector<PartPtr> getDescendants(PartPtr p);
-  vector<PartEdgePtr> getEdgesToDescendants(PartPtr part);
+  list<PartPtr> getDescendants(PartPtr p);
+  list<PartEdgePtr> getEdgesToDescendants(PartPtr part);
   PartPtr getUltimate(const Function &func);
   dataflowPartIterator* getIterator(const Function &func);
   
@@ -212,8 +229,8 @@ class IntraUndirDataflow  : public ComposedAnalysis
   void setLatticeAnte(NodeState *state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, bool overwrite) { }
   void setLatticePost(NodeState *state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, bool overwrite) { }
   //void transferFunctionCall(const Function &func, PartPtr callPart, CFGNode callCFG, NodeState *state) {};
-  vector<PartPtr> getDescendants(PartPtr p) { vector<PartPtr> empty; return empty; }
-  vector<PartEdgePtr> getEdgesToDescendants(PartPtr part) { vector<PartEdgePtr> empty; return empty; }
+  list<PartPtr> getDescendants(PartPtr p) { list<PartPtr> empty; return empty; }
+  list<PartEdgePtr> getEdgesToDescendants(PartPtr part) { list<PartEdgePtr> empty; return empty; }
   PartPtr getUltimate(const Function &func) { return NULLPart; } 
   dataflowPartIterator* getIterator(const Function &func) { return NULL; }
   
@@ -537,10 +554,12 @@ class Composer
    
    virtual CodeLocObjectPtrPair Expr2CodeLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client)=0;
    
+   public:
    // Return the anchor Parts of a given function
    virtual PartPtr GetFunctionStartPart(const Function& func, ComposedAnalysis* client)=0;
    virtual PartPtr GetFunctionEndPart(const Function& func, ComposedAnalysis* client)=0;
-
+   
+   
    // Maps and Sets
    /*virtual MemLocSet* NewValueSet()=0;
    virtual ValueSet*  NewValueMap()=0;
@@ -711,10 +730,11 @@ class ChainComposer : public Composer
   bool verboseTest;
   
   public:
-  ChainComposer(int argc, char** argv, std::list<ComposedAnalysis*>& analyses, 
+  ChainComposer(std::list<ComposedAnalysis*>& analyses, 
                 ComposedAnalysis* testAnalysis, bool verboseTest);
   
-  //bool runAnalysis(const Function& func, NodeState* state);
+  // Runs the analysis, combining the intra-analysis with the inter-analysis of its choice
+  // ChainComposer invokes the runAnalysis methods of all its constituent analyses in sequence
   void runAnalysis();
   
   // Generic function that looks up the composition chain from the given client 
@@ -758,13 +778,16 @@ class LooseParallelComposer : public Composer, public IntraUndirDataflow
 {
   list<ComposedAnalysis*> allAnalyses;
   
+  
+  // Indicates whether at least one sub-analysis implements a partition
+  knowledgeT subAnalysesImplementPartitions;
+  
   public:
-  LooseParallelComposer(int argc, char** argv, list<ComposedAnalysis*>& analyses);
+  LooseParallelComposer(list<ComposedAnalysis*>& analyses);
 
   // ---------------------------------
   // ----- Methods from Composer -----
   // ---------------------------------
-  void runAnalysis();
   
   // The Expr2* and GetFunction*Part functions are implemented by calling the same functions in the parent composer
   
@@ -791,6 +814,10 @@ class LooseParallelComposer : public Composer, public IntraUndirDataflow
   // ----- Methods from ComposedAnalysis -----
   // -----------------------------------------
   
+  // Runs the analysis, combining the intra-analysis with the inter-analysis of its choice
+  // LooseParallelComposer invokes the runAnalysis methods of all its constituent analyses in sequence
+  void runAnalysis();
+  
   // The Expr2* and GetFunction*Part functions are implemented by calling the same functions in each of the 
   // constituent analyses and returning an Intersection object that includes their responses
   
@@ -805,8 +832,19 @@ class LooseParallelComposer : public Composer, public IntraUndirDataflow
   CodeLocObjectPtr Expr2CodeLoc(SgNode* n, PartEdgePtr pedge);
   
   // Return the anchor Parts of a given function
-  PartPtr GetFunctionStartPart(const Function& func);
-  PartPtr GetFunctionEndPart(const Function& func) ;
+  PartPtr GetFunctionStartPart_Spec(const Function& func);
+  PartPtr GetFunctionEndPart_Spec(const Function& func);
+  
+  // When Expr2* is queried for a particular analysis on edge pedge, exported by this LooseParallelComposer 
+  // this function translates from the pedge that the LooseParallelComposer::Expr2* is given to the PartEdge 
+  // that this particular sub-analysis runs on. If some of the analyses that were composed in parallel with 
+  // this analysis (may include this analysis) implement partition graphs, we know that 
+  // GetFunctionStartPart/GetFunctionEndPart wrapped them in IntersectionPartEdges. In this case this function
+  // converts pedge into an IntersectionPartEdge and queries its getPartEdge method. Otherwise, 
+  // GetFunctionStartPart/GetFunctionEndPart do no wrapping and thus, we can return pedge directly.
+  PartEdgePtr getEdgeForAnalysis(PartEdgePtr pedge, ComposedAnalysis* analysis);
+  
+  std::string str(std::string indent="");
 };
 
 

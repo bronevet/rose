@@ -76,22 +76,22 @@ void partIterator::advance(bool fwDir, bool pushAllChildren)
     {
       // find its followers (either successors or predecessors, depending on value of fwDir), push back 
       // those that have not yet been visited
-      vector<PartEdgePtr> nextE;
+      list<PartEdgePtr> nextE;
       if(fwDir) nextE = cur->outEdges();
       else      nextE = cur->inEdges();
-      for(vector<PartEdgePtr>::iterator it=nextE.begin(); it!=nextE.end(); it++)
+      for(list<PartEdgePtr>::iterator it=nextE.begin(); it!=nextE.end(); it++)
       {
         PartPtr nextN = (fwDir ? (*it)->target() : nextN = (*it)->source());
         //Dbg::dbg << "nextN=["<<nextN.getNode()->unparseToString()<<" | "<<nextN.getNode()->class_name()<<"]"<<endl;
         
-        /*cout << "      iterator::advance "<<(fwDir?"descendant":"predecessor")<<": "<<
-               "<"<<nextN.getNode()->class_name()<<" | "<<nextN.getNode()<<" | "<<nextN.getNode()->unparseToString()<<">, "<<
+        /*Dbg::dbg << "      iterator::advance "<<(fwDir?"descendant":"predecessor")<<": "
+               <<nextN->str() << endl;/ *<<", "<<
                "visited="<<(visited.find(nextN) != visited.end())<<
                " remaining="<<isRemaining(nextN)<<"\n";*/
         
         // if we haven't yet visited this node and don't yet have it on the remainingNodes list
-        if(visited.find(PartPtr(nextN)) == visited.end() &&
-           !isRemaining(PartPtr(nextN)))
+        if(visited.find(nextN) == visited.end() &&
+           !isRemaining(nextN))
         {
           //printf("   pushing back node <%s: 0x%x: %s> visited=%d\n", nextN.getNode()->class_name().c_str(), nextN.getNode(), nextN.getNode()->unparseToString().c_str(), visited.find(nextN)!=visited.end());
           remainingNodes.push_back(nextN);

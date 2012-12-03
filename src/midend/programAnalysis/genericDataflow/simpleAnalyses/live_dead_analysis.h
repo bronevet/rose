@@ -136,9 +136,9 @@ public:
                                                       NodeState& state, 
                                                       std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo)
     { return boost::shared_ptr<IntraDFTransferVisitor>(
-    		new LiveDeadMemTransfer(func, part, cn, state, dfInfo, 
-    		                        this, getComposer(), //ComposerExpr2MemLocPtr(new ComposerExpr2MemLoc(*getComposer(), part->inEdgeFromAny(), *((ComposedAnalysis*)this))),
-    		                        fseu)); }
+                new LiveDeadMemTransfer(func, part, cn, state, dfInfo, 
+                                        this, getComposer(), //ComposerExpr2MemLocPtr(new ComposerExpr2MemLoc(*getComposer(), part->inEdgeFromAny(), *((ComposedAnalysis*)this))),
+                                        fseu)); }
 
     bool transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
                   std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo) { assert(0); return false; }

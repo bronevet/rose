@@ -19,10 +19,10 @@ class Lattice : public printable
   public:
   // Sets the PartEdge that this Lattice's information corresponds to. 
   // Returns true if this causes the edge to change and false otherwise
-  bool setPartEdge(PartEdgePtr latPEdge);
+  virtual bool setPartEdge(PartEdgePtr latPEdge);
   
   // Returns the PartEdge that this Lattice's information corresponds to
-  PartEdgePtr getPartEdge();
+  virtual PartEdgePtr getPartEdge();
   
   // initializes this Lattice to its default state, if it is not already initialized
   virtual void initialize()=0;

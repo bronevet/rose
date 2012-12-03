@@ -31,13 +31,13 @@ MemLocObjectPtr SyntacticAnalysis::Expr2MemLocStatic(SgNode* n, PartEdgePtr pedg
   MemLocObjectPtr rt;
 
   ROSE_ASSERT(n);
-  Dbg::dbg << "isSgPntrArrRefExp (n)="<<isSgPntrArrRefExp (n)<<" isSgPntrArrRefExp (n->get_parent())="<<isSgPntrArrRefExp (n->get_parent())<<endl;
+  /*Dbg::dbg << "isSgPntrArrRefExp (n)="<<isSgPntrArrRefExp (n)<<" isSgPntrArrRefExp (n->get_parent())="<<isSgPntrArrRefExp (n->get_parent())<<endl;
   if(isSgPntrArrRefExp (n->get_parent())) {
     Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;parent->lhs=["<<Dbg::escape(isSgPntrArrRefExp (n->get_parent())->get_lhs_operand()->unparseToString())<<" | "<<isSgPntrArrRefExp (n->get_parent())->get_lhs_operand()->class_name()<<"]"<<endl;
     Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;parent->rhs=["<<Dbg::escape(isSgPntrArrRefExp (n->get_parent())->get_rhs_operand()->unparseToString())<<" | "<<isSgPntrArrRefExp (n->get_parent())->get_rhs_operand()->class_name()<<"]"<<endl;
     Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;isSgPntrArrRefExp (n->get_parent())->get_rhs_operand()==n)="<<(isSgPntrArrRefExp (n->get_parent())->get_lhs_operand()==n)<<endl;
   }
-  Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;isSgExpression(n)="<<isSgExpression(n)<<endl;
+  Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;isSgExpression(n)="<<isSgExpression(n)<<endl;*/
   
   // Only create Named objects for top-level SgPntrArrRefExps
   // Or for SgPntrArrRefExps that denote the indexes inside SgPntrArrRefExps (e.g. array[array[i]])
@@ -45,7 +45,7 @@ MemLocObjectPtr SyntacticAnalysis::Expr2MemLocStatic(SgNode* n, PartEdgePtr pedg
       !(isSgPntrArrRefExp (n->get_parent()) && isSgPntrArrRefExp(isSgPntrArrRefExp (n->get_parent())->get_lhs_operand()) &&
         isSgPntrArrRefExp (n->get_parent())->get_lhs_operand()==n))
   {
-    Dbg::dbg<< "NamedML"<<endl;
+    //Dbg::dbg<< "NamedML"<<endl;
     SgPntrArrRefExp* r = isSgPntrArrRefExp(n);
     assert (r != NULL);
     rt = createNamedMemLocObject(n, r, pedge);
@@ -58,7 +58,7 @@ MemLocObjectPtr SyntacticAnalysis::Expr2MemLocStatic(SgNode* n, PartEdgePtr pedg
   }
   else if (SgExpression* sgexp=isSgExpression(n)) // the order matters !! Must put after V_SgVarRefExp, SgPntrArrRefExp etc.
   {
-    Dbg::dbg<< "ExprML"<<endl;
+    //Dbg::dbg<< "ExprML"<<endl;
     rt = createExpressionMemLocObject (sgexp, sgexp->get_type(), pedge);
   }
   else if (SgType* t = isSgType(n))
@@ -100,7 +100,7 @@ CodeLocObjectPtr SyntacticAnalysis::Expr2CodeLocStatic(SgNode* n, PartEdgePtr pe
 { return boost::make_shared<StxCodeLocObject>(n, pedge); }
 
 // Return the anchor Parts of a given function
-PartPtr SyntacticAnalysis::GetFunctionStartPart(const Function& func)
+PartPtr SyntacticAnalysis::GetFunctionStartPart_Spec(const Function& func)
 {
   // Find the SgFunctionParameterList node by walking the CFG forwards from the function's start
   /*Dbg::dbg << "SyntacticAnalysis::GetFunctionStartPart()"<<endl;
@@ -114,7 +114,7 @@ PartPtr SyntacticAnalysis::GetFunctionStartPart(const Function& func)
   ROSE_ASSERT(0);
 }
 
-PartPtr SyntacticAnalysis::GetFunctionEndPart(const Function& func)
+PartPtr SyntacticAnalysis::GetFunctionEndPart_Spec(const Function& func)
 {
   return makePart<StxPart>(cfgUtils::getFuncEndCFG(func.get_definition()), this, filter);//boost::make_shared<StxPart>(cfgUtils::getFuncEndCFG(func.get_definition()), filter);
 }
@@ -133,7 +133,7 @@ CFGNode NULLCFGNode;
 // XXX: This code is duplicated from frontend/SageIII/virtualCFG/virtualCFG.C
 // Make a set of raw CFG edges closure. Raw edges may have src and dest CFG nodes which are to be filtered out. 
 // The method used is to connect them into CFG paths so src and dest nodes of each path are interesting, skipping intermediate filtered nodes)
-vector<StxPartEdgePtr> makeClosureDF(const vector<CFGEdge>& orig, // raw in or out edges to be processed
+list<StxPartEdgePtr> makeClosureDF(const vector<CFGEdge>& orig, // raw in or out edges to be processed
                                      vector<CFGEdge> (CFGNode::*closure)() const, // find successor edges from a node, CFGNode::outEdges() for example
                                      CFGNode (CFGPath::*otherSide)() const, // node from the other side of the path: CFGPath::target()
                                      CFGPath (*merge)(const CFGPath&, const CFGPath&),  // merge two paths into one
@@ -183,7 +183,7 @@ top:
   // cerr << "makeClosure loop done: " << currentPaths.size() << endl;
 
   // Now convert the set of CFG paths with interesting src and dest nodes into a set of DataflowEdge 
-  vector<StxPartEdgePtr> edges;
+  list<StxPartEdgePtr> edges;
   for (vector<CFGPath>::iterator i = currentPaths.begin(); i != currentPaths.end(); ++i) {
     // Only if the end node of the path is interesting
     //if (((*i).*otherSide)().isInteresting())
@@ -194,39 +194,39 @@ top:
   //cout << "makeClosure done: #edges=" << edges.size() << endl;
   //for(vector<DataflowEdge>::iterator e=edges.begin(); e!=edges.end(); e++)
   //    printf("Current Node %p<%s | %s>\n", e.target().getNode(), e.target().getNode()->unparseToString().c_str(), e.target().getNode()->class_name().c_str());
-  for (vector<StxPartEdgePtr>::iterator i = edges.begin(); i != edges.end(); ++i) {
+  for (list<StxPartEdgePtr>::iterator i = edges.begin(); i != edges.end(); ++i) {
     ROSE_ASSERT((*i)->source()->filterAny(filter)  || 
                 (*i)->target()->filterAny(filter)); // at least one node is interesting
   }
   return edges;
 }
 
-vector<PartEdgePtr> StxPart::outEdges() {
-  vector<StxPartEdgePtr> vStx = makeClosureDF(n.outEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter, analysis);
-  vector<PartEdgePtr> v;
-  for(vector<StxPartEdgePtr>::iterator i=vStx.begin(); i!=vStx.end(); i++) {
-    v.push_back(static_part_cast<PartEdge>(*i));
+list<PartEdgePtr> StxPart::outEdges() {
+  list<StxPartEdgePtr> vStx = makeClosureDF(n.outEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter, analysis);
+  list<PartEdgePtr> v;
+  for(list<StxPartEdgePtr>::iterator i=vStx.begin(); i!=vStx.end(); i++) {
+    v.push_back(dynamic_part_cast<PartEdge>(*i));
     //v.push_back(static_cast<PartEdgePtr>(*i));
   }
   return v;
 }
 
-vector<StxPartEdgePtr> StxPart::outStxEdges() {
+list<StxPartEdgePtr> StxPart::outStxEdges() {
   return makeClosureDF(n.outEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter, analysis);
 }
 
-vector<PartEdgePtr> StxPart::inEdges() {
-  vector<StxPartEdgePtr> vStx = makeClosureDF(n.inEdges(), &CFGNode::inEdges, &CFGPath::source, &mergePathsReversed, filter, analysis);
-  vector<PartEdgePtr> v;
-  for(vector<StxPartEdgePtr>::iterator i=vStx.begin(); i!=vStx.end(); i++) {
-    v.push_back(static_part_cast<PartEdge>(*i));
+list<PartEdgePtr> StxPart::inEdges() {
+  list<StxPartEdgePtr> vStx = makeClosureDF(n.inEdges(), &CFGNode::inEdges, &CFGPath::source, &mergePathsReversed, filter, analysis);
+  list<PartEdgePtr> v;
+  for(list<StxPartEdgePtr>::iterator i=vStx.begin(); i!=vStx.end(); i++) {
+    v.push_back(dynamic_part_cast<PartEdge>(*i));
     //v.push_back(static_cast<PartEdgePtr>(*i));
   }
   
   return v;
 }
 
-vector<StxPartEdgePtr> StxPart::inStxEdges() {
+list<StxPartEdgePtr> StxPart::inStxEdges() {
   return makeClosureDF(n.inEdges(), &CFGNode::inEdges, &CFGPath::source, &mergePathsReversed, filter, analysis);
 }
 
@@ -278,23 +278,23 @@ bool StxPart::equal(const PartPtr& o) const
 {
   /*ROSE_ASSERT(boost::dynamic_pointer_cast<StxPart>(o));
   return n == boost::dynamic_pointer_cast<StxPart>(o)->n;*/
-  ROSE_ASSERT(static_part_cast<StxPart>(o).get());
-  return n == static_part_cast<StxPart>(o)->n;
+  ROSE_ASSERT(dynamic_part_cast<StxPart>(o).get());
+  return n == dynamic_part_cast<StxPart>(o)->n;
 }
 
 bool StxPart::less(const PartPtr& o) const
 {
   /*ROSE_ASSERT(boost::dynamic_pointer_cast<StxPart>(o));
   return n < boost::dynamic_pointer_cast<StxPart>(o)->n;*/
-  ROSE_ASSERT(static_part_cast<StxPart>(o).get());
-  return n < static_part_cast<StxPart>(o)->n;
+  ROSE_ASSERT(dynamic_part_cast<StxPart>(o).get());
+  return n < dynamic_part_cast<StxPart>(o)->n;
 }
 
 std::string StxPart::str(std::string indent)
 {
   ostringstream oss;
   if(isNULLCFGNode(n.getNode())) oss << "[*]";
-  else oss << "[" << Dbg::escape(n.getNode()->unparseToString()) << " | " << n.getNode()->class_name() << " | " << n.getIndex() << "]";
+  else oss << cfgUtils::CFGNode2Str(n);//", analysis="<<analysis<<"]";
   return oss.str();
 }
 
@@ -330,7 +330,7 @@ std::list<PartEdgePtr> StxPartEdge::getOperandPartEdge(SgNode* anchor, SgNode* o
   StxPart opPart(opCFG, analysis);
   ROSE_ASSERT(opPart.outEdges().size()==1);
   list<PartEdgePtr> l;
-  StxPartPtr partTarget = opPart.outStxEdges()[0]->target();
+  StxPartPtr partTarget = (*(opPart.outStxEdges().begin()))->target();
   ROSE_ASSERT(partTarget);
   ROSE_ASSERT(partTarget->n.getNode());
   l.push_back(makePart<StxPartEdge>(opCFG, partTarget->n, analysis));
@@ -361,32 +361,38 @@ map<CFGNode, boost::shared_ptr<SgValueExp> > StxPartEdge::getPredicateValue()
 
 bool StxPartEdge::equal(const PartEdgePtr& o) const
 {
-  ROSE_ASSERT(static_part_cast<StxPartEdge>(o).get());
-  /*Dbg::dbg << "StxPartEdge::operator<("<<(p.source() == static_part_cast<StxPartEdge>(o)->p.source() &&
-         p.target() == static_part_cast<StxPartEdge>(o)->p.target())<<endl; //(p == static_part_cast<StxPartEdge>(o)->p)<<endl;
+  ROSE_ASSERT(dynamic_part_cast<StxPartEdge>(o).get());
+  /*Dbg::dbg << "StxPartEdge::operator<("<<(p.source() == dynamic_part_cast<StxPartEdge>(o)->p.source() &&
+         p.target() == dynamic_part_cast<StxPartEdge>(o)->p.target())<<endl; //(p == dynamic_part_cast<StxPartEdge>(o)->p)<<endl;
   Dbg::dbg << "---- p="<<cfgUtils::CFGPath2Str(p)<<endl;
-  Dbg::dbg << "---- static_part_cast<StxPartEdge>(o)->p"<<cfgUtils::CFGPath2Str(static_part_cast<StxPartEdge>(o)->p)<<endl;*/
-  //return p == static_part_cast<StxPartEdge>(o)->p;
+  Dbg::dbg << "---- dynamic_part_cast<StxPartEdge>(o)->p"<<cfgUtils::CFGPath2Str(dynamic_part_cast<StxPartEdge>(o)->p)<<endl;*/
+  //return p == dynamic_part_cast<StxPartEdge>(o)->p;
   // Since is the possible to create p either from makeClosureDF() or from its source/target CFGNode pair, we compare
   // paths in terms of just their source/target CFGNodes
-  return p.source() == static_part_cast<StxPartEdge>(o)->p.source() &&
-         p.target() == static_part_cast<StxPartEdge>(o)->p.target();
+  return p.source() == dynamic_part_cast<StxPartEdge>(o)->p.source() &&
+         p.target() == dynamic_part_cast<StxPartEdge>(o)->p.target();
 }
 
 bool StxPartEdge::less(const PartEdgePtr& o) const
 {
-  ROSE_ASSERT(static_part_cast<StxPartEdge>(o).get());
-  /*Dbg::dbg << "StxPartEdge::operator<("<<((p.source() < static_part_cast<StxPartEdge>(o)->p.source()) ||
-         (p.source() == static_part_cast<StxPartEdge>(o)->p.source() &&
-          p.target() < static_part_cast<StxPartEdge>(o)->p.target()))<<endl; //(p < static_part_cast<StxPartEdge>(o)->p)<<endl;
+  ROSE_ASSERT(dynamic_part_cast<StxPartEdge>(o).get());
+  /*Dbg::dbg << "StxPartEdge::operator<(source="<<cfgUtils::CFGNode2Str(p.source())<<
+                                 ", o.source="<<cfgUtils::CFGNode2Str(dynamic_part_cast<StxPartEdge>(o)->p.source())<<",\n"<<
+                                     "target="<<cfgUtils::CFGNode2Str(p.target())<<
+                                 ", o.target="<<cfgUtils::CFGNode2Str(dynamic_part_cast<StxPartEdge>(o)->p.target())<<",\n"<<
+          ", source: < "<<(p.source() < dynamic_part_cast<StxPartEdge>(o)->p.source())<<" == "<<(p.source() == dynamic_part_cast<StxPartEdge>(o)->p.source())<<"\n"<<
+          ", target: < "<<(p.target() < dynamic_part_cast<StxPartEdge>(o)->p.target())<<" == "<<(p.target() == dynamic_part_cast<StxPartEdge>(o)->p.target())<<"\n";*/
+  /*Dbg::dbg << "StxPartEdge::operator<("<<((p.source() < dynamic_part_cast<StxPartEdge>(o)->p.source()) ||
+         (p.source() == dynamic_part_cast<StxPartEdge>(o)->p.source() &&
+          p.target() < dynamic_part_cast<StxPartEdge>(o)->p.target()))<<endl; //(p < dynamic_part_cast<StxPartEdge>(o)->p)<<endl;
   Dbg::dbg << "---- p="<<cfgUtils::CFGPath2Str(p)<<endl;
-  Dbg::dbg << "---- static_part_cast<StxPartEdge>(o)->p"<<cfgUtils::CFGPath2Str(static_part_cast<StxPartEdge>(o)->p)<<endl;*/
-  //return p < static_part_cast<StxPartEdge>(o)->p;
+  Dbg::dbg << "---- dynamic_part_cast<StxPartEdge>(o)->p"<<cfgUtils::CFGPath2Str(dynamic_part_cast<StxPartEdge>(o)->p)<<endl;*/
+  //return p < dynamic_part_cast<StxPartEdge>(o)->p;
   // Since is the possible to create p either from makeClosureDF() or from its source/target CFGNode pair, we compare
   // paths in terms of just their source/target CFGNodes
-  return (p.source() < static_part_cast<StxPartEdge>(o)->p.source()) ||
-         (p.source() == static_part_cast<StxPartEdge>(o)->p.source() &&
-          p.target() < static_part_cast<StxPartEdge>(o)->p.target());
+  return (p.source() < dynamic_part_cast<StxPartEdge>(o)->p.source()) ||
+         (p.source() == dynamic_part_cast<StxPartEdge>(o)->p.source() &&
+          p.target() < dynamic_part_cast<StxPartEdge>(o)->p.target());
 }
 
 std::string StxPartEdge::str(std::string indent)
@@ -394,7 +400,7 @@ std::string StxPartEdge::str(std::string indent)
   ostringstream oss;
   oss << (isNULLCFGNode(p.source().getNode())? "*" : source()->str()) << 
          Dbg::escape(" ==> ") << 
-         (isNULLCFGNode(p.target().getNode())? "*" : target()->str());
+         (isNULLCFGNode(p.target().getNode())? "*" : target()->str());// << ", analysis="<<analysis;
   return oss.str();
 }
 

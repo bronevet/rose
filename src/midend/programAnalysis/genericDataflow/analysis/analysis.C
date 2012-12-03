@@ -340,7 +340,8 @@ void MergeAllReturnStates::visit(const Function& func, PartPtr part, NodeState& 
       
       for(vector<Lattice*>::const_iterator l=state->getLatticeBelow(analysis, part->outEdgeToAny()).begin(); 
           l!=state->getLatticeBelow(analysis, part->outEdgeToAny()).end(); l++) {
-        exprLats.push_back((*l)->remapML(retVal2Decl, part->outEdgeToAny()));
+        Lattice* remappedL = (*l)->remapML(retVal2Decl, part->outEdgeToAny());
+        exprLats.push_back(remappedL);
       }
       if(analysisDebugLevel>=1) Dbg::dbg << "    Merging dataflow state of return value\n";
       modified = mergeLats(mergedLatsRetVal, exprLats) || modified; 
@@ -1087,7 +1088,9 @@ void ContextInsensitiveInterProceduralDataflow::visit(const CGFunction* funcCG)
       for(list<const CGFunction*>::iterator f=remaining.begin(); f!=remaining.end(); f++)
         Dbg::dbg << (*f)->get_name().getString() << ", ";
       Dbg::dbg << endl;
-    }
-  } // if(modified)
+    } // if(afterFuncModified)
+  } // if(func.get_definition())
+  
+  Dbg::dbg << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< ContextInsensitiveInterProceduralDataflow::visit" << endl;
 } // ContextInsensitiveInterProceduralDataflow::visit(const CGFunction* funcCG)
 } // namespace dataflow;

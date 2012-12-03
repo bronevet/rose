@@ -65,10 +65,10 @@ analysisStatesToDOT::visit(const Function& func, PartPtr part, NodeState& state)
 { 
   std::string state_str = state.str( lda, " ");
   printNode(part, state_str);
-  std::vector <PartEdgePtr> outEdges = part->outEdges();
-  for (unsigned int i = 0; i < outEdges.size(); ++i)
+  std::list <PartEdgePtr> outEdges = part->outEdges();
+  for(list<PartEdgePtr>::iterator edge=outEdges.begin(); edge!=outEdges.end(); edge++)
   {
-    printEdge(outEdges[i]);
+    printEdge(*edge);
   }
 }
 //------------ call graph level  driver ----------------
@@ -137,6 +137,7 @@ void dbgBuf::init(std::streambuf* baseBuf)
         parentDivs.push_back(0);
         //justSynched = false;
         needIndent = false;
+        indents.push_back(std::list<std::string>());
         //cout << "Initially parentDivs (len="<<parentDivs.size()<<")\n";
 }
 
@@ -189,6 +190,7 @@ std::string dbgBuf::getIndent()
 // Add more indentation within the current div
 void dbgBuf::addIndent(std::string indent)
 {
+  ROSE_ASSERT(indents.size()>0);
   indents.rbegin()->push_back(indent);
   /*if(justSynched) {
     int ret = printString(indent); if(ret != 0) return;
@@ -198,6 +200,7 @@ void dbgBuf::addIndent(std::string indent)
 // Remove the most recently added indent within the current div
 void dbgBuf::remIndent()
 {
+  ROSE_ASSERT(indents.size()>0);
   indents.rbegin()->pop_back();
 }
 
@@ -229,8 +232,8 @@ streamsize dbgBuf::xsputn(const char * s, streamsize n)
                 char spaceHTML[]="&nbsp;";
                 char tab[]="\t";
                 char tabHTML[]="&#09;";
-                char lt[]="&lt;";
-                char gt[]="&gt;";
+                //char lt[]="&lt;";
+                //char gt[]="&gt;";
                 while(i<n) {
                         int j;
                         for(j=i; j<n && s[j]!='\n' && s[j]!=' ' && s[j]!='\t'/* && s[j]!='<' && s[j]!='>'*/; j++) {
@@ -823,7 +826,6 @@ region::~region()
         void init(string title, string workDir, string fName)
         {
                 if(initialized) return;
-                        
                 {
                         ostringstream cmd; cmd << "mkdir -p "<<workDir;
                         int ret = system(cmd.str().c_str());

@@ -22,7 +22,10 @@ bool Lattice::setPartEdge(PartEdgePtr latPEdge) {
 
 // Returns the PartEdge that this Lattice's information corresponds to
 PartEdgePtr Lattice::getPartEdge()
-{ return this->latPEdge; }
+{ 
+  Dbg::dbg << "Lattice::getPartEdge() this->latPEdge="<<this->latPEdge<<endl;
+  Dbg::dbg << "Lattice::getPartEdge() this->latPEdge="<<this->latPEdge->str()<<endl;
+  return this->latPEdge; }
   
 /********************************************
  ************** BoolAndLattice **************

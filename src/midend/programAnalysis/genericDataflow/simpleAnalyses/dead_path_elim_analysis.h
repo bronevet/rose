@@ -1,5 +1,5 @@
 #ifndef DEAD_PATH_ELIM_ANALYSIS_H
-#define	DEAD_PATH_ELIM_ANALYSIS_H
+#define DEAD_PATH_ELIM_ANALYSIS_H
 
 #include "compose.h"
 #include "boost/enable_shared_from_this.hpp"
@@ -29,9 +29,6 @@ class DeadPathElimPart : public Part, public boost::enable_shared_from_this<Dead
 {
   private:
   
-  // The part (implemented by a server analysis) that this object is wrapping with live/dead status
-  PartPtr base;
-    
   friend class DeadPathElimPartEdge;
   friend class DeadPathElimTransfer;
   
@@ -39,17 +36,13 @@ class DeadPathElimPart : public Part, public boost::enable_shared_from_this<Dead
   DeadPathElimPart(PartPtr base, ComposedAnalysis* analysis);
   DeadPathElimPart(const DeadPathElimPart& that);
   
-  private:
-  PartPtr getBase() { return base; }
-  void setBase(PartPtr newBase) { base = newBase; }
-  
   public:
   // -------------------------------------------
   // Functions that need to be defined for Parts
   // -------------------------------------------
   
-  std::vector<PartEdgePtr> outEdges();
-  std::vector<PartEdgePtr> inEdges();
+  std::list<PartEdgePtr> outEdges();
+  std::list<PartEdgePtr> inEdges();
   std::set<CFGNode> CFGNodes();
   
   /*
@@ -108,6 +101,14 @@ class DeadPathElimPartEdge : public FiniteLattice, public PartEdge {
   
   PartPtr source();
   PartPtr target();
+  
+  // Overload the setPartEdge (from Lattice) and setParent (from Part) methods to ensure that they
+  // are always set in a consistent manner regardless of which one is called
+  // Sets the PartEdge that this Lattice's information corresponds to. 
+  // Returns true if this causes the edge to change and false otherwise
+  bool setPartEdge(PartEdgePtr latPEdge);
+  // Sets this Part's parent
+  void setParent(PartEdgePtr parent);
   
   // Let A={ set of execution prefixes that terminate at the given anchor SgNode }
   // Let O={ set of execution prefixes that terminate at anchor's operand SgNode }
@@ -243,8 +244,9 @@ class DeadPathElimAnalysis : public IntraFWDataflow
   CodeLocObjectPtr Expr2CodeLoc(SgNode* n, PartEdgePtr pedge);
   
   // Return the anchor Parts of a given function
-  PartPtr GetFunctionStartPart(const Function& func);
-  PartPtr GetFunctionEndPart(const Function& func);
+  public:
+  PartPtr GetFunctionStartPart_Spec(const Function& func);
+  PartPtr GetFunctionEndPart_Spec(const Function& func);
   
   // Pretty print for the object
   std::string str(std::string indent="")
@@ -253,5 +255,5 @@ class DeadPathElimAnalysis : public IntraFWDataflow
 
 }; //namespace dataflow
 
-#endif	/* DEAD_PATH_ELIM_ANALYSIS_H */
+#endif  /* DEAD_PATH_ELIM_ANALYSIS_H */
 

@@ -47,8 +47,8 @@ class SyntacticAnalysis : virtual public IntraUndirDataflow
   static CodeLocObjectPtr Expr2CodeLocStatic(SgNode* e, PartEdgePtr pedge);
   
   // Return the anchor Parts of a given function
-  PartPtr GetFunctionStartPart(const Function& func);
-  PartPtr GetFunctionEndPart(const Function& func);
+  PartPtr GetFunctionStartPart_Spec(const Function& func);
+  PartPtr GetFunctionEndPart_Spec(const Function& func);
   
   // pretty print for the object
   std::string str(std::string indent="")
@@ -78,16 +78,16 @@ class StxPart : public Part
   friend class StxPartEdge;
   
   public:
-  StxPart(CFGNode n, ComposedAnalysis* analysis, bool (*f) (CFGNode) = defaultFilter): Part(analysis), n(n), filter(f) {}
+  StxPart(CFGNode n, ComposedAnalysis* analysis, bool (*f) (CFGNode) = defaultFilter): Part(analysis, NULLPart), n(n), filter(f) {}
   StxPart(const StxPart& part):    Part((const Part&)part), n(part.n), filter(part.filter) {} 
   StxPart(const StxPartPtr& part): Part((const Part&)part), n(part->n), filter(part->filter) {} 
   StxPart(const StxPart& part,    bool (*f) (CFGNode) = defaultFilter): Part((const Part&)part), n(part.n), filter (f) {}
   StxPart(const StxPartPtr& part, bool (*f) (CFGNode) = defaultFilter): Part((const Part&)part), n(part->n), filter (f) {}
-        
-  std::vector<PartEdgePtr> outEdges();
-  std::vector<StxPartEdgePtr> outStxEdges();
-  std::vector<PartEdgePtr> inEdges();
-  std::vector<StxPartEdgePtr> inStxEdges();
+  
+  std::list<PartEdgePtr> outEdges();
+  std::list<StxPartEdgePtr> outStxEdges();
+  std::list<PartEdgePtr> inEdges();
+  std::list<StxPartEdgePtr> inStxEdges();
   std::set<CFGNode>  CFGNodes();
   
   /*
@@ -118,9 +118,9 @@ class StxPartEdge : public PartEdge
 
   public:
   StxPartEdge(CFGNode src, CFGNode tgt, ComposedAnalysis* analysis, bool (*f) (CFGNode) = defaultFilter): 
-      PartEdge(analysis), p(CFGEdge(src, tgt)), filter(f) {}
+      PartEdge(analysis, NULLPartEdge), p(CFGEdge(src, tgt)), filter(f) {}
   StxPartEdge(CFGPath p, ComposedAnalysis* analysis, bool (*f) (CFGNode) = defaultFilter): 
-      PartEdge(analysis), p(p), filter(f) {}
+      PartEdge(analysis, NULLPartEdge), p(p), filter(f) {}
   StxPartEdge(const StxPartEdge& dfe): PartEdge((const PartEdge&)dfe), p(dfe.p), filter(dfe.filter) {}
   
   PartPtr source();

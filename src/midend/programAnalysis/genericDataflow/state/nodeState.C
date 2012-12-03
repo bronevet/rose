@@ -527,6 +527,8 @@ map<ComposedAnalysis*, map<PartPtr, NodeState*> > NodeState::nodeStateMap;
 // Returns the NodeState object associated with the given Part from the given analysis.
 NodeState* NodeState::getNodeState(ComposedAnalysis* analysis, PartPtr p)
 {
+  //Dbg::dbg << "NodeState::getNodeState() analysis="<<analysis->str()<<" p="<<p->str()<<endl;
+  
   if(nodeStateMap.find(analysis)    == nodeStateMap.end() ||
      nodeStateMap[analysis].find(p) == nodeStateMap[analysis].end()) {
     /*Dbg::dbg << "NodeState::getNodeState() Creating new state. analysis="<<analysis<<"(found="<<(nodeStateMap.find(analysis) == nodeStateMap.end())<< ") p="<<p->str();
@@ -539,9 +541,32 @@ NodeState* NodeState::getNodeState(ComposedAnalysis* analysis, PartPtr p)
       Dbg::dbg << "eq="<<(last == c)<<endl;
     }*/
     
+    /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Creating new state, #nodeStateMap[analysis]="<<nodeStateMap[analysis].size()<<" p="<<p->str()<<endl;
+    Dbg::indent ind;
+    / *for(map<PartPtr, NodeState*>::iterator ns=nodeStateMap[analysis].begin(); ns!=nodeStateMap[analysis].end(); ns++) {
+      PartPtr nsf = ns->first;
+      Dbg::dbg << nsf->str() << endl;
+    }* /
+    for(map<PartPtr, NodeState*>::iterator ns=nodeStateMap[analysis].begin(); ns!=nodeStateMap[analysis].end(); ns++) {
+      PartPtr nsf = ns->first;
+      Dbg::dbg << nsf->str() << " <: "<<(ns->first < p) << " ==: "<<(ns->first == p)  << endl;
+    }*/
+    
     nodeStateMap[analysis][p] = new NodeState();
     //Dbg::dbg << "state="<<nodeStateMap[analysis][p]<<endl;
+    
   }
+  /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;#nodeStateMap[analysis]="<<nodeStateMap[analysis].size()<<endl;
+  Dbg::indent ind;
+  for(map<PartPtr, NodeState*>::iterator ns=nodeStateMap[analysis].begin(); ns!=nodeStateMap[analysis].end(); ns++) {
+    PartPtr nsf = ns->first; 
+    Dbg::dbg << nsf->str() << endl;
+  }
+  for(map<PartPtr, NodeState*>::iterator ns=nodeStateMap[analysis].begin(); ns!=nodeStateMap[analysis].end(); ns++) {
+    PartPtr nsf = ns->first;
+    Dbg::dbg << nsf->str() << " <: "<<(ns->first < p)  << endl;
+  }
+  Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;state="<<nodeStateMap[analysis][p]->str(analysis, "&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;*/
   
   return nodeStateMap[analysis][p];
 }
