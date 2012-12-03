@@ -2000,7 +2000,11 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   {
     assert (that.anchor_symbol != NULL);
     assert (that.type != NULL);
-    assert (that.anchor_symbol->get_type() == that.type);
+    // on copying check for the right type for anchor symbols that are typedefs
+    if(isSgTypedefType(that.anchor_symbol->get_type()))
+      assert((that.anchor_symbol->get_type())->findBaseType() == that.type);
+    else
+      assert (that.anchor_symbol->get_type() == that.type);
     
     //init(that.anchor_symbol, that.type, that.parent, that.array_index_vector);
     elements = that.elements;
@@ -2010,8 +2014,11 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   {
     assert (s != NULL);
     assert (t != NULL);
-
-    assert (s->get_type() == t);
+    // typedef objects are created with base types
+    if(isSgTypedefType(s->get_type()))
+      assert(t == (s->get_type())->findBaseType());
+    else      
+      assert (s->get_type() == t);
     SgClassType * c_t = isSgClassType(t);
 
     fillUpElements(boost::dynamic_pointer_cast<LabeledAggregate>(shared_from_this()), LabeledAggregate_Impl::getElements(pedge), c_t, pedge);
@@ -2093,7 +2100,12 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     assert (t != NULL);
 
     assert (isSgVariableSymbol (s) != NULL);
-    assert (s->get_type() == t);
+    // typedef objects are created with base types
+    if(isSgTypedefType(s->get_type()))
+      assert(t == (s->get_type())->findBaseType());
+    else      
+      assert (s->get_type() == t);
+
     SgArrayType * a_t = isSgArrayType(t);
     assert (a_t != NULL);
   }
@@ -2662,9 +2674,11 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     // check parameters
     assert (anchor_symbol != NULL);
     // ! (isArray || isPointer) ==> !isArray && !isPointer
-    if (! isSgArrayType(anchor_symbol->get_type())  && ! isSgPointerType(anchor_symbol->get_type()))
+    if (! isSgArrayType(anchor_symbol->get_type())  && ! isSgPointerType(anchor_symbol->get_type()) &&
+        ! isSgTypedefType(anchor_symbol->get_type()))
     { // only array elements can have different type from its anchor (parent) symbol
-       // pointer type can also have array-like subscripting
+      // pointer type can also have array-like subscripting
+      // typedef elements can have different type from its anchor symbol
       assert (anchor_symbol->get_type() == t);
     }
     bool assert_flag = true; 
@@ -2703,6 +2717,13 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     else if (isSgArrayType(t) || (isSgReferenceType(t) && isSgArrayType(isSgReferenceType(t)->get_base_type()))) // This is for the entire array variable
     { 
         rt = boost::make_shared<ArrayNamedObj>(n, anchor_symbol, t, parent, iv, pedge); 
+    }
+    // #SA 11/28/12
+    // to handle typedef memory objects
+    else if(isSgTypedefType(t))
+    {
+      // make a recursive call to create the object with typedef base type
+      rt = createNamedMemLocObject(n, anchor_symbol, t->findBaseType(), pedge, parent, iv);
     }
     else
     {
