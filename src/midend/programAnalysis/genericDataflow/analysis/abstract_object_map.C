@@ -30,51 +30,64 @@ int AbstractObjectMapDebugLevel=1;
 
 bool MayEqualFunctor::mayEqual(AbstractObjectPtr objPtr1, AbstractObjectPtr objPtr2, PartEdgePtr pedge) {
   ROSE_ASSERT(objPtr1); ROSE_ASSERT(objPtr2);
-  
-  boost::shared_ptr<Pointer> ptr1 = boost::dynamic_pointer_cast<Pointer>(objPtr1);
-  boost::shared_ptr<Pointer> ptr2 = boost::dynamic_pointer_cast<Pointer>(objPtr2);
 
-  bool needDeref = false;
-  if (ptr1) {
-    objPtr1 = boost::static_pointer_cast<AbstractObject>(ptr1->getDereference(pedge));
-    needDeref = true;
-  } 
-  if (ptr2) {
-    objPtr2 = boost::static_pointer_cast<AbstractObject>(ptr2->getDereference(pedge));
-    needDeref = true;
-  }
+  /*
+   * #SA
+   * Pointer objects should not always be derefrenced
+   * p = 0 will cause p to dereferenced and does not seem right
+   * commenting out the derefrencing part for now
+   * for *p = 5, what should the map check for ? SgPointerDeref_Exp or the AliasedObj ?*/
 
-  if (needDeref) 
-    return mayEqual(objPtr1, objPtr2, pedge);
-  else
-    return objPtr1->mayEqual(objPtr2, pedge) || objPtr2->mayEqual(objPtr1, pedge);
+  // boost::shared_ptr<Pointer> ptr1 = boost::dynamic_pointer_cast<Pointer>(objPtr1);
+  // boost::shared_ptr<Pointer> ptr2 = boost::dynamic_pointer_cast<Pointer>(objPtr2);
+  // bool needDeref = false;
+  // if (ptr1) {
+  //   objPtr1 = boost::static_pointer_cast<AbstractObject>(ptr1->getDereference(pedge));
+  //   needDeref = true;
+  // } 
+  // if (ptr2) {
+  //   objPtr2 = boost::static_pointer_cast<AbstractObject>(ptr2->getDereference(pedge));
+  //   needDeref = true;
+  // }
+
+  // if (needDeref) 
+  //   return mayEqual(objPtr1, objPtr2, pedge);
+  // else
+  return objPtr1->mayEqual(objPtr2, pedge) || objPtr2->mayEqual(objPtr1, pedge);
 }
 
 bool MustEqualFunctor::mustEqual(AbstractObjectPtr objPtr1, AbstractObjectPtr objPtr2, PartEdgePtr pedge) {
   ROSE_ASSERT(objPtr1); ROSE_ASSERT(objPtr2);
 
-  boost::shared_ptr<Pointer> ptr1 = boost::dynamic_pointer_cast<Pointer>(objPtr1);
-  boost::shared_ptr<Pointer> ptr2 = boost::dynamic_pointer_cast<Pointer>(objPtr2);
+  /*
+   * #SA
+   * Pointer objects should not always be derefrenced
+   * p = 0 will cause p to dereferenced and does not seem right
+   * commenting out the derefrencing part for now
+   * for *p = 5, what should the map check for ? SgPointerDeref_Exp or the AliasedObj ?*/
 
-  bool needDeref = false;
-  if (ptr1) {
-    objPtr1 = boost::static_pointer_cast<AbstractObject>(ptr1->getDereference(pedge));
-    needDeref =true;
-  }
-  if (ptr2) {
-    objPtr2 = boost::static_pointer_cast<AbstractObject>(ptr2->getDereference(pedge));
-    needDeref = true;
-  }
+  // boost::shared_ptr<Pointer> ptr1 = boost::dynamic_pointer_cast<Pointer>(objPtr1);
+  // boost::shared_ptr<Pointer> ptr2 = boost::dynamic_pointer_cast<Pointer>(objPtr2);
+
+  // bool needDeref = false;
+  // if (ptr1) {
+  //   objPtr1 = boost::static_pointer_cast<AbstractObject>(ptr1->getDereference(pedge));
+  //   needDeref =true;
+  // }
+  // if (ptr2) {
+  //   objPtr2 = boost::static_pointer_cast<AbstractObject>(ptr2->getDereference(pedge));
+  //   needDeref = true;
+  // }
 
 /*Dbg::dbg << "MustEqualFunctor::mustEqual\n";
 Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<objPtr1->str("        ")<<"\n";
 Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<objPtr2->str("        ")<<endl;*/
 
-  if (needDeref)
-    return mustEqual(objPtr1, objPtr2, pedge);
-  else
+  // if (needDeref)
+  //   return mustEqual(objPtr1, objPtr2, pedge);
+  // else
     //return objPtr1->mustEqual(objPtr2, p) || objPtr2->mustEqual(objPtr1, p);
-    return objPtr1->mustEqual(objPtr2, pedge);
+  return objPtr1->mustEqual(objPtr2, pedge);
 }
 
 // Set this Lattice object to represent the set of all possible execution prefixes.
