@@ -505,7 +505,9 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class AliasedObj: public StxMemLocObject
   {  // One object for each type
     public: 
-      SgType* type; 
+      //#SA
+      // StxMemLocObject 'type' is sufficient
+      //SgType* type; 
       AliasedObj(SgNode* n, SgType* t): MemLocObject(n), StxMemLocObject(n, t) {};
       AliasedObj(const AliasedObj& that): MemLocObject((const MemLocObject&)that), StxMemLocObject((const StxMemLocObject&)that) {};
       

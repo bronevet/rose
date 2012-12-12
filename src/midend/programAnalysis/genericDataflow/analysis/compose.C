@@ -99,6 +99,9 @@ MemLocObjectPtrPair ChainComposer::Expr2MemLoc(SgNode* n, PartEdgePtr pedge, Com
   Dbg::dbg << "Expr2MemLoc() p="<<p.str("&npsb;&npsb;&npsb;&npsb;")<<endl;
   if(p.mem)  p.mem  = boost::static_pointer_cast<MemLocObject>(UnionMemLocObject::create(p.mem));
   //if(p.expr) p.expr = boost::static_pointer_cast<MemLocObject>(UnionMemLocObject::create(p.expr));
+  //#SA: if the expr is valid, it better be cast as ExprObj
+  if(p.expr)  ROSE_ASSERT(boost::dynamic_pointer_cast<ExprObj> (p.expr));
+  else ROSE_ASSERT(p.expr == NULL);
   return p;
 }
 
