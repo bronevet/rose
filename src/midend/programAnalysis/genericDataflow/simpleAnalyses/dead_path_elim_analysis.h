@@ -1,5 +1,5 @@
 #ifndef DEAD_PATH_ELIM_ANALYSIS_H
-#define	DEAD_PATH_ELIM_ANALYSIS_H
+#define DEAD_PATH_ELIM_ANALYSIS_H
 
 #include "compose.h"
 #include "boost/enable_shared_from_this.hpp"
@@ -253,5 +253,5 @@ class DeadPathElimAnalysis : public IntraFWDataflow
 
 }; //namespace dataflow
 
-#endif	/* DEAD_PATH_ELIM_ANALYSIS_H */
+#endif  /* DEAD_PATH_ELIM_ANALYSIS_H */
 

@@ -309,14 +309,14 @@ std::list<PartEdgePtr> DeadPathElimPartEdge::getOperandPartEdge(SgNode* anchor, 
     for(list<PartPtr>::iterator opP=opParts.begin(); opP!=opParts.end(); opP++) {
       vector<PartEdgePtr> edges = (*opP)->outEdges();
       for(vector<PartEdgePtr>::iterator e=edges.begin(); e!=edges.end(); e++) {
-	 2*Dbg::dbg << "opP = "<<(*opP)->str()<<endl;
-	Dbg::dbg << "e = "<<(*e)->str()<<endl;
-	Dbg::dbg << "e->target() = "<<(*e)->target()->str()<<endl;* /
+         2*Dbg::dbg << "opP = "<<(*opP)->str()<<endl;
+        Dbg::dbg << "e = "<<(*e)->str()<<endl;
+        Dbg::dbg << "e->target() = "<<(*e)->target()->str()<<endl;* /
         ROSE_ASSERT(src || tgt);
         DeadPathElimAnalysis* analysis = (src? src->analysis : tgt->analysis);
         PartEdgePtr edge = makePart<DeadPathElimPartEdge>(makePart<DeadPathElimPart>((*opP)->inEdgeFromAny(), analysis), 
                                                           makePart<DeadPathElimPart>((*e)->target()->inEdgeFromAny(), analysis));
-	//Dbg::dbg << "edge = "<<edge->str()<<endl;
+        //Dbg::dbg << "edge = "<<edge->str()<<endl;
         l.push_back(edge);
       }
     }
