@@ -59,7 +59,35 @@ MemLocObjectPtr SyntacticAnalysis::Expr2MemLocStatic(SgNode* n, PartEdgePtr pedg
   else if (SgExpression* sgexp=isSgExpression(n)) // the order matters !! Must put after V_SgVarRefExp, SgPntrArrRefExp etc.
   {
     Dbg::dbg<< "ExprML"<<endl;
-    rt = createExpressionMemLocObject (sgexp, sgexp->get_type(), pedge);
+    if(isSgPointerDerefExp(sgexp)) {
+      SgExpression* operand = isSgPointerDerefExp(sgexp)->get_operand();
+      ROSE_ASSERT(operand != NULL);
+      // operand can be SgPointerDeref, SgPntrArrRef or SgVarRef
+      if(isSgPointerDerefExp(operand)){
+        // operand should be Pointer for both cases
+        rt = Expr2MemLocStatic(operand, pedge);
+        // ROSE_ASSERT(operandML);
+        // PointerPtr operandMLPtr = operandML->isPointer();
+        // ROSE_ASSERT(operandMLPtr);
+        // rt = operandMLPtr->getDereference(pedge);
+      }
+      else if(isSgPntrArrRefExp(operand)){
+        // TODO
+      }
+      else if(isSgVarRefExp(operand)){
+        MemLocObjectPtr operandML = Expr2MemLocStatic(operand, pedge);
+        ROSE_ASSERT(operandML);
+        SgType* t = boost::dynamic_pointer_cast<StxMemLocObject>(operandML)->getType();
+        SgPointerType* p_t = isSgPointerType(t);
+        rt = createAliasedMemLocObject(n, p_t->get_base_type(), pedge);
+      }
+      else {
+        ROSE_ASSERT(0); // unhandled operand expression for SgPointerDerefExp
+      }
+    }
+    else{
+      rt = createExpressionMemLocObject (sgexp, sgexp->get_type(), pedge);
+    }
   }
   else if (SgType* t = isSgType(n))
   {
