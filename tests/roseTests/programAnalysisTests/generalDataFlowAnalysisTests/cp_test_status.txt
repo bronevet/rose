@@ -96,7 +96,6 @@ ccp_test2006_142.C                       no
 ccp_test2006_146.C                       no
 ccp_test2006_149.C                       no
 ccp_test2006_150.C                       no
-ccp_test2006_151.C                       no
 ccp_test2006_152.C                       no
 ccp_test2006_153.C                       no
 ccp_test2006_181.C                       no
@@ -409,12 +408,9 @@ cxxcp_test2006_13.C                      no
 cxxcp_test2006_14.C                      no
 cxxcp_test2006_140.C                     no
 cxxcp_test2006_142.C                     no
-cxxcp_test2006_143.C                     no
-cxxcp_test2006_144.C                     no
 cxxcp_test2006_146.C                     no
 cxxcp_test2006_149.C                     no
 cxxcp_test2006_150.C                     no
-cxxcp_test2006_151.C                     no
 cxxcp_test2006_152.C                     no
 cxxcp_test2006_153.C                     no
 cxxcp_test2006_155.C                     no
@@ -647,7 +643,5 @@ cxxcp_test_int_lexemes.C                 no
 cxxcp_test_int_lexemes_donot_pass.C      no
 cxxcp_test_simple_int.C                  no
 cxxcp_test_wchars.C                      no
-cxxcpls_compositionalTestInput2.C        no
 cxxcpls_compositionalTestInput3.C        no
-cxxcpls_compositionalTestInput4.C        no
 cxxcpls_cp_test1.C                       no
