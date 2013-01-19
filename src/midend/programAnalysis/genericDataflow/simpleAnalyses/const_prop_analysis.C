@@ -685,15 +685,17 @@ ValueObjectPtr ConstantPropagationAnalysis::Expr2Val(SgNode* n, PartEdgePtr pedg
     AbstractObjectMap* cpMap = dynamic_cast<AbstractObjectMap*>(state->getLatticeBelow(this, pedge, 0));
     ROSE_ASSERT(cpMap);
     
-    MemLocObjectPtrPair p = composer->Expr2MemLoc(n, pedge, this);
+    // MemLocObjectPtrPair p = composer->Expr2MemLoc(n, pedge, this);
+    MemLocObjectPtr p = composer->Expr2MemLoc(n, pedge, this);
     Dbg::indent ind;
-    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;p="<<p.str()<<endl;
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;p="<<p->str()<<endl;
     Dbg::dbg << "cpMap="<<cpMap<<"="<<cpMap->str()<<endl;
 
     // Return the lattice associated with n's expression since that is likely to be more precise
     // but if it is not available, used the memory object
-    return (p.expr ? boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.expr)) :
-                     boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.mem)));
+    // return (p.expr ? boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.expr)) :
+    //                  boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.mem)));
+    return (boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p)));
   // If the target of this edge is a wildcard
   } else if(pedge->source()) {
     NodeState* state = NodeState::getNodeState(this, pedge->source());
@@ -710,15 +712,19 @@ ValueObjectPtr ConstantPropagationAnalysis::Expr2Val(SgNode* n, PartEdgePtr pedg
       AbstractObjectMap* cpMap = dynamic_cast<AbstractObjectMap*>(state->getLatticeBelow(this, lats->first, 0));
       ROSE_ASSERT(cpMap);
       
-      MemLocObjectPtrPair p = composer->Expr2MemLoc(n, pedge, this);
+      // MemLocObjectPtrPair p = composer->Expr2MemLoc(n, pedge, this);
+      MemLocObjectPtr p = composer->Expr2MemLoc(n, pedge, this);
       Dbg::indent ind;
-      Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;p="<<p.str()<<endl;
+      Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;p="<<p->str()<<endl;
       Dbg::dbg << "cpMap="<<cpMap<<"="<<cpMap->str()<<endl;
       
+      // boost::shared_ptr<CPValueObject> val = 
+      //         boost::dynamic_pointer_cast<CPValueObject>
+      //           (p.expr ? boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.expr)) :
+      //                     boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.mem)));
       boost::shared_ptr<CPValueObject> val = 
-              boost::dynamic_pointer_cast<CPValueObject>
-                (p.expr ? boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.expr)) :
-                          boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.mem)));
+        boost::dynamic_pointer_cast<CPValueObject> (boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p)));
+
       mergedVal->meetUpdate(val.get());
     }
     return mergedVal;
@@ -729,15 +735,17 @@ ValueObjectPtr ConstantPropagationAnalysis::Expr2Val(SgNode* n, PartEdgePtr pedg
     AbstractObjectMap* cpMap = dynamic_cast<AbstractObjectMap*>(state->getLatticeAbove(this, NULLPartEdge, 0));
     ROSE_ASSERT(cpMap);
 
-    MemLocObjectPtrPair p = composer->Expr2MemLoc(n, pedge, this);
+    // MemLocObjectPtrPair p = composer->Expr2MemLoc(n, pedge, this);
+    MemLocObjectPtr p = composer->Expr2MemLoc(n, pedge, this);
     Dbg::indent ind;
-    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;p="<<p.str()<<endl;
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;p="<<p->str()<<endl;
     Dbg::dbg << "cpMap="<<cpMap<<"="<<cpMap->str()<<endl;
 
     // Return the lattice associated with n's expression since that is likely to be more precise
     // but if it is not available, used the memory object
-    return (p.expr ? boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.expr)) :
-                     boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.mem)));
+    // return (p.expr ? boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.expr)) :
+    //                  boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.mem)));
+    return boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p));
   }
   ROSE_ASSERT(0);
 }

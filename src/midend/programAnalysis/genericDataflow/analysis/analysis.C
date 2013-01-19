@@ -329,9 +329,13 @@ void MergeAllReturnStates::visit(const Function& func, PartPtr part, NodeState& 
       // assuming that any information is available
       vector<Lattice*> exprLats;
       std::set<pair<MemLocObjectPtr, MemLocObjectPtr> > retVal2Decl;
-      MemLocObjectPtrPair retP = analysis->getComposer()->Expr2MemLoc(isSgReturnStmt(sgn)->get_expression(), part->inEdgeFromAny(), analysis);
-      retVal2Decl.insert(make_pair(retP.expr ? retP.expr: retP.mem,
-                                   analysis->getComposer()->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), part->inEdgeFromAny(), analysis).mem));
+      // MemLocObjectPtrPair retP = analysis->getComposer()->Expr2MemLoc(isSgReturnStmt(sgn)->get_expression(), part->inEdgeFromAny(), analysis);
+      // retVal2Decl.insert(make_pair(retP.expr ? retP.expr: retP.mem,
+      //                              analysis->getComposer()->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), part->inEdgeFromAny(), analysis).mem));
+
+      MemLocObjectPtr retP = analysis->getComposer()->Expr2MemLoc(isSgReturnStmt(sgn)->get_expression(), part->inEdgeFromAny(), analysis);
+      retVal2Decl.insert(make_pair(retP, 
+                                   analysis->getComposer()->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), part->inEdgeFromAny(), analysis)));
       
       // Propagate the state above the SgReturnStmt to below it. This is to ensure that there is dataflow state
       // immediately before and immediately after the first/last part of each function, just like in the FunctionState.
@@ -460,9 +464,15 @@ void SetAllReturnStates::visit(const Function& func, PartPtr part, NodeState& st
       // Incorporate just the portion of the dataflow state that corresponds to the value being returned,
       // assuming that any information is available
       std::set<pair<MemLocObjectPtr, MemLocObjectPtr> > decl2RetVal;
-      MemLocObjectPtrPair returnExpr = analysis->getComposer()->Expr2MemLoc(isSgReturnStmt(sgn)->get_expression(), part->inEdgeFromAny(), analysis);
-      decl2RetVal.insert(make_pair(analysis->getComposer()->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), part->inEdgeFromAny(), analysis).mem,
-                                   (returnExpr.expr? returnExpr.expr : returnExpr.mem)));
+      // MemLocObjectPtrPair returnExpr = analysis->getComposer()->Expr2MemLoc(isSgReturnStmt(sgn)->get_expression(), part->inEdgeFromAny(), analysis);
+      // decl2RetVal.insert(make_pair(analysis->getComposer()->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), part->inEdgeFromAny(), analysis).mem,
+      //                              (returnExpr.expr? returnExpr.expr : returnExpr.mem)));
+
+      MemLocObjectPtr returnExpr = analysis->getComposer()->Expr2MemLoc(isSgReturnStmt(sgn)->get_expression(), part->inEdgeFromAny(), analysis);
+      decl2RetVal.insert(make_pair(
+                           analysis->getComposer()->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), part->inEdgeFromAny(), analysis),
+                           returnExpr));
+
 
       Dbg::dbg << "decl2RetVal="<<endl;
       for(std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >::const_iterator m=decl2RetVal.begin(); m!=decl2RetVal.end(); m++) {
@@ -487,8 +497,8 @@ void SetAllReturnStates::visit(const Function& func, PartPtr part, NodeState& st
 
       std::set<pair<MemLocObjectPtr, MemLocObjectPtr> > decl2NULL;
       MemLocObjectPtr NULLMemLoc;
-      decl2NULL.insert(make_pair(analysis->getComposer()->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), part->inEdgeFromAny(), analysis).mem,
-                                   NULLMemLoc));
+      decl2NULL.insert(make_pair(analysis->getComposer()->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), part->inEdgeFromAny(), analysis),
+                                 NULLMemLoc));
 
       vector<Lattice*> exprLats;
       for(vector<Lattice*>::const_iterator l=lats.begin(); l!=lats.end(); l++)

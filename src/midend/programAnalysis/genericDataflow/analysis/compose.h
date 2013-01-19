@@ -37,10 +37,16 @@ class Composer
    // given node n, where the part edge denotes the set of execution prefixes that terminate at SgNode n.
    virtual ValueObjectPtr OperandExpr2Val(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client)=0;
    
-   virtual MemLocObjectPtrPair  Expr2MemLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client)=0;
+   // #SA: deprecating MemLocObjectPtrPair as we always return a memory object for any given expression
+   // virtual MemLocObjectPtrPair  Expr2MemLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client)=0;
+   virtual MemLocObjectPtr  Expr2MemLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client)=0;
    // Variant of Expr2MemLoc that inquires about the memory location denoted by the operand of the given node n, where
    // the part denotes the set of prefixes that terminate at SgNode n.
-   virtual MemLocObjectPtrPair OperandExpr2MemLoc(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client)=0;
+   // virtual MemLocObjectPtrPair OperandExpr2MemLoc(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client)=0;
+   virtual MemLocObjectPtr OperandExpr2MemLoc(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client)=0;
+   // #SA: Variant of Expr2MemLoc for an analysis to call its own Expr2MemLoc method to interpret complex expressions
+   // Composer caches memory objects for the analysis
+   virtual MemLocObjectPtr Expr2MemLocSelf(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* self)=0;
    
    virtual CodeLocObjectPtrPair Expr2CodeLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client)=0;
    
@@ -138,7 +144,8 @@ class ComposerExpr2MemLoc: public ComposerExpr2Obj
   ComposerExpr2Obj(composer, pedge, analysis) {}
   //ComposerExpr2MemLoc(ComposerInv civ) : ComposerExpr2Obj(civ.composer, civ.part, civ.analysis) {}
   
-  MemLocObjectPtrPair Expr2Obj(SgNode* n)
+  // MemLocObjectPtrPair Expr2Obj(SgNode* n)
+  MemLocObjectPtr Expr2Obj(SgNode* n)
   { return composer.Expr2MemLoc(n, pedge, &analysis); }
 };
 typedef boost::shared_ptr<ComposerExpr2MemLoc> ComposerExpr2MemLocPtr;
@@ -238,15 +245,22 @@ class ChainComposer : public Composer
   // given node n, where the part denotes the set of prefixes that terminate at SgNode n.
   ValueObjectPtr OperandExpr2Val(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client);
   
-  MemLocObjectPtrPair Expr2MemLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
+  // MemLocObjectPtrPair Expr2MemLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
+  MemLocObjectPtr Expr2MemLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
   
   private:
-  MemLocObjectPtrPair Expr2MemLoc_ex(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
+  // MemLocObjectPtrPair Expr2MemLoc_ex(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
+  MemLocObjectPtr Expr2MemLoc_ex(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
   
   public:
   // Variant of Expr2MemLoc that inquires about the memory location denoted by the operand of the given node n, where
   // the part denotes the set of prefixes that terminate at SgNode n.
-  MemLocObjectPtrPair OperandExpr2MemLoc(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client);
+  // MemLocObjectPtrPair OperandExpr2MemLoc(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client);
+  MemLocObjectPtr OperandExpr2MemLoc(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client);
+
+  // #SA: Variant of Expr2MemLoc called by an analysis to call its own Expr2MemLoc inorder
+  // to interpret complex expressions
+  MemLocObjectPtr Expr2MemLocSelf(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* self);
   
   CodeLocObjectPtrPair Expr2CodeLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
   

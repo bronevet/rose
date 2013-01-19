@@ -32,8 +32,9 @@ class VariableStateTransfer : public IntraDFTransferVisitor
   // Returns a Lattice object that corresponds to the memory location denoted by sgn in the current part
   LatticePtr getLattice(SgExpression *sgn) {
     ROSE_ASSERT(sgn);
-    MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->inEdgeFromAny(), analysis);
-    Dbg::dbg << "VariableStateTransfer::getLattice() p="<<p.str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+    // MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->inEdgeFromAny(), analysis);
+    MemLocObjectPtr p = composer->Expr2MemLoc(sgn, part->inEdgeFromAny(), analysis);
+    Dbg::dbg << "VariableStateTransfer::getLattice() p="<<p->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     
     return getLatticeCommon(sgn, p);
   }
@@ -42,23 +43,25 @@ class VariableStateTransfer : public IntraDFTransferVisitor
   // in the current part
   LatticePtr getLatticeOperand(SgNode *sgn, SgExpression* operand) {
     ROSE_ASSERT(sgn);
-    MemLocObjectPtrPair p = composer->OperandExpr2MemLoc(sgn, operand, part->inEdgeFromAny(), analysis);
-    Dbg::dbg << "VariableStateTransfer::getLatticeOperand() p="<<p.str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+    // MemLocObjectPtrPair p = composer->OperandExpr2MemLoc(sgn, operand, part->inEdgeFromAny(), analysis);
+    MemLocObjectPtr p = composer->OperandExpr2MemLoc(sgn, operand, part->inEdgeFromAny(), analysis);
+    Dbg::dbg << "VariableStateTransfer::getLatticeOperand() p="<<p->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     
     return getLatticeCommon(operand, p);
   }
   
   // Common code for getLattice() and getLatticeOperand() that returns either the lattice of the expression 
   // or memory MemLocObject depending on the type of sgn.
-  LatticePtr getLatticeCommon(SgExpression* sgn, MemLocObjectPtrPair p) {
+  LatticePtr getLatticeCommon(SgExpression* sgn, MemLocObjectPtr p) {
     // For array index expressions, get the lattice associated with the memory location
     // since the only content of this expression is what's stored in memory, just like with SgVarRefExp
-    if(isSgPntrArrRefExp(sgn))
-      return getLattice(AbstractObjectPtr(p.expr));
-    else
-      // Return the lattice associated with n's expression since that is likely to be more precise
-      // but if it is not available, used the memory object
-      return (p.expr ? getLattice(AbstractObjectPtr(p.expr)) : getLattice(AbstractObjectPtr(p.mem)));
+    // if(isSgPntrArrRefExp(sgn))
+    //   return getLattice(AbstractObjectPtr(p.expr));
+    // else
+    //   // Return the lattice associated with n's expression since that is likely to be more precise
+    //   // but if it is not available, used the memory object
+    //   return (p.expr ? getLattice(AbstractObjectPtr(p.expr)) : getLattice(AbstractObjectPtr(p.mem)));
+    return getLattice(AbstractObjectPtr(p));
   }
   
   LatticePtr getLattice(const AbstractObjectPtr o) {
@@ -72,8 +75,9 @@ class VariableStateTransfer : public IntraDFTransferVisitor
   // Returns true if this causes prodLat to change and false otherwise.
   void setLattice(SgNode *sgn, LatticePtr lat) {
     ROSE_ASSERT(sgn);
-    MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->inEdgeFromAny(), analysis);
-    Dbg::dbg << "setLattice() edge="<<part->inEdgeFromAny()->str()<<" p="<<p.strp(part->inEdgeFromAny(), "&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+    // MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->inEdgeFromAny(), analysis);
+    MemLocObjectPtr p = composer->Expr2MemLoc(sgn, part->inEdgeFromAny(), analysis);
+    Dbg::dbg << "setLattice() edge="<<part->inEdgeFromAny()->str()<<" p="<<p->strp(part->inEdgeFromAny(), "&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     
     setLatticeCommon(sgn, p, lat);
   }
@@ -82,28 +86,30 @@ class VariableStateTransfer : public IntraDFTransferVisitor
   // Returns true if this causes prodLat to change and false otherwise.
   void setLatticeOperand(SgNode *sgn, SgExpression* operand, LatticePtr lat) {
     ROSE_ASSERT(sgn);
-    MemLocObjectPtrPair p = composer->OperandExpr2MemLoc(sgn, operand, part->inEdgeFromAny(), analysis);
-    Dbg::dbg << "setLatticeOperand() p="<<p.strp(part->inEdgeFromAny(), "&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+    // MemLocObjectPtrPair p = composer->OperandExpr2MemLoc(sgn, operand, part->inEdgeFromAny(), analysis);
+    MemLocObjectPtr p = composer->OperandExpr2MemLoc(sgn, operand, part->inEdgeFromAny(), analysis);
+    Dbg::dbg << "setLatticeOperand() p="<<p->strp(part->inEdgeFromAny(), "&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     
     setLatticeCommon(operand, p, lat);
   }
   
   // Common code for getLattice() and getLatticeOperand() that returns either the lattice of the expression 
   // or memory MemLocObject depending on the type of sgn.
-  void setLatticeCommon(SgNode* sgn, MemLocObjectPtrPair p, LatticePtr lat) {
+  void setLatticeCommon(SgNode* sgn, MemLocObjectPtr p, LatticePtr lat) {
     // Set both p.expr and p.mem to lat 
-    if(p.expr) {
-      //LatticePtr latCopy(dynamic_cast<LatticeType*>(lat->copy()));
-      setLattice(p.expr, lat);
-    }
-    if(p.mem) {
-      // If we've already used lat to set p.expr, we need to make a copy of it for p.mem
-      if(p.expr) {
-        LatticePtr latCopy(dynamic_cast<LatticeType*>(lat->copy()));
-        lat = latCopy;
-      }
-      setLattice(p.mem, lat);
-    }
+    // if(p.expr) {
+    //   //LatticePtr latCopy(dynamic_cast<LatticeType*>(lat->copy()));
+    //   setLattice(p.expr, lat);
+    // }
+    // if(p.mem) {
+    //   // If we've already used lat to set p.expr, we need to make a copy of it for p.mem
+    //   if(p.expr) {
+    //     LatticePtr latCopy(dynamic_cast<LatticeType*>(lat->copy()));
+    //     lat = latCopy;
+    //   }
+    //   setLattice(p.mem, lat);
+    // }
+    setLattice(p, lat);
   }
   
   void setLattice(const AbstractObjectPtr o, LatticePtr lat) {
@@ -270,22 +276,25 @@ public:
     Dbg::indent ind;
     // Copy data from the memory location identified by the array index expression to the
     // expression object of the SgPntrArrRefExp.
-    MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->inEdgeFromAny(), analysis);
+    // MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->inEdgeFromAny(), analysis);
+    MemLocObjectPtr p = composer->Expr2MemLoc(sgn, part->inEdgeFromAny(), analysis);
     LatticePtr dataLat;
     // If this is a top-level array access expression
-    if(isSgPntrArrRefExp (sgn) && 
-       (!isSgPntrArrRefExp (sgn->get_parent()) || !isSgPntrArrRefExp (isSgPntrArrRefExp (sgn->get_parent())->get_lhs_operand())))
-    {
-      assert(p.mem);
-      Dbg::dbg << "Getting "<<p.mem->str("")<<endl;
-      dataLat = getLattice(AbstractObjectPtr(p.mem));
-    } else {
-      Dbg::dbg << "Getting "<<p.expr->str("")<<endl;
-      dataLat = getLattice(AbstractObjectPtr(p.expr));
-    }
-    Dbg::dbg << "Setting "<<p.expr->str("")<<endl;
-    Dbg::dbg << "to "<<dataLat->str("")<<endl;
-    setLattice(AbstractObjectPtr(p.expr), dataLat);
+    // if(isSgPntrArrRefExp (sgn) && 
+    //    (!isSgPntrArrRefExp (sgn->get_parent()) || !isSgPntrArrRefExp (isSgPntrArrRefExp (sgn->get_parent())->get_lhs_operand())))
+    // {
+    //   assert(p.mem);
+    //   Dbg::dbg << "Getting "<<p.mem->str("")<<endl;
+    //   dataLat = getLattice(AbstractObjectPtr(p.mem));
+    // } else {
+    //   Dbg::dbg << "Getting "<<p.expr->str("")<<endl;
+    //   dataLat = getLattice(AbstractObjectPtr(p.expr));
+    // }
+    Dbg::dbg << "Getting p="<<p->str("")<<endl;
+    dataLat = getLattice(AbstractObjectPtr(p));
+    Dbg::dbg << "Setting p="<<p->str("")<<endl;
+    Dbg::dbg << "to lat="<<dataLat->str("")<<endl;
+    setLattice(AbstractObjectPtr(p), dataLat);
     modified = true;
     Dbg::dbg << "</b>"<<endl;
   }

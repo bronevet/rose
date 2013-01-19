@@ -72,135 +72,135 @@ bool MemLocObject::mustEqual(AbstractObjectPtr o, PartEdgePtr pedge)
    ############################### */
 
 // Returns whether this object may/must be equal to o within the given Part p
-bool MemLocObjectPtrPair::mayEqual(MemLocObjectPtrPair that, PartEdgePtr pedge)
-{
-  // Both this and that have the same structure
-  assert((expr && that.expr) || (!mem && !that.mem));
-  // At least one of expr or mem have to be non-NULL
-  assert(expr || mem);
-  return (expr ? expr->mayEqual(that.expr, pedge): false) ||
-         (mem  ? mem->mayEqual (that.mem, pedge): false); 
-}
+// bool MemLocObjectPtrPair::mayEqual(MemLocObjectPtrPair that, PartEdgePtr pedge)
+// {
+//   // Both this and that have the same structure
+//   assert((expr && that.expr) || (!mem && !that.mem));
+//   // At least one of expr or mem have to be non-NULL
+//   assert(expr || mem);
+//   return (expr ? expr->mayEqual(that.expr, pedge): false) ||
+//          (mem  ? mem->mayEqual (that.mem, pedge): false); 
+// }
 
-bool MemLocObjectPtrPair::mustEqual(MemLocObjectPtrPair that, PartEdgePtr pedge)
-{
-  // Both this and that have the same structure
-  assert((expr && that.expr) || (!mem && !that.mem));
-  // At least one of expr or mem have to be non-NULL
-  assert(expr || mem);
-  return (expr ? expr->mustEqual(that.expr, pedge): true) &&
-         (mem  ? mem->mustEqual (that.mem, pedge): true);
-}
+// bool MemLocObjectPtrPair::mustEqual(MemLocObjectPtrPair that, PartEdgePtr pedge)
+// {
+//   // Both this and that have the same structure
+//   assert((expr && that.expr) || (!mem && !that.mem));
+//   // At least one of expr or mem have to be non-NULL
+//   assert(expr || mem);
+//   return (expr ? expr->mustEqual(that.expr, pedge): true) &&
+//          (mem  ? mem->mustEqual (that.mem, pedge): true);
+// }
 
-// Allocates a copy of this object and returns a pointer to it
-MemLocObjectPtrPair MemLocObjectPtrPair::copyML() const {
-  return MemLocObjectPtrPair(*this);
-}
+// // Allocates a copy of this object and returns a pointer to it
+// MemLocObjectPtrPair MemLocObjectPtrPair::copyML() const {
+//   return MemLocObjectPtrPair(*this);
+// }
 
-bool MemLocObjectPtrPair::isScalar()
-{
-  // At least one of expr or mem have to be non-NULL
-  assert(expr || mem);
-  if(expr && mem) {
-    bool exprScalar = expr->isScalar();
-    bool memScalar  = mem->isScalar();
-    assert(exprScalar == memScalar);
-    return exprScalar;
-  }
-  if(expr) return expr->isScalar() ? true: false;
-  if(mem)  return mem->isScalar() ? true: false;
-  ROSE_ASSERT(0);
-}
+// bool MemLocObjectPtrPair::isScalar()
+// {
+//   // At least one of expr or mem have to be non-NULL
+//   assert(expr || mem);
+//   if(expr && mem) {
+//     bool exprScalar = expr->isScalar();
+//     bool memScalar  = mem->isScalar();
+//     assert(exprScalar == memScalar);
+//     return exprScalar;
+//   }
+//   if(expr) return expr->isScalar() ? true: false;
+//   if(mem)  return mem->isScalar() ? true: false;
+//   ROSE_ASSERT(0);
+// }
 
-bool MemLocObjectPtrPair::isFunctionMemLoc()
-{
-  // At least one of expr or mem have to be non-NULL
-  assert(expr || mem);
-  if(expr && mem) {
-    bool exprScalar = expr->isFunctionMemLoc();
-    bool memScalar  = mem->isFunctionMemLoc();
-    assert(exprScalar == memScalar);
-    return exprScalar;
-  }
-  if(expr) return expr->isFunctionMemLoc() ? true: false;
-  if(mem)  return mem->isFunctionMemLoc() ? true: false;
-  ROSE_ASSERT(0);
-}
+// bool MemLocObjectPtrPair::isFunctionMemLoc()
+// {
+//   // At least one of expr or mem have to be non-NULL
+//   assert(expr || mem);
+//   if(expr && mem) {
+//     bool exprScalar = expr->isFunctionMemLoc();
+//     bool memScalar  = mem->isFunctionMemLoc();
+//     assert(exprScalar == memScalar);
+//     return exprScalar;
+//   }
+//   if(expr) return expr->isFunctionMemLoc() ? true: false;
+//   if(mem)  return mem->isFunctionMemLoc() ? true: false;
+//   ROSE_ASSERT(0);
+// }
 
-bool MemLocObjectPtrPair::isLabeledAggregate()
-{
-  // At least one of expr or mem have to be non-NULL
-  assert(expr || mem);
-  if(expr && mem) {
-    bool exprScalar = expr->isLabeledAggregate();
-    bool memScalar  = mem->isLabeledAggregate();
-    assert(exprScalar == memScalar);
-    return exprScalar;
-  }
-  if(expr) return expr->isLabeledAggregate() ? true: false;
-  if(mem)  return mem->isLabeledAggregate() ? true: false;
-  ROSE_ASSERT(0);
-}
+// bool MemLocObjectPtrPair::isLabeledAggregate()
+// {
+//   // At least one of expr or mem have to be non-NULL
+//   assert(expr || mem);
+//   if(expr && mem) {
+//     bool exprScalar = expr->isLabeledAggregate();
+//     bool memScalar  = mem->isLabeledAggregate();
+//     assert(exprScalar == memScalar);
+//     return exprScalar;
+//   }
+//   if(expr) return expr->isLabeledAggregate() ? true: false;
+//   if(mem)  return mem->isLabeledAggregate() ? true: false;
+//   ROSE_ASSERT(0);
+// }
 
-bool MemLocObjectPtrPair::isArray()
-{
-  // At least one of expr or mem have to be non-NULL
-  assert(expr || mem);
-  if(expr && mem) {
-    bool exprScalar = expr->isArray();
-    bool memScalar  = mem->isArray();
-    assert(exprScalar == memScalar);
-    return exprScalar;
-  }
-  if(expr) return expr->isArray() ? true: false;
-  if(mem)  return mem->isArray() ? true: false;
-  ROSE_ASSERT(0);
-}
+// bool MemLocObjectPtrPair::isArray()
+// {
+//   // At least one of expr or mem have to be non-NULL
+//   assert(expr || mem);
+//   if(expr && mem) {
+//     bool exprScalar = expr->isArray();
+//     bool memScalar  = mem->isArray();
+//     assert(exprScalar == memScalar);
+//     return exprScalar;
+//   }
+//   if(expr) return expr->isArray() ? true: false;
+//   if(mem)  return mem->isArray() ? true: false;
+//   ROSE_ASSERT(0);
+// }
 
-bool MemLocObjectPtrPair::isPointer()
-{
-  // At least one of expr or mem have to be non-NULL
-  assert(expr || mem);
-  if(expr && mem) {
-    bool exprScalar = expr->isPointer();
-    bool memScalar  = mem->isPointer();
-    assert(exprScalar == memScalar);
-    return exprScalar;
-  }
-  if(expr) return expr->isPointer() ? true: false;
-  if(mem)  return mem->isPointer() ? true: false;
-  ROSE_ASSERT(0);
-}
+// bool MemLocObjectPtrPair::isPointer()
+// {
+//   // At least one of expr or mem have to be non-NULL
+//   assert(expr || mem);
+//   if(expr && mem) {
+//     bool exprScalar = expr->isPointer();
+//     bool memScalar  = mem->isPointer();
+//     assert(exprScalar == memScalar);
+//     return exprScalar;
+//   }
+//   if(expr) return expr->isPointer() ? true: false;
+//   if(mem)  return mem->isPointer() ? true: false;
+//   ROSE_ASSERT(0);
+// }
 
-// pretty print for the object
-std::string MemLocObjectPtrPair::str(std::string indent)
-{ 
-  ostringstream oss;
-  oss << "[";
-  if(expr) {
-    oss << "expr=" << expr->str(indent);
-    if(mem) oss << endl;
-  }
-  if(mem) {
-    if(expr) oss << indent;
-    oss << "mem="  << mem->str(indent);
-  }
-  oss << "]";
-  return oss.str();
-}
+// // pretty print for the object
+// std::string MemLocObjectPtrPair::str(std::string indent)
+// { 
+//   ostringstream oss;
+//   oss << "[";
+//   if(expr) {
+//     oss << "expr=" << expr->str(indent);
+//     if(mem) oss << endl;
+//   }
+//   if(mem) {
+//     if(expr) oss << indent;
+//     oss << "mem="  << mem->str(indent);
+//   }
+//   oss << "]";
+//   return oss.str();
+// }
 
-std::string MemLocObjectPtrPair::strp(PartEdgePtr pedge, std::string indent)
-{ 
-  ostringstream oss;
-  oss << "[";
-  if(expr) oss << "expr=" << expr->strp(pedge, indent) << endl;
-  if(mem) {
-    if(expr) oss << indent;
-    oss << "mem="  << mem->strp(pedge, indent);
-  }
-  oss << "]";
-  return oss.str();
-}
+// std::string MemLocObjectPtrPair::strp(PartEdgePtr pedge, std::string indent)
+// { 
+//   ostringstream oss;
+//   oss << "[";
+//   if(expr) oss << "expr=" << expr->strp(pedge, indent) << endl;
+//   if(mem) {
+//     if(expr) oss << indent;
+//     oss << "mem="  << mem->strp(pedge, indent);
+//   }
+//   oss << "]";
+//   return oss.str();
+// }
 
 /* ################################
    ##### CombinedMemLocObject ##### 

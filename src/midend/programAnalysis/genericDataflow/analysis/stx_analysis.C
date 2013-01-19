@@ -23,6 +23,15 @@ namespace dataflow {
   
 // the top level builder for MemLocObject from any SgNode
 
+SyntacticAnalysis* SyntacticAnalysis::_instance = 0;
+
+SyntacticAnalysis* SyntacticAnalysis::instance()
+{
+  if(!_instance)
+    _instance = new SyntacticAnalysis();
+  return _instance;
+}
+
 MemLocObjectPtr SyntacticAnalysis::Expr2MemLoc(SgNode* n, PartEdgePtr pedge)
 { return SyntacticAnalysis::Expr2MemLocStatic(n, pedge); }
 
@@ -65,7 +74,7 @@ MemLocObjectPtr SyntacticAnalysis::Expr2MemLocStatic(SgNode* n, PartEdgePtr pedg
       // operand can be SgPointerDeref, SgPntrArrRef or SgVarRef
       if(isSgPointerDerefExp(operand)){
         // operand should be Pointer for both cases
-        rt = Expr2MemLocStatic(operand, pedge);
+        rt = (SyntacticAnalysis::instance()->getComposer())->Expr2MemLocSelf(operand, pedge, SyntacticAnalysis::instance());
         // ROSE_ASSERT(operandML);
         // PointerPtr operandMLPtr = operandML->isPointer();
         // ROSE_ASSERT(operandMLPtr);
@@ -75,7 +84,7 @@ MemLocObjectPtr SyntacticAnalysis::Expr2MemLocStatic(SgNode* n, PartEdgePtr pedg
         // TODO
       }
       else if(isSgVarRefExp(operand)){
-        MemLocObjectPtr operandML = Expr2MemLocStatic(operand, pedge);
+        MemLocObjectPtr operandML = (SyntacticAnalysis::instance()->getComposer())->Expr2MemLocSelf(operand, pedge, SyntacticAnalysis::instance());
         ROSE_ASSERT(operandML);
         SgType* t = boost::dynamic_pointer_cast<StxMemLocObject>(operandML)->getType();
         SgPointerType* p_t = isSgPointerType(t);

@@ -729,8 +729,10 @@ MemLocObjectPtr  DeadPathElimAnalysis::Expr2MemLoc (SgNode* n, PartEdgePtr pedge
 {
   DeadPathElimPartEdgePtr dpeEdge = static_part_cast<DeadPathElimPartEdge>(pedge);
   ROSE_ASSERT(dpeEdge);
-  MemLocObjectPtrPair p = getComposer()->Expr2MemLoc(n, dpeEdge->getPartEdge(), this);
-  return (p.mem ? p.mem : p.expr);
+  // MemLocObjectPtrPair p = getComposer()->Expr2MemLoc(n, dpeEdge->getPartEdge(), this);
+  // return (p.mem ? p.mem : p.expr);
+  MemLocObjectPtr p = getComposer()->Expr2MemLoc(n, dpeEdge->getPartEdge(), this);
+  return p;
 }
 
 // Calls composer->Expr2CodeLoc() on the base edge of pedge

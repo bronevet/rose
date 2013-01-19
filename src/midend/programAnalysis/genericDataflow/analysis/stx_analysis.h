@@ -26,9 +26,13 @@ namespace dataflow {
 
 class SyntacticAnalysis : virtual public IntraUndirDataflow
 {
-  public:
+  private:
+  static SyntacticAnalysis* _instance;
   SyntacticAnalysis() {}
-  
+
+  public:
+  static SyntacticAnalysis* instance();
+
   void runAnalysis(const Function&  func, NodeState* state, bool, std::set<Function>) { }
   
   // The genInitLattice, genInitFact and transfer functions are not implemented since this 
@@ -468,7 +472,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
 
       //Is this always true that the parent of a named object must be an expr object?
       NamedObj (SgNode* n, SgSymbol* a, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv): 
-            MemLocObject(n), StxMemLocObject(n, t), anchor_symbol(a), parent(p), array_index_vector (iv){};
+      MemLocObject(n), StxMemLocObject(n, t), anchor_symbol(a), parent(p), array_index_vector (iv){};
       NamedObj (const NamedObj& that) : MemLocObject((const MemLocObject&)that), StxMemLocObject((const StxMemLocObject&)that), anchor_symbol(that.anchor_symbol), 
                                         parent(that.parent), array_index_vector(that.array_index_vector) {};
       //SgType* getType() const {return type;}
