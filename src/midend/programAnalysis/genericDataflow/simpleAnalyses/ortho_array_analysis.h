@@ -30,6 +30,45 @@ class OrthoIndexVector_Impl : public IndexVector
 };
 typedef boost::shared_ptr<OrthoIndexVector_Impl> OrthoIndexVector_ImplPtr;
 
+
+// Memory object wrapping the information about array
+class OrthoArrayML : public MemLocObject
+{
+  protected:
+    // memory object for the top level array object
+    MemLocObjectPtr p_array;
+    // list of value objects for the subscripts
+    IndexVectorPtr p_iv;
+    // useful to distinguish this object from other memory objects
+    bool isArrayElement;
+
+    // to represent other memory objects that are not array
+    MemLocObjectPtr p_notarray;
+
+  public:
+    OrthoArrayML(SgNode* sgn, MemLocObjectPtr array, IndexVectorPtr iv) : MemLocObject(sgn), p_array(array), p_iv(iv), isArrayElement(true) { }
+    OrthoArrayML(SgNode* sgn, MemLocObjectPtr notarray) : MemLocObject(sgn), p_notarray(notarray), isArrayElement(false) { }
+    OrthoArrayML(const OrthoArrayML& that) : MemLocObject(that)
+    {
+      p_array = that.p_array;
+      p_iv = that.p_iv;
+      p_notarray = that.p_notarray;
+      isArrayElement = that.isArrayElement;
+    }
+    // pretty print
+    std::string str(std::string indent) const;
+    std::string str(std::string indent) { return ((const OrthoArrayML*)this)->str(indent); }
+
+    // copy this object and return a pointer to it
+    MemLocObjectPtr copyML() const { return boost::make_shared<OrthoArrayML>(*this); }
+
+    bool isLive(PartEdgePtr pedge) const;
+    
+    bool mayEqualML(MemLocObjectPtr that, PartEdgePtr pedge);
+    bool mustEqualML(MemLocObjectPtr that, PartEdgePtr pedge);
+};
+typedef boost::shared_ptr<OrthoArrayML> OrthoArrayMLPtr;
+
 /*class OrthoArrayMemLocObject : public MemLocObject
 {
   protected:
