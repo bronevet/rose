@@ -122,11 +122,9 @@ RoseToTerm::getSpecific(SgNode* astNode) {
       return getBinaryOpSpecific(n);
     } else if (SgLocatedNode* n = dynamic_cast<SgLocatedNode*>(astNode)) {
       // add preprocessing info
-      return termFactory.makeCompTerm("default_annotation", //2,
-			     termFactory.makeAtom("null"),
-			     PPI(n));
+      return termFactory.makeCompTerm("default_annotation", PPI(n));
     } else {
-      return termFactory.makeCompTerm("default_annotation", /*1,*/ termFactory.makeAtom("null"));
+      return termFactory.makeCompTerm("default_annotation", termFactory.makeAtom("null"));
     }
   }
   assert(false);
@@ -141,15 +139,15 @@ RoseToTerm::getPreprocessingInfo(AttachedPreprocessingInfoType* inf) {
       bool escape = (*it)->getTypeOfDirective()
 	!= PreprocessingInfo::CpreprocessorIncludeDeclaration;
 
-      CompTerm* ppd = termFactory.makeCompTerm
-	(re.str((*it)->getTypeOfDirective()), //3,
+      CompTerm* ppd = termFactory.makeCompTerm("directive",
+	 enum_atom((*it)->getTypeOfDirective()),
 	 termFactory.makeAtom((*it)->getString(), escape),
 	 enum_atom((*it)->getRelativePosition()),
 	 getFileInfo((*it)->get_file_info()));
       l->addFirstElement(ppd);
     }
   }
-  return termFactory.makeCompTerm("preprocessing_info", /*1,*/ l);
+  return termFactory.makeCompTerm("preprocessing_info", l);
 }
 
 /**
@@ -429,7 +427,7 @@ RoseToTerm::getEnumTypeSpecific(SgType* mtype) {
   ROSE_ASSERT(id != "" && id != "''");
 
   /*nested type -> nested term*/
-  return termFactory.makeCompTerm("enum_type", /*1,*/ termFactory.makeAtom(id));
+  return termFactory.makeCompTerm("enum_type", termFactory.makeAtom(id));
 }
 
 
@@ -620,7 +618,7 @@ RoseToTerm::getTypeSpecific(SgType* stype) {
   }
   default: {
     CompTerm* ct  = termFactory.makeCompTerm
-      ("not_yet_implemented", /*1,*/ termFactory.makeAtom(stype->class_name()));
+      ("not_yet_implemented", termFactory.makeAtom(stype->class_name()));
     t = ct;
     }
   }
@@ -725,7 +723,7 @@ RoseToTerm::getValueExpSpecific(SgValueExp* astNode) {
     SgEnumType *type = isSgEnumDeclaration(n->get_declaration())->get_type();
     ROSE_ASSERT(type != NULL);
     // val = getEnumTypeSpecific(type);
-    return termFactory.makeCompTerm("value_annotation",
+    return termFactory.makeCompTerm("enum_value_annotation",
 			      termFactory.makeInt(n->get_value()),
 			      termFactory.makeAtom(n->get_name().getString()),
 			      getEnumTypeSpecific(type),
@@ -758,7 +756,7 @@ RoseToTerm::getValueExpSpecific(SgValueExp* astNode) {
     val = termFactory.makeAtom(s);
   } else if (SgStringVal* n = dynamic_cast<SgStringVal*>(astNode)) {
     return termFactory.makeCompTerm
-      ("value_annotation", 
+      ("string_value_annotation", 
        termFactory.makeAtom(n->get_value()),
        MAKE_FLAG(n, usesSingleQuotes),
        MAKE_FLAG(n, usesDoubleQuotes),
@@ -766,7 +764,7 @@ RoseToTerm::getValueExpSpecific(SgValueExp* astNode) {
   } else {
     val = termFactory.makeAtom("null");
   }
-  return termFactory.makeCompTerm("value_annotation", /*2,*/ val, PPI(astNode));
+  return termFactory.makeCompTerm("value_annotation", val, PPI(astNode));
 }
 /**
  * class: SgAssignInitializer
@@ -803,7 +801,7 @@ RoseToTerm::getVarRefExpSpecific(SgVarRefExp* vr) {
   if (isSgFunctionParameterList(vardecl->get_parent()) && isSgArrayType(t)) {
     SgType* baseType = isSgArrayType(t)->get_base_type();
     Term* baseTypeSpecific = getTypeSpecific(baseType);
-    typeSpecific = termFactory.makeCompTerm("pointer_type", /*1,*/ baseTypeSpecific);
+    typeSpecific = termFactory.makeCompTerm("pointer_type", baseTypeSpecific);
   } else {
     typeSpecific = getTypeSpecific(n->get_typeptr());
   }
@@ -894,11 +892,12 @@ RoseToTerm::getClassDefinitionSpecific(SgClassDefinition* def) {
   if (&is != NULL) {
     for (SgBaseClassPtrList::iterator it = is.begin();
 	 it != is.end(); ++it)
-      inhs->addElement(termFactory.makeCompTerm
-		       ("base_class", 
-			traverseSingleNode((*it)->get_base_class()),
-			MAKE_FLAG(*it, isDirectBaseClass),
-			termFactory.makeCompTerm("default_annotation", /*1,*/ termFactory.makeAtom("null"))));
+      inhs->addElement
+	(termFactory.makeCompTerm
+	 ("base_class", 
+	  traverseSingleNode((*it)->get_base_class()),
+	  MAKE_FLAG(*it, isDirectBaseClass),
+	  termFactory.makeCompTerm("default_annotation", termFactory.makeAtom("null"))));
   }
 
   return termFactory.makeCompTerm
@@ -1483,7 +1482,7 @@ RoseToTerm::getSizeOfOpSpecific(SgSizeOfOp* o) {
   } else {
     e2 = termFactory.makeAtom("null");
   }
-  return termFactory.makeCompTerm("size_of_op_annotation", /*3,*/ e1, e2, PPI(o));
+  return termFactory.makeCompTerm("size_of_op_annotation", e1, e2, PPI(o));
 }
 
 
@@ -1538,14 +1537,8 @@ RoseToTerm::getTypePtrListSpecific(SgTypePtrList& tl) {
  */
 CompTerm*
 RoseToTerm::getPragmaSpecific(SgPragma* n) {
-  // Adrian 2007-11-27:
-  // This is to work around a bug in ROSE?/EDG? that inserts whitespaces
-  // Hopefully I can remove it in a later revision
   string s = n->get_pragma();
-  s.erase(remove_if( s.begin(), s.end(),
-		     bind1st(equal_to<char>(), ' ')),
-	  s.end());
-  return termFactory.makeCompTerm("pragma_annotation", /*1,*/ termFactory.makeAtom(s));
+  return termFactory.makeCompTerm("pragma_annotation", termFactory.makeAtom(s));
 }
 
 /**
