@@ -730,8 +730,8 @@ class ChainComposer : public Composer
   bool verboseTest;
   
   public:
-  ChainComposer(std::list<ComposedAnalysis*>& analyses, 
-                ComposedAnalysis* testAnalysis, bool verboseTest);
+  ChainComposer(const std::list<ComposedAnalysis*>& analyses, 
+                ComposedAnalysis* testAnalysis=NULL, bool verboseTest=false);
   
   // Runs the analysis, combining the intra-analysis with the inter-analysis of its choice
   // ChainComposer invokes the runAnalysis methods of all its constituent analyses in sequence
@@ -783,7 +783,7 @@ class LooseParallelComposer : public Composer, public IntraUndirDataflow
   knowledgeT subAnalysesImplementPartitions;
   
   public:
-  LooseParallelComposer(list<ComposedAnalysis*>& analyses);
+  LooseParallelComposer(const list<ComposedAnalysis*>& analyses);
 
   // ---------------------------------
   // ----- Methods from Composer -----

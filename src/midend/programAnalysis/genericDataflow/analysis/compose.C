@@ -172,7 +172,7 @@ bool checkDataflowInfoPass::transfer(const Function& func, PartPtr part, CFGNode
 // ----- Chain Composer -----
 // --------------------------
   
-ChainComposer::ChainComposer(list<ComposedAnalysis*>& analyses, 
+ChainComposer::ChainComposer(const list<ComposedAnalysis*>& analyses, 
                              ComposedAnalysis* testAnalysis, bool verboseTest) : 
     allAnalyses(analyses), testAnalysis(testAnalysis), verboseTest(verboseTest)
 {
@@ -600,7 +600,7 @@ PartPtr ChainComposer::GetFunctionEndPart(const Function& func, ComposedAnalysis
 // ----- Loose Parallel Composer -----
 // -----------------------------------
   
-LooseParallelComposer::LooseParallelComposer(list<ComposedAnalysis*>& analyses) : 
+LooseParallelComposer::LooseParallelComposer(const list<ComposedAnalysis*>& analyses) : 
     allAnalyses(analyses)
 {
   initAnalysis();

@@ -119,7 +119,7 @@ bool MemLocObjectPtrPair::isFunctionMemLoc()
   if(expr && mem) {
     bool exprF = expr->isFunctionMemLoc();
     bool memF  = mem->isFunctionMemLoc();
-    assert(exprF == memScalar);
+    assert(exprF == memF);
     return exprF;
   }
   if(expr) return expr->isFunctionMemLoc() ? true: false;
@@ -149,7 +149,7 @@ bool MemLocObjectPtrPair::isArray()
   if(expr && mem) {
     bool exprArray = expr->isArray();
     bool memArray  = mem->isArray();
-    assert(exprArray == memScalar);
+    assert(exprArray == memArray);
     return exprArray;
   }
   if(expr) return expr->isArray() ? true: false;
@@ -164,8 +164,8 @@ bool MemLocObjectPtrPair::isPointer()
   if(expr && mem) {
     bool exprPointer = expr->isPointer();
     bool memPointer  = mem->isPointer();
-    assert(exprPointer == memScalar);
-    return exprPoint;
+    assert(exprPointer == memPointer);
+    return exprPointer;
   }
   if(expr) return expr->isPointer() ? true: false;
   if(mem)  return mem->isPointer() ? true: false;

@@ -2378,6 +2378,8 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
 
   bool AliasedObj::mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge)
   {
+    Dbg::dbg << "this="<<strp(pedge)<<endl;
+    Dbg::dbg << "o2="<<o2->strp(pedge)<<endl;
     // If StxMemLocObject says they're definitely equal/not equal, return true/false
     switch(StxMemLocObject::equal(o2, pedge)) {
       case StxMemLocObject::defEqual: return true;
