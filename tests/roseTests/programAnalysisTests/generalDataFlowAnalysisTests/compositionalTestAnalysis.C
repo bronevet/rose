@@ -5,6 +5,7 @@
 #include "ortho_array_analysis.h"
 #include "dead_path_elim_analysis.h"
 #include "printAnalysisStates.h"
+#include "pointsToAnalysis.h"
 #include <vector>
 #include <ctype.h>
 
@@ -37,9 +38,11 @@ int main(int argc, char** argv)
       analyses.push_back(new DeadPathElimAnalysis());
   }
   else if(CommandlineProcessing::isOption(dataflowoptions, "", "orthogonalarrayanalysis", false)) {
-      analyses.push_back(new OrthogonalArrayAnalysis());   
+      analyses.push_back(new OrthogonalArrayAnalysis());
   }
-
+  else if(CommandlineProcessing::isOption(dataflowoptions, "", "pointstoanalysis", false)) {
+      analyses.push_back(new PointsToAnalysis());   
+  }
   // Look for pragmas that identify the preferred analysis chain to be used on this input
   Rose_STL_Container<SgNode*> pragmas = NodeQuery::querySubTree(project, V_SgPragma);
   for(Rose_STL_Container<SgNode*>::iterator p=pragmas.begin(); p!=pragmas.end(); p++) {
@@ -58,6 +61,7 @@ int main(int argc, char** argv)
           else if(strcmp(analysisName, "livedeadmemanalysis")==0)         analyses.push_back(new LiveDeadMemAnalysis());
           else if(strcmp(analysisName, "deadpathelimanalysis")==0)        analyses.push_back(new DeadPathElimAnalysis());
           else if(strcmp(analysisName, "orthogonalarrayanalysis")==0)     analyses.push_back(new OrthogonalArrayAnalysis());
+          else if(strcmp(analysisName, "pointstoanalysis")==0)     analyses.push_back(new PointsToAnalysis());
       }
   }
   // Add the correctness checking analysis to run after all the others
