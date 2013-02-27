@@ -26,7 +26,7 @@ using namespace ssa_private;
 using namespace dataflow;
 
 namespace dataflow {
-int AbstractObjectMapDebugLevel=1;
+int AbstractObjectMapDebugLevel=2;
 
 bool MayEqualFunctor::mayEqual(AbstractObjectPtr objPtr1, AbstractObjectPtr objPtr2, PartEdgePtr pedge) {
   ROSE_ASSERT(objPtr1); ROSE_ASSERT(objPtr2);
