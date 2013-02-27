@@ -14,6 +14,8 @@
 
 namespace dataflow
 {
+  extern int ptaDebugLevel;
+
   class PointsToAnalysis;
   // Transfer functions for the PointsTo analysis
   class PointsToAnalysisTransfer : public IntraDFTransferVisitor
@@ -25,10 +27,11 @@ namespace dataflow
     AbstractObjectMap* productLattice;
     // used by the analysis to determine if the states modified or not
     bool modified;
+    int debugLevel;
   public:
     PointsToAnalysisTransfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state,
                              std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo,
-                             Composer* composer, PointsToAnalysis* analysis);
+                             Composer* composer, PointsToAnalysis* analysis, const int& _debugLevel);
 
     // set the pointer of AbstractObjectMap at this PartEdge
     void setProductLattice();
@@ -41,6 +44,10 @@ namespace dataflow
     AbstractObjectSetPtr getLatticeOperand(SgNode* sgn, SgExpression* operand);
     AbstractObjectSetPtr getLatticeCommon(MemLocObjectPtr ml);
     AbstractObjectSetPtr getLattice(const AbstractObjectPtr o);
+    void setLattice(SgExpression* sgexp, AbstractObjectSetPtr aos);
+    void setLatticeOperand(SgNode* sgn, SgExpression* operand, AbstractObjectSetPtr aos);
+    void setLatticeCommon(MemLocObjectPtr ml, AbstractObjectSetPtr aos);
+    void setLattice(const AbstractObjectPtr o, AbstractObjectSetPtr aos);
 
     // Transfer functions
     void visit(SgAssignOp* sgn);
@@ -69,26 +76,29 @@ namespace dataflow
     friend class PointsToAnalysisTransfer;
   };
 
-  // typedef std::list<MemLocObjectPtr> PointsToSet;
-  // class PointsToML : public MemLocObject
-  // {
-  //   PointsToSet pts;
-  //   MemLocObjectPtr mem;
-  // public:
-  //   PointsToML(SgNode* sgn, MemLocObjectPtr _mem) : MemLocObject(sgn), mem(_mem) { }
-  //   PointsToML(const PointsToML& that);
-  //   MemLocObjectPtr copyML() const { return boost::make_shared<PointsToML>(*this); }
-    
-  //   bool mayEqualML(MemLocObjectPtr that, PartEdgePtr pedge);
-  //   bool mustEqualML(MemLocObjectPtr that, PartEdgePtr pedge);
-    
-  //   bool isLive(PartEdgePtr pedge) const { return mem->isLive(pedge); }
+  // helper function to copy elements from abstract object set
+  void copyAbstractObjectSet(const AbstractObjectSet& aos, std::list<MemLocObjectPtr>& list);
 
-  //   PointsToSet getPointsToSet() { return pts; }
+  // Object returned by PointsToAnalysis::Expr2MemLoc
+  // Wraps object returned by the composer
+  class PointsToML;
+  typedef boost::shared_ptr<PointsToML> PointsToMLPtr;
+  class PointsToML : public UnionMemLocObject
+  {
+    // NOTE: UnionMemLocObject is useful to store list
+    // of items a memory object may point to
+
+  public:
+    PointsToML(MemLocObjectPtr _mem) : MemLocObject(NULL), UnionMemLocObject(_mem) { }
+    PointsToML(std::list<MemLocObjectPtr> _lml) : MemLocObject(NULL), UnionMemLocObject(_lml) { }       
         
-  //   std::string str(std::string indent) const;
-  //   std::string str(std::string indent) { return ((const PointsToML*)this)->str(""); }
-  // };
+    std::string str(std::string indent)
+    {
+      std::ostringstream oss;
+      oss << "[PointsToML: " << UnionMemLocObject::str(indent) << "]";
+      return oss.str();
+    }
+  };
 };
 
 #endif
