@@ -114,6 +114,7 @@ namespace dataflow
       aos->insert(_ml);
       // update the product lattice
       setLatticeOperand(sgn, lhs_operand, aos);
+      setLattice(sgn, aos);
       modified = true;
     }
     //TODO: handle p = q
@@ -142,12 +143,44 @@ namespace dataflow
     return "PointsToAnalysis"; 
   }
 
-  void copyAbstractObjectSet(const AbstractObjectSet& aos, std::list<MemLocObjectPtr>& list)
+  void PointsToAnalysis::copyAbstractObjectSet(const AbstractObjectSet& aos, std::list<MemLocObjectPtr>& list)
   {
     for(AbstractObjectSet::const_iterator it = aos.begin(); it != aos.end(); it++)
     {
       list.push_back(boost::dynamic_pointer_cast<MemLocObject> (*it));
     }
+  }
+
+  boost::shared_ptr<AbstractObjectSet> 
+  PointsToAnalysis::getPointsToSet(SgNode* sgn, PartEdgePtr pedge, AbstractObjectMap* aom)
+  {
+    // use the visitor pattern to get pointsToSet for arbitrary sgn
+    Expr2MemLocTraversal e2mlt(composer, this, pedge, aom);
+    sgn->accept(e2mlt);
+    boost::shared_ptr<AbstractObjectSet> aos = e2mlt.getPointsToSet();
+    return aos;
+  }
+
+  PointsToMLPtr PointsToAnalysis::Expr2PointsToMLPtr(SgNode* sgn, PartEdgePtr pedge, boost::shared_ptr<AbstractObjectSet> aos)
+  {
+    // we have points to set for the current MemLocObject
+    // wrap it up by PointsToML
+    std::list<MemLocObjectPtr> pointsToSet;
+    //NOTE: It can be empty if no entry was found in AbstractObjectMap
+    if(aos.get())
+    {
+      // copy the elements of aos into pointsToSet which will be wrapped by PoinsToML
+      copyAbstractObjectSet(*aos, pointsToSet);
+    }
+    else
+    {
+      // wrap other memory objects that don't point to any memory object
+      // push the ml for sgn itself into the pointsToSet as it does not points to any other object
+      MemLocObjectPtr ml = composer->Expr2MemLoc(sgn, pedge, this);
+      pointsToSet.push_back(ml);
+    }
+    PointsToMLPtr ptmlp = boost::make_shared<PointsToML> (pointsToSet);
+    return ptmlp;
   }
 
   MemLocObjectPtr PointsToAnalysis::Expr2MemLoc(SgNode* sgn, PartEdgePtr pedge)
@@ -162,41 +195,67 @@ namespace dataflow
       Dbg::dbg << "state="<<state->str(this)<<endl;
       AbstractObjectMap* aom = dynamic_cast<AbstractObjectMap*>(state->getLatticeBelow(this, pedge, 0));
       ROSE_ASSERT(aom);
-      // handle single dereferencing
-      if(isSgPointerDerefExp(sgn))
-      {
-        if(isSgVarRefExp(isSgPointerDerefExp(sgn)->get_operand())) {
-          MemLocObjectPtr oml = composer->OperandExpr2MemLoc(sgn, isSgPointerDerefExp(sgn)->get_operand(), pedge, this);
-          // get set of items this pointer points to
-          boost::shared_ptr<AbstractObjectSet> aos = boost::dynamic_pointer_cast<AbstractObjectSet> (aom->get(oml)); ROSE_ASSERT(aos.get());
-          std::list<MemLocObjectPtr> pointsToSet;
-          copyAbstractObjectSet(*aos, pointsToSet);
-          PointsToMLPtr ptmlp = boost::make_shared<PointsToML> (pointsToSet);
-          return boost::dynamic_pointer_cast<MemLocObject> (ptmlp);
-        }
-        else { assert(false); return PointsToMLPtr(); } // operand of derefexp is complicated and not handled       
-      }          
-      // handle pointer types
-      else if(isSgVarRefExp(sgn))
-      {
-        // TODO: handle pointer type
-        MemLocObjectPtr ml = composer->Expr2MemLoc(sgn, pedge, this);
-        PointsToMLPtr ptmlp = boost::make_shared<PointsToML> (ml);
-        return boost::dynamic_pointer_cast<MemLocObject> (ptmlp);
-      }
-      // wrap other objects
-      else
-      {
-        MemLocObjectPtr ml = composer->Expr2MemLoc(sgn, pedge, this);
-        PointsToMLPtr ptmlp = boost::make_shared<PointsToML> (ml);
-        return boost::dynamic_pointer_cast<MemLocObject> (ptmlp);
-      }
-    }
-    // TODO: handle if target of this edge is wildcard
+      boost::shared_ptr<AbstractObjectSet> aos = getPointsToSet(sgn, pedge, aom);
+      return boost::dynamic_pointer_cast<MemLocObject>(Expr2PointsToMLPtr(sgn, pedge, aos));
+    }    
     // NOTE: merge information across all outgoing edges
-    else if(pedge->source()) { assert(false); return PointsToMLPtr(); }
-    // TODO: handle if source of this edge is wildcard
-    else if(pedge->target()) { assert(false); return PointsToMLPtr(); }
+    // target of this edge is wildcard
+    else if(pedge->source()) 
+    { 
+      NodeState* state = NodeState::getNodeState(this, pedge->source());
+      //Dbg::dbg << "state="<<state->str(this)<<endl;
+    
+      // Merge the lattices along all the outgoing edges
+      map<PartEdgePtr, std::vector<Lattice*> >& e2lats = state->getLatticeBelowAllMod(this);
+      ROSE_ASSERT(e2lats.size()>=1);
+      boost::shared_ptr<AbstractObjectSet> mergedSet = boost::make_shared<AbstractObjectSet>(pedge, AbstractObjectSet::may);
+      for(map<PartEdgePtr, std::vector<Lattice*> >::iterator lats=e2lats.begin(); lats!=e2lats.end(); lats++) 
+      {
+        PartEdge* edgePtr = lats->first.get();
+        ROSE_ASSERT(edgePtr->source() == pedge.get()->source());
+      
+        AbstractObjectMap* aom = dynamic_cast<AbstractObjectMap*>(state->getLatticeBelow(this, lats->first, 0));
+        ROSE_ASSERT(aom);
+        boost::shared_ptr<AbstractObjectSet> aos = getPointsToSet(sgn, pedge, aom);
+        // NOTE: It can be empty if no entry was found in AbstractObjectMap
+        // Safe approximation : merge only if it contains pointsTo information along this particular edge
+        // 
+        if(aos.get())
+          mergedSet->meetUpdate(aos.get());
+      }
+      return boost::dynamic_pointer_cast<MemLocObject>(Expr2PointsToMLPtr(sgn, pedge, mergedSet));
+    }
+    // source of this edge is a wildcard
+    else if(pedge->target()) 
+    {
+      NodeState* state = NodeState::getNodeState(this, pedge->target());
+      Dbg::dbg << "state="<<state->str()<<endl;
+      AbstractObjectMap* aom = dynamic_cast<AbstractObjectMap*>(state->getLatticeAbove(this, NULLPartEdge, 0));
+      ROSE_ASSERT(aom);
+      boost::shared_ptr<AbstractObjectSet> aos = getPointsToSet(sgn, pedge, aom);
+      return boost::dynamic_pointer_cast<MemLocObject>(Expr2PointsToMLPtr(sgn, pedge, aos));
+    }
     else { assert(false); return PointsToMLPtr(); }
+  }
+
+  void Expr2MemLocTraversal::visit(SgPointerDerefExp* sgn)
+  {
+    SgExpression* operand = sgn->get_operand();
+    operand->accept(*this);
+  }
+
+  void Expr2MemLocTraversal::visit(SgVarRefExp* sgn)
+  {
+    // return points to set only for pointer types
+    if(isSgPointerType(sgn->get_type()))
+    {
+      MemLocObjectPtr ml = composer->Expr2MemLoc(sgn, pedge, analysis);
+      p_aos = boost::dynamic_pointer_cast<AbstractObjectSet>(aom->get(ml));       
+    }    
+  }
+
+  void Expr2MemLocTraversal::visit(SgAssignOp* sgn)
+  {
+    // handle p = q where p, q are pointer types    
   }
 };

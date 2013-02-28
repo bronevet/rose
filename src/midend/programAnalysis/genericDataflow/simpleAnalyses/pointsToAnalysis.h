@@ -53,6 +53,10 @@ namespace dataflow
     void visit(SgAssignOp* sgn);
   };
 
+  // See definition below
+  class PointsToML;
+  typedef boost::shared_ptr<PointsToML> PointsToMLPtr;
+
   class PointsToAnalysis : public virtual IntraFWDataflow
   {
   public:
@@ -74,15 +78,44 @@ namespace dataflow
     std::string str(std::string indent); 
 
     friend class PointsToAnalysisTransfer;
+
+    // helper function to copy elements from abstract object set
+    void copyAbstractObjectSet(const AbstractObjectSet& aos, std::list<MemLocObjectPtr>& list);
+
+    // get the pointsToSet from the given map
+    boost::shared_ptr<AbstractObjectSet> getPointsToSet(SgNode* sgn, PartEdgePtr pedge, AbstractObjectMap *aom);
+
+    // wrap the given set PointsToMLPtr
+    PointsToMLPtr Expr2PointsToMLPtr(SgNode* sgn, PartEdgePtr pedge, boost::shared_ptr<AbstractObjectSet> aom);
   };
 
-  // helper function to copy elements from abstract object set
-  void copyAbstractObjectSet(const AbstractObjectSet& aos, std::list<MemLocObjectPtr>& list);
+  // used to handle Expr2MemLoc queries by the composer
+  // for various SgNode
+  class Expr2MemLocTraversal : public ROSE_VisitorPatternDefaultBase
+  {
+    Composer* composer;
+    PointsToAnalysis* analysis;
+    PartEdgePtr pedge;
+    AbstractObjectMap* aom;
+    // returned by this class for a given SgNode*
+    boost::shared_ptr<AbstractObjectSet> p_aos;
+  public:
+    Expr2MemLocTraversal(Composer* _composer, 
+                         PointsToAnalysis* _analysis,
+                         PartEdgePtr _pedge, 
+                         AbstractObjectMap* _aom) : 
+    composer(_composer), 
+    analysis(_analysis), 
+    pedge(_pedge), aom(_aom), 
+    p_aos(boost::shared_ptr<AbstractObjectSet>()) { }
+    void visit(SgPointerDerefExp* sgn);
+    void visit(SgVarRefExp* sgn);
+    void visit(SgAssignOp* sgn);
+    boost::shared_ptr<AbstractObjectSet> getPointsToSet() { return p_aos; }
+  };
 
   // Object returned by PointsToAnalysis::Expr2MemLoc
   // Wraps object returned by the composer
-  class PointsToML;
-  typedef boost::shared_ptr<PointsToML> PointsToMLPtr;
   class PointsToML : public UnionMemLocObject
   {
     // NOTE: UnionMemLocObject is useful to store list
