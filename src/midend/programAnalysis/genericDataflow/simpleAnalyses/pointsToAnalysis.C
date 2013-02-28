@@ -118,6 +118,22 @@ namespace dataflow
       modified = true;
     }
     //TODO: handle p = q
+    else if(isSgPointerType(lhs_operand->get_type()) &&
+            isSgPointerType(rhs_operand->get_type()))
+    {
+      AbstractObjectSetPtr l_aos = getLatticeOperand(sgn, lhs_operand); 
+      AbstractObjectSetPtr r_aos = getLatticeOperand(sgn, rhs_operand); 
+      // union the information
+      // NOTE: points to information can be NULL
+      // merge pointsToSet from rhs if available
+      if(l_aos && r_aos) l_aos->meetUpdate(dynamic_cast<Lattice*>(r_aos.get()));
+      // pointsToSet is empty for lhs, populate it with rhs information
+      if(!l_aos && r_aos) l_aos = boost::make_shared<AbstractObjectSet>(*r_aos);
+      // set the map with this pointsToSet
+      setLatticeOperand(sgn, lhs_operand, l_aos);
+      setLattice(sgn, l_aos);
+      modified = true;
+    }
   }
 
   void PointsToAnalysis::genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge,
