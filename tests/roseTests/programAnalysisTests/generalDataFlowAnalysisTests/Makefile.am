@@ -41,10 +41,10 @@ warn-unused-sources:
 # taintedFlowAnalysisTest, and pointerAliasAnalysisTest are commented out by Sriram. Don't forget to de-comment the
 # *_CHECK_TARGETS lines below when you enable a test again. [RPM 2012-09-24]
 
-bin_PROGRAMS += compositionalTestAnalysis
-compositionalTestAnalysis_SOURCES = compositionalTestAnalysis.C
+bin_PROGRAMS += fuse
+fuse_SOURCES = compositionalTestAnalysis.C
 #EXTRA_DIST += constantPropagation.h
-COMP_CONST_PROP = ./compositionalTestAnalysis
+COMP_CONST_PROP = ./fuse
 
 #bin_PROGRAMS += liveDeadVarAnalysisTest
 #liveDeadVarAnalysisTest_SOURCES = liveDeadVarAnalysisTest.C
