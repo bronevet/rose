@@ -57,6 +57,7 @@ mpaGenericDataflow_includeHeaders=\
 	$(mpaGenericDataflowPath)/analysis/dataflow.h \
 	$(mpaGenericDataflowPath)/analysis/compose.h \
 	$(mpaGenericDataflowPath)/analysis/abstract_object.h \
+        $(mpaGenericDataflowPath)/analysis/data_structures.h \
 	$(mpaGenericDataflowPath)/analysis/abstract_object_map.h \
 	$(mpaGenericDataflowPath)/analysis/abstract_object_set.h \
 	$(mpaGenericDataflowPath)/analysis/stx_analysis.h \
