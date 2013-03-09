@@ -15,6 +15,7 @@ nobase_include_HEADERS = \
 	src/minitermite/RoseEnums.h \
 	src/minitermite/term.h++ \
 	src/minitermite/stl-term.h++ \
+	src/minitermite/aterm-term.h++ \
 	src/minitermite/swipl-term.h++ \
 	src/minitermite/stratego-term.h++
 
@@ -29,11 +30,16 @@ noinst_bindir = $(BUILDDIR)
 noinst_PROGRAMS = src/find-enums
 
 if ROSE_HAVE_SWI_PROLOG
-bin_SCRIPTS += src/termite_lint src/cime3_signatures src/stratego-signatures
+bin_SCRIPTS += src/termite_lint \
+               src/cime3_signatures \
+               src/stratego-signatures \
+               src/haskell-signatures
 
 BUILT_SOURCES += $(BUILDDIR)/PP_termite_spec.pl
 CLEANFILES += $(BUILDDIR)/PP_termite_spec.pl \
-              src/termite_lint src/cime3_signatures src/stratego-signatures
+              src/termite_lint src/cime3_signatures \
+              src/stratego-signatures \
+	      src/haskell-signatures
 
 $(BUILDDIR)/PP_termite_spec.pl: src/termite/termite_spec.pl Makefile
 if ROSE_HAVE_MINITERMITE_ANALYSIS_RESULTS
@@ -51,6 +57,10 @@ src/cime3_signatures: $(srcdir)/src/cime3_signatures.pl $(BUILDDIR)/PP_termite_s
 	$(SWI_PLC) -o $@ -c $<
 
 src/stratego-signatures: $(srcdir)/src/stratego-signatures.pl $(BUILDDIR)/PP_termite_spec.pl
+	$(AM_V_GEN) TERMITE_LIB=$(srcdir)/src/termite \
+	$(SWI_PLC) -o $@ -c $<
+
+src/haskell-signatures: $(srcdir)/src/haskell-signatures.pl $(BUILDDIR)/PP_termite_spec.pl
 	$(AM_V_GEN) TERMITE_LIB=$(srcdir)/src/termite \
 	$(SWI_PLC) -o $@ -c $<
 
@@ -119,6 +129,7 @@ if ROSE_BUILD_OS_IS_OSX
 	@echo "#define ROSE_ASSERT(X) "       >>RoseEnumNames.cc
 endif
 	@echo "#include <sage3basic.h>"       >>RoseEnumNames.cc
+	@echo "[Note: if this fails, look into how projects/haskellport handles invoking a compiled but not installed ROSE tool]"
 	$(AM_V_GEN) $< --edg:no_warnings  -O0 -DROSE_SKIP_COMPILATION_OF_WAVE \
 	   -I$(top_builddir) $(ROSE_INCLUDES) \
            -c RoseEnumNames.cc > __RoseEnumNames.h

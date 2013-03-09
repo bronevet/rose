@@ -21,6 +21,7 @@ ccp_test2003_10.C                        no
 ccp_test2003_11.C                        no
 ccp_test2003_13.C                        no
 ccp_test2003_14.C                        no
+ccp_test2003_16.C                        no
 ccp_test2003_20.C                        no
 ccp_test2003_21.C                        no
 ccp_test2003_23.C                        no
@@ -93,11 +94,14 @@ ccp_test2006_14.C                        no
 ccp_test2006_140.C                       no
 ccp_test2006_142.C                       no
 ccp_test2006_146.C                       no
+ccp_test2006_149.C                       no
+ccp_test2006_150.C                       no
 ccp_test2006_152.C                       no
 ccp_test2006_153.C                       no
 ccp_test2006_181.C                       no
 ccp_test2006_23.C                        no
 ccp_test2006_34.C                        no
+ccp_test2006_52.C                        no
 ccp_test2006_53.C                        no
 ccp_test2006_55.C                        no
 ccp_test2006_57.C                        no
@@ -120,6 +124,7 @@ cxxcp_test2001_02.C                      no
 cxxcp_test2001_05.C                      no
 cxxcp_test2001_07.C                      no
 cxxcp_test2001_08.C                      no
+cxxcp_test2001_10.C                      no
 cxxcp_test2001_11.C                      no
 cxxcp_test2001_12.C                      no
 cxxcp_test2001_13.C                      no
@@ -145,6 +150,7 @@ cxxcp_test2003_10.C                      no
 cxxcp_test2003_11.C                      no
 cxxcp_test2003_13.C                      no
 cxxcp_test2003_14.C                      no
+cxxcp_test2003_16.C                      no
 cxxcp_test2003_17.C                      no
 cxxcp_test2003_20.C                      no
 cxxcp_test2003_21.C                      no
@@ -209,6 +215,7 @@ cxxcp_test2004_151.C                     no
 cxxcp_test2004_152.C                     no
 cxxcp_test2004_153.C                     no
 cxxcp_test2004_154.C                     no
+cxxcp_test2004_155.C                     no
 cxxcp_test2004_156.C                     no
 cxxcp_test2004_158.C                     no
 cxxcp_test2004_16.C                      no
@@ -238,12 +245,14 @@ cxxcp_test2004_58.C                      no
 cxxcp_test2004_59.C                      no
 cxxcp_test2004_61.C                      no
 cxxcp_test2004_62.C                      no
+cxxcp_test2004_64.C                      no
 cxxcp_test2004_65.C                      no
 cxxcp_test2004_67.C                      no
 cxxcp_test2004_68.C                      no
 cxxcp_test2004_69.C                      no
 cxxcp_test2004_70.C                      no
 cxxcp_test2004_71.C                      no
+cxxcp_test2004_73.C                      no
 cxxcp_test2004_74.C                      no
 cxxcp_test2004_76.C                      no
 cxxcp_test2004_78.C                      no
@@ -256,6 +265,7 @@ cxxcp_test2004_86.C                      no
 cxxcp_test2004_87.C                      no
 cxxcp_test2004_89.C                      no
 cxxcp_test2004_91.C                      no
+cxxcp_test2004_93.C                      no
 cxxcp_test2004_94.C                      no
 cxxcp_test2004_95.C                      no
 cxxcp_test2004_96.C                      no
@@ -398,7 +408,10 @@ cxxcp_test2006_13.C                      no
 cxxcp_test2006_14.C                      no
 cxxcp_test2006_140.C                     no
 cxxcp_test2006_142.C                     no
+cxxcp_test2006_143.C                     no
 cxxcp_test2006_146.C                     no
+cxxcp_test2006_149.C                     no
+cxxcp_test2006_150.C                     no
 cxxcp_test2006_152.C                     no
 cxxcp_test2006_153.C                     no
 cxxcp_test2006_155.C                     no
@@ -411,12 +424,15 @@ cxxcp_test2006_163.C                     no
 cxxcp_test2006_164.C                     no
 cxxcp_test2006_165.C                     no
 cxxcp_test2006_17.C                      no
+cxxcp_test2006_178.C                     no
 cxxcp_test2006_179.C                     no
 cxxcp_test2006_18.C                      no
 cxxcp_test2006_181.C                     no
 cxxcp_test2006_183.C                     no
+cxxcp_test2006_19.C                      no
 cxxcp_test2006_22.C                      no
 cxxcp_test2006_23.C                      no
+cxxcp_test2006_25.C                      no
 cxxcp_test2006_26.C                      no
 cxxcp_test2006_34.C                      no
 cxxcp_test2006_37.C                      no
@@ -425,6 +441,7 @@ cxxcp_test2006_41.C                      no
 cxxcp_test2006_42.C                      no
 cxxcp_test2006_44.C                      no
 cxxcp_test2006_46.C                      no
+cxxcp_test2006_52.C                      no
 cxxcp_test2006_53.C                      no
 cxxcp_test2006_55.C                      no
 cxxcp_test2006_57.C                      no
@@ -454,19 +471,25 @@ cxxcp_test2007_02.C                      no
 cxxcp_test2007_03.C                      no
 cxxcp_test2007_07.C                      no
 cxxcp_test2007_08.C                      no
+cxxcp_test2007_102.C                     no
+cxxcp_test2007_103.C                     no
 cxxcp_test2007_12.C                      no
 cxxcp_test2007_13.C                      no
 cxxcp_test2007_133.C                     no
 cxxcp_test2007_137.C                     no
 cxxcp_test2007_142.C                     no
+cxxcp_test2007_15.C                      no
+cxxcp_test2007_150.C                     no
 cxxcp_test2007_151.C                     no
 cxxcp_test2007_152.C                     no
+cxxcp_test2007_154.C                     no
 cxxcp_test2007_157.C                     no
 cxxcp_test2007_160.C                     no
 cxxcp_test2007_161.C                     no
 cxxcp_test2007_162.C                     no
 cxxcp_test2007_163.C                     no
 cxxcp_test2007_165.C                     no
+cxxcp_test2007_167.C                     no
 cxxcp_test2007_169.C                     no
 cxxcp_test2007_17.C                      no
 cxxcp_test2007_172.C                     no
@@ -488,6 +511,7 @@ cxxcp_test2007_51.C                      no
 cxxcp_test2007_52.C                      no
 cxxcp_test2007_53.C                      no
 cxxcp_test2007_55.C                      no
+cxxcp_test2007_59.C                      no
 cxxcp_test2007_62.C                      no
 cxxcp_test2007_70.C                      no
 cxxcp_test2007_72.C                      no
@@ -508,6 +532,7 @@ cxxcp_test2008_06.C                      no
 cxxcp_test2008_09.C                      no
 cxxcp_test2008_10.C                      no
 cxxcp_test2008_11.C                      no
+cxxcp_test2008_12.C                      no
 cxxcp_test2008_13.C                      no
 cxxcp_test2008_14.C                      no
 cxxcp_test2009_01.C                      no
@@ -519,6 +544,7 @@ cxxcp_test2009_06.C                      no
 cxxcp_test2009_08.C                      no
 cxxcp_test2009_09.C                      no
 cxxcp_test2009_10.C                      no
+cxxcp_test2009_12.C                      no
 cxxcp_test2009_14.C                      no
 cxxcp_test2009_15.C                      no
 cxxcp_test2009_18.C                      no
@@ -547,6 +573,7 @@ cxxcp_test2011_21.C                      no
 cxxcp_test2011_22.C                      no
 cxxcp_test2011_23.C                      no
 cxxcp_test2011_24.C                      no
+cxxcp_test2011_25.C                      no
 cxxcp_test2011_26.C                      no
 cxxcp_test2011_27.C                      no
 cxxcp_test2011_28.C                      no
@@ -564,6 +591,7 @@ cxxcp_test2011_40.C                      no
 cxxcp_test2011_41.C                      no
 cxxcp_test2011_42.C                      no
 cxxcp_test2011_43.C                      no
+cxxcp_test2011_44.C                      no
 cxxcp_test2011_45.C                      no
 cxxcp_test2011_46.C                      no
 cxxcp_test2011_47.C                      no
@@ -584,6 +612,7 @@ cxxcp_test2011_61.C                      no
 cxxcp_test2011_62.C                      no
 cxxcp_test2011_63.C                      no
 cxxcp_test2011_64.C                      no
+cxxcp_test2011_65.C                      no
 cxxcp_test2011_67.C                      no
 cxxcp_test2011_68.C                      no
 cxxcp_test2011_69.C                      no
@@ -615,6 +644,7 @@ cxxcp_test_int_lexemes.C                 no
 cxxcp_test_int_lexemes_donot_pass.C      no
 cxxcp_test_simple_int.C                  no
 cxxcp_test_wchars.C                      no
+cxxcpls_compositionalTestInput1.C        no
 cxxcpls_compositionalTestInput2.C        no
 cxxcpls_compositionalTestInput3.C        no
 cxxcpls_compositionalTestInput4.C        no

@@ -89,6 +89,94 @@ bool OrthoIndexVector_Impl::mustEqual(IndexVectorPtr other, PartEdgePtr pedge)
   return rt;
 }
 
+bool OrthoArrayML::mayEqualML(MemLocObjectPtr other, PartEdgePtr pedge)
+{
+  OrthoArrayMLPtr otherML = boost::dynamic_pointer_cast<OrthoArrayML>(other);
+  ROSE_ASSERT(otherML);
+
+  // compare only if two objects are same types
+  if( (this->isArrayElement && !otherML->isArrayElement) ||
+      (!this->isArrayElement && otherML->isArrayElement) ) return false;
+
+  bool retval = false;
+
+  // both are array element
+  if(otherML->isArrayElement) {
+    // making sure both are array elements
+    ROSE_ASSERT(otherML->p_array); ROSE_ASSERT(otherML->p_iv);
+    ROSE_ASSERT(p_array); ROSE_ASSERT(p_iv);
+
+    // return true only if 
+    // array objects mayequals the other and
+    // index vector mayequals the other
+    retval = (this->p_array)->mayEqual(otherML->p_array, pedge)
+      && (this->p_iv)->mayEqual(otherML->p_iv, pedge);
+  }
+  // both ML are not array elements
+  else {
+    // making sure both are not array
+    ROSE_ASSERT(p_notarray); ROSE_ASSERT(otherML->p_notarray);
+    retval = p_notarray->mayEqual(otherML->p_notarray, pedge);
+  }
+
+  return retval;
+}
+
+bool OrthoArrayML::mustEqualML(MemLocObjectPtr other, PartEdgePtr pedge)
+{
+  OrthoArrayMLPtr otherML = boost::dynamic_pointer_cast<OrthoArrayML>(other);
+  // if its not an array object, we know they are not equal
+  // compare only if two objects are same types
+  if( (this->isArrayElement && !otherML->isArrayElement) ||
+      (!this->isArrayElement && otherML->isArrayElement) ) return false;
+
+  bool retval = false;
+  // both are array element
+  if(otherML->isArrayElement) {
+    // making sure both are array elements
+    ROSE_ASSERT(otherML->p_array); ROSE_ASSERT(otherML->p_iv);
+    ROSE_ASSERT(p_array); ROSE_ASSERT(p_iv);
+
+    // return true only if 
+    // array objects mayequals the other and
+    // index vector mayequals the other
+    retval = (this->p_array)->mayEqual(otherML->p_array, pedge)
+      && (this->p_iv)->mayEqual(otherML->p_iv, pedge);
+  }
+  // both ML are not array elements
+  else {
+    // making sure both are not array
+    ROSE_ASSERT(p_notarray); ROSE_ASSERT(otherML->p_notarray);
+    retval = p_notarray->mayEqual(otherML->p_notarray, pedge);
+  }
+  return retval;
+}
+
+std::string OrthoArrayML::str(std::string indent) const
+{
+  ostringstream oss;
+  oss << "[OrthoArrayML: ";
+  if(isArrayElement) {
+    oss << p_array->str(indent) << ", ";
+    oss << p_iv->str(indent) << " ";
+  }
+  else {
+    oss << p_notarray->str(indent) << indent;
+  }
+  oss << "]" << endl;
+  return oss.str();
+}
+
+//NOTE: Do we have to always re-implement this for every analysis
+bool OrthoArrayML::isLive(PartEdgePtr pedge) const
+{
+  // if the array is live, element is live
+  //NOTE: recheck
+  if(isArrayElement) return p_array->isLive(pedge);
+  else return p_notarray->isLive(pedge);
+}
+
+
 /**********************************
  ***** OrthoArrayMemLocObject *****
  ********************************** /
@@ -194,9 +282,9 @@ MemLocObjectPtr OrthogonalArrayAnalysis::Expr2MemLoc(SgNode* n, PartEdgePtr pedg
     SgExpression* arrayNameExp = NULL;
     std::vector<SgExpression*>* subscripts = new std::vector<SgExpression*>;
     SageInterface::isArrayReference(isSgPntrArrRefExp(n), &arrayNameExp, &subscripts);
-    MemLocObjectPtrPair array = composer->Expr2MemLoc(arrayNameExp, pedge, this);
-    assert(array.isArray());
-    
+    // MemLocObjectPtrPair array = composer->Expr2MemLoc(arrayNameExp, pedge, this);
+    MemLocObjectPtr array = composer->Expr2MemLoc(arrayNameExp, pedge, this);
+
     OrthoIndexVector_ImplPtr iv = boost::make_shared<OrthoIndexVector_Impl>();
     
     /*Dbg::dbg << "Predecessor Nodes #("<<p.inEdges().size()<<")="<<endl;
@@ -211,23 +299,29 @@ MemLocObjectPtr OrthogonalArrayAnalysis::Expr2MemLoc(SgNode* n, PartEdgePtr pedg
       //DataflowNode subNodeDF(subNode, filter);
       iv->index_vector.push_back(composer->Expr2Val(*iter, pedge, this));
     }
+    
+    // MemLocObjectPtr tmp = array.mem ? array.mem->isArray()->getElements(iv, pedge) :
+    //                                   array.expr->isArray()->getElements(iv, pedge);
+    // ROSE_ASSERT(array->isArray());
+    // MemLocObjectPtr tmp = array->isArray()->getElements(iv, pedge);
+    ROSE_ASSERT(array); ROSE_ASSERT(iv);
+    MemLocObjectPtr tmp = boost::make_shared<OrthoArrayML>(n, array, iv);
 
     // GB: Do we need to deallocate subscripts???
-    Dbg::dbg << "OrthogonalArrayAnalysis::Expr2MemLoc() array->getElements(iv)"<<endl;
-    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;array="<<array.strp(pedge, "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
-    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;iv="<<iv->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
-    
-    MemLocObjectPtr tmp = array.mem ? array.mem->isArray()->getElements(iv, pedge) :
-                                      array.expr->isArray()->getElements(iv, pedge);
+    Dbg::dbg << "OrthogonalArrayAnalysis::Expr2MemLoc() "<<endl;
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<tmp->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+
     //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;result="<<tmp<<"="<<tmp.get()<<endl;
     //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;result="<<tmp->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     return tmp;
-    //return boost::make_shared<OrthoArrayMemLocObject>(array, iv, p);
-  } else {
-    MemLocObjectPtrPair notArray = composer->Expr2MemLoc(n, pedge, this);
-    // Return the memory location if possible but if not, return the expression object
-    return (notArray.mem ? notArray.mem : notArray.expr);
-    //return boost::make_shared<OrthoArrayMemLocObject>(notArray, p);
+    //return boost::make_shared<OrthoArrayML>(array, iv, p);
+  } else {    
+    MemLocObjectPtr notArray = composer->Expr2MemLoc(n, pedge, this);
+
+    //NOTE: if the analysis does not handle some expressions,
+    // it must wrap them with its own memory/value object to
+    // ensure consistent wrapping by the composer.
+    return boost::make_shared<OrthoArrayML>(n, notArray);
   }
 }
 

@@ -23,6 +23,15 @@ namespace dataflow {
   
 // the top level builder for MemLocObject from any SgNode
 
+SyntacticAnalysis* SyntacticAnalysis::_instance = 0;
+
+SyntacticAnalysis* SyntacticAnalysis::instance()
+{
+  if(!_instance)
+    _instance = new SyntacticAnalysis();
+  return _instance;
+}
+
 MemLocObjectPtr SyntacticAnalysis::Expr2MemLoc(SgNode* n, PartEdgePtr pedge)
 { return SyntacticAnalysis::Expr2MemLocStatic(n, pedge); }
 
@@ -58,8 +67,16 @@ MemLocObjectPtr SyntacticAnalysis::Expr2MemLocStatic(SgNode* n, PartEdgePtr pedg
   }
   else if (SgExpression* sgexp=isSgExpression(n)) // the order matters !! Must put after V_SgVarRefExp, SgPntrArrRefExp etc.
   {
-    //Dbg::dbg<< "ExprML"<<endl;
-    rt = createExpressionMemLocObject (sgexp, sgexp->get_type(), pedge);
+    Dbg::dbg<< "ExprML"<<endl;
+    if(isSgPointerDerefExp(sgexp)) {
+      // create the aliased object based on its type
+      ROSE_ASSERT(sgexp->get_type());
+      rt = createAliasedMemLocObject(sgexp, sgexp->get_type(), pedge);
+    }
+    //TODO: handle array expression objects
+    else{
+      rt = createExpressionMemLocObject (sgexp, sgexp->get_type(), pedge);
+    }
   }
   else if (SgType* t = isSgType(n))
   {

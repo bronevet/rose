@@ -129,6 +129,8 @@ private:
   
 public:
 //  MemLocObject() {}
+  //# SA
+  // should the default mutable value be conservatively true ?
   MemLocObject(SgNode* base) : AbstractObject(base) {}
   MemLocObject(const MemLocObject& that) : AbstractObject(that) {}
   
@@ -178,38 +180,38 @@ public:
 
 // Holds a pair of MemLocObjectPtr (one for the expression object and another for the object in memory) and provides 
 // basic functionality to accessing them easily
-class MemLocObjectPtrPair : public printable
-{
-public:
-  // It is always true that one or both of expr and mem are non-null
-  MemLocObjectPtr expr;
-  MemLocObjectPtr mem;
-  MemLocObjectPtrPair(MemLocObjectPtr expr, MemLocObjectPtr mem): expr(expr), mem(mem)
-  {}
+// class MemLocObjectPtrPair : public printable
+// {
+// public:
+//   // It is always true that one or both of expr and mem are non-null
+//   MemLocObjectPtr expr;
+//   MemLocObjectPtr mem;
+//   MemLocObjectPtrPair(MemLocObjectPtr expr, MemLocObjectPtr mem): expr(expr), mem(mem)
+//   {}
   
-  MemLocObjectPtrPair(const MemLocObjectPtrPair& that): expr(that.expr), mem(that.mem)
-  {}
+//   MemLocObjectPtrPair(const MemLocObjectPtrPair& that): expr(that.expr), mem(that.mem)
+//   {}
   
-  // Returns whether this object may/must be equal to o within the given Part p
-  bool mayEqual(MemLocObjectPtrPair that, PartEdgePtr pedge);
-  bool mustEqual(MemLocObjectPtrPair that, PartEdgePtr pedge);
+//   // Returns whether this object may/must be equal to o within the given Part p
+//   bool mayEqual(MemLocObjectPtrPair that, PartEdgePtr pedge);
+//   bool mustEqual(MemLocObjectPtrPair that, PartEdgePtr pedge);
   
-  // Returns a copy of this object
-  MemLocObjectPtrPair copyML() const;
+//   // Returns a copy of this object
+//   MemLocObjectPtrPair copyML() const;
   
-  bool isScalar();
-  bool isFunctionMemLoc();
-  bool isLabeledAggregate();
-  bool isArray();
-  bool isPointer();
+//   bool isScalar();
+//   bool isFunctionMemLoc();
+//   bool isLabeledAggregate();
+//   bool isArray();
+//   bool isPointer();
   
-  // pretty print for the object
-  std::string str(std::string indent="");
+//   // pretty print for the object
+//   std::string str(std::string indent="");
   
-  // Variant of the str method that can produce information specific to the current Part.
-  // Useful since AbstractObjects can change from one Part to another.
-  std::string strp(PartEdgePtr pedge, std::string indent="");
-};
+//   // Variant of the str method that can produce information specific to the current Part.
+//   // Useful since AbstractObjects can change from one Part to another.
+//   std::string strp(PartEdgePtr pedge, std::string indent="");
+// };
 
 // The combination of multiple MemLocObjects. Maintains multiple MemLocObjects and responds to
 //   API calls with the most or least accurate response that its constituent objects return, depending

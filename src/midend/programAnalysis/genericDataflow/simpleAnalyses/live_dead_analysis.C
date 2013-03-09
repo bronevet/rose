@@ -30,8 +30,10 @@ void LiveDeadMemAnalysis::genInitLattice(const Function& func, PartPtr part, Par
     // analysis, the edge passed to OperandExpr2MemLoc() is the edge that comes into part. This is because
     // this edge denotes the set of executions that terminates at the return statement part and executions
     // always run forwards.
-    MemLocObjectPtrPair p(composer->OperandExpr2MemLoc(returnStmt, returnStmt->get_expression(), part->inEdgeFromAny(), this));
-    s->insert(p.expr? p.expr : p.mem);
+    // MemLocObjectPtrPair p(composer->OperandExpr2MemLoc(returnStmt, returnStmt->get_expression(), part->inEdgeFromAny(), this));
+    // s->insert(p.expr? p.expr : p.mem);
+    MemLocObjectPtr p(composer->OperandExpr2MemLoc(returnStmt, returnStmt->get_expression(), part->inEdgeFromAny(), this));
+    s->insert(p);
   }
   
   initLattices.push_back(s);
@@ -301,11 +303,13 @@ public:
 void LiveDeadMemTransfer::assign(SgNode *sgn, SgExpression* operand)
 {
   //Dbg::dbg << "LiveDeadMemTransfer::assign(sgn="<<cfgUtils::SgNode2Str(sgn)<<" operand="<<cfgUtils::SgNode2Str(operand)<<endl;
-  MemLocObjectPtrPair p(composer->OperandExpr2MemLoc(sgn, operand, part->outEdgeToAny(), ldma)/*ceml->Expr2Obj(sgn)*/);
+  // MemLocObjectPtrPair p(composer->OperandExpr2MemLoc(sgn, operand, part->outEdgeToAny(), ldma)/*ceml->Expr2Obj(sgn)*/);
+  MemLocObjectPtr p(composer->OperandExpr2MemLoc(sgn, operand, part->outEdgeToAny(), ldma)/*ceml->Expr2Obj(sgn)*/);
   //return boost::dynamic_pointer_cast<AbstractObject>(cpMap->get(ml));
-  if(p.expr) assigned.insert(p.expr);
-  // GB 2012-09-05 : Need this to handle lhs of SgAssignOps where the lhs is a memory location.
-  if(p.mem) assigned.insert(p.mem);
+  // if(p.expr) assigned.insert(p.expr);
+  // // GB 2012-09-05 : Need this to handle lhs of SgAssignOps where the lhs is a memory location.
+  // if(p.mem) assigned.insert(p.mem);
+  assigned.insert(p);
 }
 /*void LiveDeadMemTransfer::assign(AbstractObjectPtr mem)
 {
@@ -316,30 +320,40 @@ void LiveDeadMemTransfer::assign(SgNode *sgn, SgExpression* operand)
 void LiveDeadMemTransfer::use(SgNode *sgn, SgExpression* operand)
 {
   Dbg::dbg << "part->outEdgeToAny()="<<part->outEdgeToAny()->str()<<endl;
-  MemLocObjectPtrPair p = composer->OperandExpr2MemLoc(sgn, operand, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
+  // MemLocObjectPtrPair p = composer->OperandExpr2MemLoc(sgn, operand, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
+  MemLocObjectPtr p = composer->OperandExpr2MemLoc(sgn, operand, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
   Dbg::dbg << "LiveDeadMemTransfer::use(sgn=["<<Dbg::escape(sgn->unparseToString())<<" | "<<sgn->class_name()<<"]"<<endl;
-  Dbg::dbg << "p="<<p.str()<<endl;
+  Dbg::dbg << "p="<<p->str()<<endl;
   // In almost all cases we only need expressions to use their operands, which are also expressions.
-  if(p.expr) used.insert(p.expr);
+  // if(p.expr) used.insert(p.expr);
   // At statement boundaries SgVarRefExp and SgArrPntrRefExp refer to real memory locations that were written by prior
   // statements. 
-  if((isSgVarRefExp(operand) || isSgPntrArrRefExp(operand)) && p.mem)  used.insert(p.mem);
+  // if((isSgVarRefExp(operand) || isSgPntrArrRefExp(operand)) && p.mem)  used.insert(p.mem);
+  // #SA
+  // expression is either memory or temporary neither both
+  // add the object returned by OperandExpr2MemLoc to used ??
+  // 
+  if(p) used.insert(p);
 }
 // Note that the memory location denoted by the corresponding SgVarRefExp is used
 void LiveDeadMemTransfer::useMem(SgVarRefExp* sgn)
 {
-  MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
+  // MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
+  MemLocObjectPtr p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
   Dbg::dbg << "LiveDeadMemTransfer::useMem(SgVarRefExp)(sgn=["<<Dbg::escape(sgn->unparseToString())<<" | "<<sgn->class_name()<<"]"<<endl;
-  used.insert(p.mem);
+  // used.insert(p.mem);
+  used.insert(p);
 }
 // Note that the memory location denoted by the corresponding SgPntrArrRefExp is used
 void LiveDeadMemTransfer::useMem(SgPntrArrRefExp* sgn)
 {
-  MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
+  // MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
+  MemLocObjectPtr p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
   Dbg::dbg << "LiveDeadMemTransfer::useMem(SgPntrArrRefExp)(sgn=["<<Dbg::escape(sgn->unparseToString())<<" | "<<sgn->class_name()<<"]"<<endl;
   // If a memory object is available, insert it. Not all SgPntrArrRefExps correspond to a real memory location.
   // e.g. in array2d[a][b] the expression array2D[a] doesn't denote a memory location.
-  if(p.mem) used.insert(p.mem);
+  // if(p.mem) used.insert(p.mem);
+  if(p) used.insert(p);
 }
 
 /*void LiveDeadMemTransfer::use(AbstractObjectPtr mem)
@@ -349,22 +363,28 @@ void LiveDeadMemTransfer::useMem(SgPntrArrRefExp* sgn)
 
 // Returns true if the given expression is currently live and false otherwise
 bool LiveDeadMemTransfer::isMemLocLive(SgExpression* sgn, SgExpression* operand) {
-  MemLocObjectPtrPair p = composer->OperandExpr2MemLoc(sgn, operand, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(expr);
-  return (p.expr ? liveLat->containsMay(p.expr) : false) ||
-         (p.mem  ? liveLat->containsMay(p.mem)  : false);
+  // MemLocObjectPtrPair p = composer->OperandExpr2MemLoc(sgn, operand, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(expr);
+  // return (p.expr ? liveLat->containsMay(p.expr) : false) ||
+  //        (p.mem  ? liveLat->containsMay(p.mem)  : false);
+  MemLocObjectPtr p = composer->OperandExpr2MemLoc(sgn, operand, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(expr);
+  return (p ? liveLat->containsMay(p) : false);
+
 }
 
 // Returns true if the given expression is currently live and false otherwise
 bool LiveDeadMemTransfer::isMemLocLive(SgExpression* sgn) {
-  MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(expr);
-  return (p.expr ? liveLat->containsMay(p.expr) : false) ||
-         (p.mem  ? liveLat->containsMay(p.mem)  : false);
+  // MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(expr);
+  // return (p.expr ? liveLat->containsMay(p.expr) : false) ||
+  //        (p.mem  ? liveLat->containsMay(p.mem)  : false);
+  MemLocObjectPtr p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(expr);
+  return (p ? liveLat->containsMay(p) : false);
 }
 
 void LiveDeadMemTransfer::visit(SgExpression *sgn)
 {
   //AbstractMemoryObject::ObjSet* objset = SgExpr2ObjSet(sgn);
-  MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
+  // MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
+  MemLocObjectPtr p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
   /**/
   LDMAExpressionTransfer helper(*this);
   sgn->accept(helper);
@@ -377,7 +397,10 @@ void LiveDeadMemTransfer::visit(SgExpression *sgn)
     //modified = liveLat->remove(mem) || modified;
     if(assigned.insert(mem); /// ????
   }*/
-  if(p.expr) assigned.insert(p.expr);
+  // if(p.expr) assigned.insert(p.expr);
+  // #SA
+  // Should we discard expressions that are memory here ?
+  if(p) assigned.insert(p);
 }
 
 void LiveDeadMemTransfer::visit(SgInitializedName *sgn) {
@@ -385,9 +408,10 @@ void LiveDeadMemTransfer::visit(SgInitializedName *sgn) {
   Dbg::dbg << "LiveDeadMemTransfer::visit(SgInitializedName: sgn=["<<Dbg::escape(sgn->unparseToString())<<" | "<<sgn->class_name()<<"]"<<endl;
   Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exp="<<exp<<endl;
   Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exp=["<<Dbg::escape(exp->unparseToString())<<" | "<<exp->class_name()<<"]"<<endl;*/
-  MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma); //ceml->Expr2Obj(exp);
-  ROSE_ASSERT(p.mem);
-  bool isLive = (p.mem  ? liveLat->containsMay(p.mem)  : false);
+  // MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma); //ceml->Expr2Obj(exp);
+  MemLocObjectPtr p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma); //ceml->Expr2Obj(exp);
+  ROSE_ASSERT(p);
+  bool isLive = (p  ? liveLat->containsMay(p)  : false);
   /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;isLive="<<isLive<<endl;
   if(liveDeadAnalysisDebugLevel>=1)
     Dbg::dbg << indent << (isLive ? "Live Expression" : "Dead Expression") <<endl;*/
@@ -398,7 +422,8 @@ void LiveDeadMemTransfer::visit(SgInitializedName *sgn) {
     use(sgn, sgn->get_initializer());
   //if(p.expr) assigned.insert(p.expr);
   //if(p.mem)  assigned.insert(p.mem);
-  assigned.insert(p.mem);
+  // assigned.insert(p.mem);
+  assigned.insert(p);
 }
 
 void LiveDeadMemTransfer::visit(SgReturnStmt *sgn) {
@@ -535,10 +560,15 @@ bool LiveDeadMemTransfer::finish()
 // Maps the given SgNode to an implementation of the MemLocObject abstraction.
 MemLocObjectPtr LiveDeadMemAnalysis::Expr2MemLoc(SgNode* n, PartEdgePtr pedge)
 {
-  MemLocObjectPtrPair p = composer->Expr2MemLoc(n, pedge, this);
-  Dbg::dbg << "LiveDeadMemAnalysis::Expr2MemLoc() p="<<p.strp(pedge)<<endl;
-  if(p.mem) return createLDMemLocObjectCategory(n, p.mem, this);
-  else      return p.expr;
+  // MemLocObjectPtrPair p = composer->Expr2MemLoc(n, pedge, this);
+  // Dbg::dbg << "LiveDeadMemAnalysis::Expr2MemLoc() p="<<p.strp(pedge)<<endl;
+  // if(p.mem) return createLDMemLocObjectCategory(n, p.mem, this);
+  // else      return p.expr;
+  MemLocObjectPtr p = composer->Expr2MemLoc(n, pedge, this);
+  Dbg::dbg << "LiveDeadMemAnalysis::Expr2MemLoc() p="<<p->strp(pedge)<<endl;
+  // #SA
+  // createLDMemLocObject for objects returned by composer for now
+  return boost::make_shared<LDMemLocObject>(n, p, this);
 }
 
 /**************************

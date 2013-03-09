@@ -72,135 +72,135 @@ bool MemLocObject::mustEqual(AbstractObjectPtr o, PartEdgePtr pedge)
    ############################### */
 
 // Returns whether this object may/must be equal to o within the given Part p
-bool MemLocObjectPtrPair::mayEqual(MemLocObjectPtrPair that, PartEdgePtr pedge)
-{
-  // Both this and that have the same structure
-  assert((expr && that.expr) || (!mem && !that.mem));
-  // At least one of expr or mem have to be non-NULL
-  assert(expr || mem);
-  return (expr ? expr->mayEqual(that.expr, pedge): false) ||
-         (mem  ? mem->mayEqual (that.mem, pedge): false); 
-}
+// bool MemLocObjectPtrPair::mayEqual(MemLocObjectPtrPair that, PartEdgePtr pedge)
+// {
+//   // Both this and that have the same structure
+//   assert((expr && that.expr) || (!mem && !that.mem));
+//   // At least one of expr or mem have to be non-NULL
+//   assert(expr || mem);
+//   return (expr ? expr->mayEqual(that.expr, pedge): false) ||
+//          (mem  ? mem->mayEqual (that.mem, pedge): false); 
+// }
 
-bool MemLocObjectPtrPair::mustEqual(MemLocObjectPtrPair that, PartEdgePtr pedge)
-{
-  // Both this and that have the same structure
-  assert((expr && that.expr) || (!mem && !that.mem));
-  // At least one of expr or mem have to be non-NULL
-  assert(expr || mem);
-  return (expr ? expr->mustEqual(that.expr, pedge): true) &&
-         (mem  ? mem->mustEqual (that.mem, pedge): true);
-}
+// bool MemLocObjectPtrPair::mustEqual(MemLocObjectPtrPair that, PartEdgePtr pedge)
+// {
+//   // Both this and that have the same structure
+//   assert((expr && that.expr) || (!mem && !that.mem));
+//   // At least one of expr or mem have to be non-NULL
+//   assert(expr || mem);
+//   return (expr ? expr->mustEqual(that.expr, pedge): true) &&
+//          (mem  ? mem->mustEqual (that.mem, pedge): true);
+// }
 
-// Allocates a copy of this object and returns a pointer to it
-MemLocObjectPtrPair MemLocObjectPtrPair::copyML() const {
-  return MemLocObjectPtrPair(*this);
-}
+// // Allocates a copy of this object and returns a pointer to it
+// MemLocObjectPtrPair MemLocObjectPtrPair::copyML() const {
+//   return MemLocObjectPtrPair(*this);
+// }
 
-bool MemLocObjectPtrPair::isScalar()
-{
-  // At least one of expr or mem have to be non-NULL
-  assert(expr || mem);
-  if(expr && mem) {
-    bool exprScalar = expr->isScalar();
-    bool memScalar  = mem->isScalar();
-    assert(exprScalar == memScalar);
-    return exprScalar;
-  }
-  if(expr) return expr->isScalar() ? true: false;
-  if(mem)  return mem->isScalar() ? true: false;
-  ROSE_ASSERT(0);
-}
+// bool MemLocObjectPtrPair::isScalar()
+// {
+//   // At least one of expr or mem have to be non-NULL
+//   assert(expr || mem);
+//   if(expr && mem) {
+//     bool exprScalar = expr->isScalar();
+//     bool memScalar  = mem->isScalar();
+//     assert(exprScalar == memScalar);
+//     return exprScalar;
+//   }
+//   if(expr) return expr->isScalar() ? true: false;
+//   if(mem)  return mem->isScalar() ? true: false;
+//   ROSE_ASSERT(0);
+// }
 
-bool MemLocObjectPtrPair::isFunctionMemLoc()
-{
-  // At least one of expr or mem have to be non-NULL
-  assert(expr || mem);
-  if(expr && mem) {
-    bool exprF = expr->isFunctionMemLoc();
-    bool memF  = mem->isFunctionMemLoc();
-    assert(exprF == memF);
-    return exprF;
-  }
-  if(expr) return expr->isFunctionMemLoc() ? true: false;
-  if(mem)  return mem->isFunctionMemLoc() ? true: false;
-  ROSE_ASSERT(0);
-}
+// bool MemLocObjectPtrPair::isFunctionMemLoc()
+// {
+//   // At least one of expr or mem have to be non-NULL
+//   assert(expr || mem);
+//   if(expr && mem) {
+//     bool exprScalar = expr->isFunctionMemLoc();
+//     bool memScalar  = mem->isFunctionMemLoc();
+//     assert(exprScalar == memScalar);
+//     return exprScalar;
+//   }
+//   if(expr) return expr->isFunctionMemLoc() ? true: false;
+//   if(mem)  return mem->isFunctionMemLoc() ? true: false;
+//   ROSE_ASSERT(0);
+// }
 
-bool MemLocObjectPtrPair::isLabeledAggregate()
-{
-  // At least one of expr or mem have to be non-NULL
-  assert(expr || mem);
-  if(expr && mem) {
-    bool exprLA = expr->isLabeledAggregate();
-    bool memLA  = mem->isLabeledAggregate();
-    assert(exprLA == memLA);
-    return exprLA;
-  }
-  if(expr) return expr->isLabeledAggregate() ? true: false;
-  if(mem)  return mem->isLabeledAggregate() ? true: false;
-  ROSE_ASSERT(0);
-}
+// bool MemLocObjectPtrPair::isLabeledAggregate()
+// {
+//   // At least one of expr or mem have to be non-NULL
+//   assert(expr || mem);
+//   if(expr && mem) {
+//     bool exprScalar = expr->isLabeledAggregate();
+//     bool memScalar  = mem->isLabeledAggregate();
+//     assert(exprScalar == memScalar);
+//     return exprScalar;
+//   }
+//   if(expr) return expr->isLabeledAggregate() ? true: false;
+//   if(mem)  return mem->isLabeledAggregate() ? true: false;
+//   ROSE_ASSERT(0);
+// }
 
-bool MemLocObjectPtrPair::isArray()
-{
-  // At least one of expr or mem have to be non-NULL
-  assert(expr || mem);
-  if(expr && mem) {
-    bool exprArray = expr->isArray();
-    bool memArray  = mem->isArray();
-    assert(exprArray == memArray);
-    return exprArray;
-  }
-  if(expr) return expr->isArray() ? true: false;
-  if(mem)  return mem->isArray() ? true: false;
-  ROSE_ASSERT(0);
-}
+// bool MemLocObjectPtrPair::isArray()
+// {
+//   // At least one of expr or mem have to be non-NULL
+//   assert(expr || mem);
+//   if(expr && mem) {
+//     bool exprScalar = expr->isArray();
+//     bool memScalar  = mem->isArray();
+//     assert(exprScalar == memScalar);
+//     return exprScalar;
+//   }
+//   if(expr) return expr->isArray() ? true: false;
+//   if(mem)  return mem->isArray() ? true: false;
+//   ROSE_ASSERT(0);
+// }
 
-bool MemLocObjectPtrPair::isPointer()
-{
-  // At least one of expr or mem have to be non-NULL
-  assert(expr || mem);
-  if(expr && mem) {
-    bool exprPointer = expr->isPointer();
-    bool memPointer  = mem->isPointer();
-    assert(exprPointer == memPointer);
-    return exprPointer;
-  }
-  if(expr) return expr->isPointer() ? true: false;
-  if(mem)  return mem->isPointer() ? true: false;
-  ROSE_ASSERT(0);
-}
+// bool MemLocObjectPtrPair::isPointer()
+// {
+//   // At least one of expr or mem have to be non-NULL
+//   assert(expr || mem);
+//   if(expr && mem) {
+//     bool exprScalar = expr->isPointer();
+//     bool memScalar  = mem->isPointer();
+//     assert(exprScalar == memScalar);
+//     return exprScalar;
+//   }
+//   if(expr) return expr->isPointer() ? true: false;
+//   if(mem)  return mem->isPointer() ? true: false;
+//   ROSE_ASSERT(0);
+// }
 
-// pretty print for the object
-std::string MemLocObjectPtrPair::str(std::string indent)
-{ 
-  ostringstream oss;
-  oss << "[";
-  if(expr) {
-    oss << "expr=" << expr->str(indent);
-    if(mem) oss << endl;
-  }
-  if(mem) {
-    if(expr) oss << indent;
-    oss << "mem="  << mem->str(indent);
-  }
-  oss << "]";
-  return oss.str();
-}
+// // pretty print for the object
+// std::string MemLocObjectPtrPair::str(std::string indent)
+// { 
+//   ostringstream oss;
+//   oss << "[";
+//   if(expr) {
+//     oss << "expr=" << expr->str(indent);
+//     if(mem) oss << endl;
+//   }
+//   if(mem) {
+//     if(expr) oss << indent;
+//     oss << "mem="  << mem->str(indent);
+//   }
+//   oss << "]";
+//   return oss.str();
+// }
 
-std::string MemLocObjectPtrPair::strp(PartEdgePtr pedge, std::string indent)
-{ 
-  ostringstream oss;
-  oss << "[";
-  if(expr) oss << "expr=" << expr->strp(pedge, indent) << endl;
-  if(mem) {
-    if(expr) oss << indent;
-    oss << "mem="  << mem->strp(pedge, indent);
-  }
-  oss << "]";
-  return oss.str();
-}
+// std::string MemLocObjectPtrPair::strp(PartEdgePtr pedge, std::string indent)
+// { 
+//   ostringstream oss;
+//   oss << "[";
+//   if(expr) oss << "expr=" << expr->strp(pedge, indent) << endl;
+//   if(mem) {
+//     if(expr) oss << indent;
+//     oss << "mem="  << mem->strp(pedge, indent);
+//   }
+//   oss << "]";
+//   return oss.str();
+// }
 
 /* ################################
    ##### CombinedMemLocObject ##### 
@@ -217,68 +217,83 @@ CombinedMemLocObject<defaultMayEq>::CombinedMemLocObject(const std::list<MemLocO
 // Creates a new CombinedMemLocObject. If all the sub-objects have a given type (Scalar, FunctionMemLoc, 
 // LabeledAggregate, Array or Pointer), the created CombinedMemLocObject has hte same type. Otherwise, the
 // created CombinedMemLocObject is an instance of the generic CombinedMemLocObject class.
+// template <bool defaultMayEq>
+// boost::shared_ptr<CombinedMemLocObject<defaultMayEq> > CombinedMemLocObject<defaultMayEq>::create(MemLocObjectPtr memLoc)
+// {
+//   list<MemLocObjectPtr> memLocs; memLocs.push_back(memLoc);
+
+//   Dbg::dbg << "creating CombinedMemLoc for " << memLoc->str("    ") << endl;
+
+// /*       if(memLoc->isScalar())           return CombinedScalar<defaultMayEq>::create(memLocs);
+//   else if(memLoc->isFunctionMemLoc())   return CombinedFunctionMemLoc<defaultMayEq>::create(memLocs);
+//   else if(memLoc->isLabeledAggregate()) return CombinedLabeledAggregate<defaultMayEq>::create(memLocs);
+//   else if(memLoc->isArray())            return CombinedArray<defaultMayEq>::create(memLocs);
+//   else if(memLoc->isPointer())          return CombinedPointer<defaultMayEq>::create(memLocs);*/
+  
+//        if(memLoc->isScalar())           return boost::make_shared<CombinedScalar<defaultMayEq> >(memLocs);
+//   else if(memLoc->isFunctionMemLoc())   return boost::make_shared<CombinedFunctionMemLoc<defaultMayEq> >(memLocs);
+//   else if(memLoc->isLabeledAggregate()) return boost::make_shared<CombinedLabeledAggregate<defaultMayEq> >(memLocs);
+//   else if(memLoc->isArray())            return boost::make_shared<CombinedArray<defaultMayEq> >(memLocs);
+//   else if(memLoc->isPointer())          return boost::make_shared<CombinedPointer<defaultMayEq> >(memLocs);
+
+  
+//   Dbg::dbg << "<font color=\"$#ff0000\">"<<memLoc->str()<<"</font>"<<endl;
+//   ROSE_ASSERT(0);
+// }
+
+// Creates a new CombinedMemLocObject instance of the generic CombinedMemLocObject class.
 template <bool defaultMayEq>
 boost::shared_ptr<CombinedMemLocObject<defaultMayEq> > CombinedMemLocObject<defaultMayEq>::create(MemLocObjectPtr memLoc)
 {
   list<MemLocObjectPtr> memLocs; memLocs.push_back(memLoc);
-
-/*       if(memLoc->isScalar())           return CombinedScalar<defaultMayEq>::create(memLocs);
-  else if(memLoc->isFunctionMemLoc())   return CombinedFunctionMemLoc<defaultMayEq>::create(memLocs);
-  else if(memLoc->isLabeledAggregate()) return CombinedLabeledAggregate<defaultMayEq>::create(memLocs);
-  else if(memLoc->isArray())            return CombinedArray<defaultMayEq>::create(memLocs);
-  else if(memLoc->isPointer())          return CombinedPointer<defaultMayEq>::create(memLocs);*/
+  return boost::make_shared<CombinedMemLocObject<defaultMayEq> >(memLocs);
   
-       if(memLoc->isScalar())           return boost::make_shared<CombinedScalar<defaultMayEq> >(memLocs);
-  else if(memLoc->isFunctionMemLoc())   return boost::make_shared<CombinedFunctionMemLoc<defaultMayEq> >(memLocs);
-  else if(memLoc->isLabeledAggregate()) return boost::make_shared<CombinedLabeledAggregate<defaultMayEq> >(memLocs);
-  else if(memLoc->isArray())            return boost::make_shared<CombinedArray<defaultMayEq> >(memLocs);
-  else if(memLoc->isPointer())          return boost::make_shared<CombinedPointer<defaultMayEq> >(memLocs);
-  
-  Dbg::dbg << "<font color=\"$#ff0000\">"<<memLoc->str()<<"</font>"<<endl;
-  ROSE_ASSERT(0);
+  // Dbg::dbg << "<font color=\"$#ff0000\">"<<memLoc->str()<<"</font>"<<endl;
 }
+
+
+// template <bool defaultMayEq>
+// boost::shared_ptr<CombinedMemLocObject<defaultMayEq> > CombinedMemLocObject<defaultMayEq>::create(const std::list<MemLocObjectPtr>& memLocs)
+// {
+//   // Determine if all the sub-memory locations are all the same type
+//   int allScalar=1, allFunctionMemLoc=1, allLabeledAggregate=1, allArray=1, allPointer=1;
+//   for(std::list<MemLocObjectPtr>::const_iterator ml=memLocs.begin(); ml!=memLocs.end(); ml++) {
+//     if(!(*ml)->isScalar())           allScalar           = 0;
+//     if(!(*ml)->isFunctionMemLoc())   allFunctionMemLoc   = 0;
+//     if(!(*ml)->isLabeledAggregate()) allLabeledAggregate = 0;
+//     if(!(*ml)->isArray())            allArray            = 0;
+//     if(!(*ml)->isPointer())          allPointer          = 0;
+    
+//     Dbg::dbg << "CombinedMemLocObject<"<<defaultMayEq<<">::create() ml="<<(*ml)->str()<<endl;
+//   }
+//   // Either all memLocs have the same one type or they're different
+//   ROSE_ASSERT(allScalar+allFunctionMemLoc+allLabeledAggregate+allArray+allPointer==0 ||
+//               allScalar+allFunctionMemLoc+allLabeledAggregate+allArray+allPointer==1);
+  
+//   Dbg::dbg << "CombinedMemLocObject<"<<defaultMayEq<<">::create() allScalar="<<allScalar<<" allFunctionMemLoc="<<allFunctionMemLoc<<" allLabeledAggregate="<<allLabeledAggregate<<" allArray="<<allArray<<" allPointer="<<allPointer<<endl;
+  
+//   // If they're all the same type, create a combined object of the appropriate type
+// /*       if(allScalar)           return CombinedScalar<defaultMayEq>::create(memLocs);
+//   else if(allFunctionMemLoc)   return CombinedFunctionMemLoc<defaultMayEq>::create(memLocs);
+//   else if(allLabeledAggregate) return CombinedLabeledAggregate<defaultMayEq>::create(memLocs);
+//   else if(allArray)            return CombinedArray<defaultMayEq>::create(memLocs);
+//   else if(allPointer)          return CombinedPointer<defaultMayEq>::create(memLocs);*/
+  
+//        if(allScalar)           return boost::make_shared<CombinedScalar<defaultMayEq> >(memLocs);
+//   else if(allFunctionMemLoc)   return boost::make_shared<CombinedFunctionMemLoc<defaultMayEq> >(memLocs);
+//   else if(allLabeledAggregate) return boost::make_shared<CombinedLabeledAggregate<defaultMayEq> >(memLocs);
+//   else if(allArray)            return boost::make_shared<CombinedArray<defaultMayEq> >(memLocs);
+//   else if(allPointer)          return boost::make_shared<CombinedPointer<defaultMayEq> >(memLocs);
+  
+//   // Otherwise, create a generic CombinedMemLocObject
+//   Dbg::dbg << "Returning generic"<<endl;
+//   return boost::make_shared<CombinedMemLocObject<defaultMayEq> >(memLocs);
+// }
 
 template <bool defaultMayEq>
 boost::shared_ptr<CombinedMemLocObject<defaultMayEq> > CombinedMemLocObject<defaultMayEq>::create(const std::list<MemLocObjectPtr>& memLocs)
 {
-  // Determine if all the sub-memory locations are all the same type
-  int allScalar=1, allFunctionMemLoc=1, allLabeledAggregate=1, allArray=1, allPointer=1;
-  
-  //Dbg::dbg << "CombinedMemLocObject<defaultMayEq>::create()"<<endl;
-  Dbg::indent ind;
-  for(std::list<MemLocObjectPtr>::const_iterator ml=memLocs.begin(); ml!=memLocs.end(); ml++) {
-    Dbg::dbg << (*ml)->str()<<endl;
-  }
-  for(std::list<MemLocObjectPtr>::const_iterator ml=memLocs.begin(); ml!=memLocs.end(); ml++) {
-    if(!(*ml)->isScalar())           allScalar           = 0;
-    if(!(*ml)->isFunctionMemLoc())   allFunctionMemLoc   = 0;
-    if(!(*ml)->isLabeledAggregate()) allLabeledAggregate = 0;
-    if(!(*ml)->isArray())            allArray            = 0;
-    if(!(*ml)->isPointer())          allPointer          = 0;
-    
-    //Dbg::dbg << "CombinedMemLocObject<"<<defaultMayEq<<">::create() ml="<<(*ml)->str()<<endl;
-  }
-  // Either all memLocs have the same one type or they're different
-  ROSE_ASSERT(allScalar+allFunctionMemLoc+allLabeledAggregate+allArray+allPointer==0 ||
-              allScalar+allFunctionMemLoc+allLabeledAggregate+allArray+allPointer==1);
-  
-  //Dbg::dbg << "CombinedMemLocObject<"<<defaultMayEq<<">::create() allScalar="<<allScalar<<" allFunctionMemLoc="<<allFunctionMemLoc<<" allLabeledAggregate="<<allLabeledAggregate<<" allArray="<<allArray<<" allPointer="<<allPointer<<endl;
-  
-  // If they're all the same type, create a combined object of the appropriate type
-/*       if(allScalar)           return CombinedScalar<defaultMayEq>::create(memLocs);
-  else if(allFunctionMemLoc)   return CombinedFunctionMemLoc<defaultMayEq>::create(memLocs);
-  else if(allLabeledAggregate) return CombinedLabeledAggregate<defaultMayEq>::create(memLocs);
-  else if(allArray)            return CombinedArray<defaultMayEq>::create(memLocs);
-  else if(allPointer)          return CombinedPointer<defaultMayEq>::create(memLocs);*/
-  
-       if(allScalar)           return boost::make_shared<CombinedScalar<defaultMayEq> >(memLocs);
-  else if(allFunctionMemLoc)   return boost::make_shared<CombinedFunctionMemLoc<defaultMayEq> >(memLocs);
-  else if(allLabeledAggregate) return boost::make_shared<CombinedLabeledAggregate<defaultMayEq> >(memLocs);
-  else if(allArray)            return boost::make_shared<CombinedArray<defaultMayEq> >(memLocs);
-  else if(allPointer)          return boost::make_shared<CombinedPointer<defaultMayEq> >(memLocs);
-  
-  // Otherwise, create a generic CombinedMemLocObject
-  //Dbg::dbg << "Returning generic"<<endl;
+  Dbg::dbg << "CombinedMemLocObject<"<<defaultMayEq<<">::create() generic "<< endl;
   return boost::make_shared<CombinedMemLocObject<defaultMayEq> >(memLocs);
 }
 
@@ -291,7 +306,8 @@ void CombinedMemLocObject<defaultMayEq>::add(MemLocObjectPtr memLoc) {
 template <bool defaultMayEq>
 bool CombinedMemLocObject<defaultMayEq>::mayEqualML(MemLocObjectPtr o, PartEdgePtr pedge)
 {
-  boost::shared_ptr<CombinedMemLocObject> that = boost::dynamic_pointer_cast<CombinedMemLocObject>(o);
+  // Dbg::dbg << "Comparing " << this->str("    ") << "with " << o->str("    ") << endl;
+  boost::shared_ptr<CombinedMemLocObject<defaultMayEq> > that = boost::dynamic_pointer_cast<CombinedMemLocObject<defaultMayEq> >(o);
   ROSE_ASSERT(that);
   
   // If the two combination objects include different numbers of MemLocObjects, say that they may be equal since 
@@ -354,7 +370,7 @@ template <bool defaultMayEq>
 std::string CombinedMemLocObject<defaultMayEq>::str(std::string indent)
 {
   ostringstream oss;
-  oss << "["<<(defaultMayEq? "UnionMLO" : "IntersectMLO")<<": ";
+  oss << "["<<(defaultMayEq? "UnionML" : "IntersectML")<<": ";
   if(memLocs.size()>1) oss << endl;
   for(list<MemLocObjectPtr>::iterator ml=memLocs.begin(); ml!=memLocs.end(); ) {
     if(ml!=memLocs.begin()) oss << indent << "&nbsp;&nbsp;&nbsp;&nbsp;";
