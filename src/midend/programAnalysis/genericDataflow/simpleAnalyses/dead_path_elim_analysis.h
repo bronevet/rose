@@ -184,6 +184,16 @@ class DeadPathElimPartEdge : public FiniteLattice, public PartEdge {
   // Return true if this causes the object to change and false otherwise.
   bool setToEmpty();
   
+  // Returns whether this lattice denotes the set of all possible execution prefixes.
+  bool isFull();
+  // Returns whether this lattice denotes the empty set.
+  bool isEmpty();
+  
+  // Returns whether this AbstractObject denotes the set of all possible execution prefixes.
+  bool isFull(PartEdgePtr pedge);
+  // Returns whether this AbstractObject denotes the empty set.
+  bool isEmpty(PartEdgePtr pedge);
+  
   // Set this Lattice object to represent a dead part
   bool setToDead();
 };
@@ -234,7 +244,7 @@ class DeadPathElimAnalysis : public IntraFWDataflow
   //
   // The objects returned by these functions are expected to be deallocated by their callers.
   
-  // Calls composer->Expr2Val() on the base edge of pedge
+/*  // Calls composer->Expr2Val() on the base edge of pedge
   ValueObjectPtr   Expr2Val    (SgNode* n, PartEdgePtr pedge);
   
   // Calls composer->Expr2CodeLoc() on the base edge of pedge
@@ -243,10 +253,28 @@ class DeadPathElimAnalysis : public IntraFWDataflow
   // Calls composer->Expr2CodeLoc() on the base edge of pedge
   CodeLocObjectPtr Expr2CodeLoc(SgNode* n, PartEdgePtr pedge);
   
+  // Returns whether the given AbstractObject is live at the given part edge
+  bool isLiveVal    (ValueObjectPtr val,  PartEdgePtr pedge);
+  bool isLiveMemLoc (MemLocObjectPtr ml,  PartEdgePtr pedge);
+  bool isLiveCodeLoc(CodeLocObjectPtr cl, PartEdgePtr pedge);
+  
+  // Return true if the class implements Expr2* and false otherwise
+  bool implementsExpr2Val    () { return true; }
+  bool implementsExpr2MemLoc () { return true; }
+  bool implementsExpr2CodeLoc() { return true; }*/
+  
   // Return the anchor Parts of a given function
   public:
+    
+  // Returns true if this ComposedAnalysis implements the partition graph and false otherwise
+  bool implementsPartGraph() { return true; }
+  
   PartPtr GetFunctionStartPart_Spec(const Function& func);
   PartPtr GetFunctionEndPart_Spec(const Function& func);
+  
+  // Given a PartEdge pedge implemented by this ComposedAnalysis, returns the part from its predecessor
+  // from which pedge was derived. This function caches the results if possible.
+  PartEdgePtr convertPEdge_Spec(PartEdgePtr pedge);
   
   // Pretty print for the object
   std::string str(std::string indent="")

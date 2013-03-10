@@ -16,7 +16,6 @@
 // !!!       ONCE BECAUSE DURING A GIVEN ANALYSIS PASS THE INTRA- ANALYSIS MAY ACCUMULATE STATE AND THERE IS NO
 // !!!       API FUNCTION THAT THE INTER- ANALYSIS CAN USE THE RE-INITIALIZE THE STATE OF THE INTRA- ANALYSIS.
 namespace dataflow {
-  
 /*************************
  *** Dataflow Analyses ***
  *************************/

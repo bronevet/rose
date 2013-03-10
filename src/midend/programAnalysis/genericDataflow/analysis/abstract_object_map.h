@@ -50,7 +50,11 @@ namespace dataflow {
     // and false otherwise
     bool isFinite;
     // True if this map has been set to represent the set of all possible AbstractObject->Lattice mappings.
-    bool isFull;
+    bool mapIsFull;
+    
+    // The composer and analysis within which this map is being maintained
+    Composer* comp;
+    ComposedAnalysis* analysis;
     
   public:
     // GB: Removed the empty constructor since an object constructed this 
@@ -61,19 +65,22 @@ namespace dataflow {
                                    items       (that.items),
                                    defaultLat  (that.defaultLat),
                                    isFinite    (that.isFinite),
-                                   isFull      (that.isFull)
+                                   mapIsFull   (that.mapIsFull),
+                                   comp        (that.comp),
+                                   analysis    (that.analysis)
     {}
-    AbstractObjectMap(EqualFunctor& ef, LatticePtr defaultLat_, PartEdgePtr pedge) : 
-      Lattice(pedge), equalFunctor(EqualFunctorPtr(&ef)), defaultLat(defaultLat_), isFinite(true), isFull(false) {}
-    AbstractObjectMap(EqualFunctor* ef, LatticePtr defaultLat_, PartEdgePtr pedge) : 
-      Lattice(pedge), equalFunctor(EqualFunctorPtr(ef)), defaultLat(defaultLat_), isFinite(true), isFull(false) {}
-    AbstractObjectMap(EqualFunctorPtr efPtr, LatticePtr defaultLat_, PartEdgePtr pedge) : 
-      Lattice(pedge), equalFunctor(efPtr), defaultLat(defaultLat_), isFinite(true), isFull(false) {}
+    AbstractObjectMap(EqualFunctor& ef, LatticePtr defaultLat_, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis) : 
+      Lattice(pedge), equalFunctor(EqualFunctorPtr(&ef)), defaultLat(defaultLat_), isFinite(true), mapIsFull(false), comp(comp), analysis(analysis) {}
+    AbstractObjectMap(EqualFunctor* ef, LatticePtr defaultLat_, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis) : 
+      Lattice(pedge), equalFunctor(EqualFunctorPtr(ef)), defaultLat(defaultLat_), isFinite(true), mapIsFull(false), comp(comp), analysis(analysis) {}
+    AbstractObjectMap(EqualFunctorPtr efPtr, LatticePtr defaultLat_, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis) :
+      Lattice(pedge), equalFunctor(efPtr), defaultLat(defaultLat_), isFinite(true), mapIsFull(false), comp(comp), analysis(analysis) {}
     ~AbstractObjectMap() {}
 
   public:
     // Add a new memory object --> lattice pair to the frontier.
     // Return true if this causes the map to change and false otherwise.
+    // It is assumed that the given Lattice is now owned by the AbstractObjectMap and can be modified and deleted by it.
     bool insert(AbstractObjectPtr abstractObjectPtr, LatticePtr lattice);
     
     // Removes the key matching the argument from the frontier.
@@ -91,6 +98,11 @@ namespace dataflow {
     // Return true if this causes the object to change and false otherwise.
     bool setToEmpty();
 
+    // Returns whether this lattice denotes the set of all possible execution prefixes.
+    bool isFull();
+    // Returns whether this lattice denotes the empty set.
+    bool isEmpty();
+    
     std::string str(std::string indent="");
     // Variant of the str method that can produce information specific to the current Part.
     // Useful since AbstractObjects can change from one Part to another.

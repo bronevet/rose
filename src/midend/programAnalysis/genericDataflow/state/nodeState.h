@@ -16,6 +16,7 @@ class NodeState;
 
 namespace dataflow {
 class ComposedAnalysis;
+extern int nodeStateDebugLevel;
 
 /************************************************
  ***         NodeFact       ***

@@ -30,7 +30,7 @@ list<PartEdgePtr> DeadPathElimPart::outEdges()
   list<PartEdgePtr> dpeEdges;
   
   /*ostringstream label; label << "DeadPathElimPart::outEdges() #baseEdges="<<baseEdges.size();
-  Dbg::region reg(deadPathElimAnalysisDebugLevel, 1, Dbg::region::topLevel, label.str());*/
+  Dbg::region reg(deadPathElimAnalysisDebugLevel, 1, Dbg::region::midLevel, label.str());*/
   
   // The NodeState at the current part
   NodeState* outState = NodeState::getNodeState(analysis, getParent());
@@ -310,7 +310,7 @@ std::list<PartEdgePtr> DeadPathElimPartEdge::getOperandPartEdge(SgNode* anchor, 
   // The target of this edge identifies the termination point of all the execution prefixes
   // denoted by this edge. We thus use it to query for the parts of the operands and only both
   // if this part is itself live.
-  Dbg::region reg(deadPathElimAnalysisDebugLevel,1, Dbg::region::topLevel, "DeadPathElimPartEdge::getOperandPartEdge()");
+  Dbg::region reg(deadPathElimAnalysisDebugLevel,1, Dbg::region::midLevel, "DeadPathElimPartEdge::getOperandPartEdge()");
   if(deadPathElimAnalysisDebugLevel>=1) Dbg::dbg << "anchor="<<cfgUtils::SgNode2Str(anchor)<<" operand="<<cfgUtils::SgNode2Str(operand)<<endl;
   
   if(level==live) {
@@ -541,6 +541,21 @@ bool DeadPathElimPartEdge::setToDead()
   return modified;
 }
 
+// Returns whether this lattice denotes the set of all possible execution prefixes.
+bool DeadPathElimPartEdge::isFull()
+{ return level == live; }
+
+// Returns whether this lattice denotes the empty set.
+bool DeadPathElimPartEdge::isEmpty()
+{ return level == bottom; }
+
+// Returns whether this lattice denotes the set of all possible execution prefixes.
+bool DeadPathElimPartEdge::isFull(PartEdgePtr pedge)
+{ return level == live; }
+
+// Returns whether this lattice denotes the empty set.
+bool DeadPathElimPartEdge::isEmpty(PartEdgePtr pedge)
+{ return level == bottom; }
 
 /*TO DO LIST
 ----------
@@ -746,7 +761,7 @@ bool DeadPathElimAnalysis::transfer(const Function& func, PartPtr part, CFGNode 
   return false;
 }
 
-// Calls composer->Expr2Val() on the base edge of pedge
+/*// Calls composer->Expr2Val() on the base edge of pedge
 ValueObjectPtr   DeadPathElimAnalysis::Expr2Val    (SgNode* n, PartEdgePtr pedge)
 {
   DeadPathElimPartEdgePtr dpeEdge = dynamic_part_cast<DeadPathElimPartEdge>(pedge);
@@ -772,7 +787,29 @@ CodeLocObjectPtr DeadPathElimAnalysis::Expr2CodeLoc(SgNode* n, PartEdgePtr pedge
   ROSE_ASSERT(dpeEdge);
   CodeLocObjectPtrPair p = getComposer()->Expr2CodeLoc(n, dpeEdge->getPartEdge(), this);
   return (p.mem ? p.mem : p.expr);
-} 
+}
+
+// Returns whether the given AbstractObject is live at the given part edge
+bool DeadPathElimAnalysis::isLiveVal    (ValueObjectPtr val,  PartEdgePtr pedge)
+{
+  DeadPathElimPartEdgePtr dpeEdge = dynamic_part_cast<DeadPathElimPartEdge>(pedge);
+  ROSE_ASSERT(dpeEdge);
+  return getComposer()->isLiveVal(val, dpeEdge->getPartEdge(), this);
+}
+
+bool DeadPathElimAnalysis::isLiveMemLoc (MemLocObjectPtr ml,  PartEdgePtr pedge)
+{
+  DeadPathElimPartEdgePtr dpeEdge = dynamic_part_cast<DeadPathElimPartEdge>(pedge);
+  ROSE_ASSERT(dpeEdge);
+  return getComposer()->isLiveMemLoc(ml, dpeEdge->getPartEdge(), this);
+}
+
+bool DeadPathElimAnalysis::isLiveCodeLoc(CodeLocObjectPtr cl, PartEdgePtr pedge)
+{
+  DeadPathElimPartEdgePtr dpeEdge = dynamic_part_cast<DeadPathElimPartEdge>(pedge);
+  ROSE_ASSERT(dpeEdge);
+  return getComposer()->isLiveCodeLoc(cl, dpeEdge->getPartEdge(), this);
+}*/
 
 // Return the anchor Parts of a given function
 PartPtr DeadPathElimAnalysis::GetFunctionStartPart_Spec(const Function& func)
@@ -817,5 +854,13 @@ PartPtr DeadPathElimAnalysis::GetFunctionEndPart_Spec(const Function& func)
   //return init_part(new DeadPathElimPart(*endDPEPart));
 }
 
+// Given a PartEdge pedge implemented by this ComposedAnalysis, returns the part from its predecessor
+// from which pedge was derived. This function caches the results if possible.
+PartEdgePtr DeadPathElimAnalysis::convertPEdge_Spec(PartEdgePtr pedge)
+{
+  DeadPathElimPartEdgePtr dpeEdge = dynamic_part_cast<DeadPathElimPartEdge>(pedge);
+  ROSE_ASSERT(dpeEdge);
+  return dpeEdge->getPartEdge();
+}
 
 }; // namespace dataflow

@@ -7,7 +7,7 @@
 
 namespace dataflow {
 // initializes the compiler analysis framework
-void initAnalysis();
+void initAnalysis(SgProject* project=NULL);
 
 // returns the call graph of the current project
 SgIncidenceDirectedGraph* getCallGraph();

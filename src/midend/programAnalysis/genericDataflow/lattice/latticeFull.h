@@ -75,6 +75,11 @@ class BoolAndLattice : public FiniteLattice
   // Return true if this causes the object to change and false otherwise.
   bool setToEmpty();
   
+  // Returns whether this lattice denotes the set of all possible execution prefixes.
+  bool isFull();
+  // Returns whether this lattice denotes the empty set.
+  bool isEmpty();
+  
   std::string str(std::string indent="");
 };
 
@@ -142,6 +147,11 @@ class IntMaxLattice : public InfiniteLattice
   // Set this Lattice object to represent the of no execution prefixes (empty set).
   // Return true if this causes the object to change and false otherwise.
   bool setToEmpty();
+  
+  // Returns whether this lattice denotes the set of all possible execution prefixes.
+  bool isFull();
+  // Returns whether this lattice denotes the empty set.
+  bool isEmpty();
   
   std::string str(std::string indent="");
 };
@@ -220,6 +230,11 @@ class ProductLattice : public virtual Lattice
   // Set this Lattice object to represent the of no execution prefixes (empty set).
   // Return true if this causes the object to change and false otherwise.
   bool setToEmpty();
+  
+  // Returns whether this lattice denotes the set of all possible execution prefixes.
+  bool isFull();
+  // Returns whether this lattice denotes the empty set.
+  bool isEmpty();
   
   // The string that represents this object
   // If indent!="", every line of this string must be prefixed by indent

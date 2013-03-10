@@ -5,7 +5,7 @@
 #include <boost/make_shared.hpp>
   
 namespace dataflow {
-int constantPropagationAnalysisDebugLevel = 2;
+int constantPropagationAnalysisDebugLevel = 0;
 
 // **********************************************************************
 //              ConstantPropagationLattice
@@ -129,11 +129,17 @@ CPValueObject::operator==(Lattice* X) /*const*/
 
 // computes the meet of this and that and saves the result in this
 // returns true if this causes this to change and false otherwise
-bool
+bool 
 CPValueObject::meetUpdate(Lattice* X)
 {
   CPValueObject* that = dynamic_cast<CPValueObject*>(X);
+  ROSE_ASSERT(that);
+  return meetUpdate(that);
+}
 
+bool
+CPValueObject::meetUpdate(CPValueObject* that)
+{
   // Need to handle bottom, copy from the other side.
 
   // This is the more technically interesting required function.
@@ -192,17 +198,29 @@ CPValueObject::meetUpdate(Lattice* X)
 
 // Set this Lattice object to represent the set of all possible execution prefixes.
 // Return true if this causes the object to change and false otherwise.
-bool CPValueObject::setToFull()
+bool
+CPValueObject::setToFull()
 {
   return setTop();
 }
 
 // Set this Lattice object to represent the of no execution prefixes (empty set)
 // Return true if this causes the object to change and false otherwise.
-bool CPValueObject::setToEmpty()
+bool
+CPValueObject::setToEmpty()
 {
   return setBottom();
 }
+
+// Returns whether this lattice denotes the set of all possible execution prefixes.
+bool
+CPValueObject::isFull()
+{ return level == top; }
+
+// Returns whether this lattice denotes the empty set.
+bool
+CPValueObject::isEmpty()
+{ return level == bottom; }
 
 string
 CPValueObject::str(string indent) const
@@ -227,17 +245,53 @@ CPValueObject::strp(PartEdgePtr pedge, string indent) const
 }
 
 
-bool CPValueObject::mayEqual(ValueObjectPtr o, PartEdgePtr pedge)
+bool CPValueObject::mayEqualV(ValueObjectPtr o, PartEdgePtr pedge)
 {
-  return mustEqual(o, pedge);
+  return mustEqualV(o, pedge);
 }
 
-bool CPValueObject::mustEqual(ValueObjectPtr o, PartEdgePtr pedge)
+bool CPValueObject::mustEqualV(ValueObjectPtr o, PartEdgePtr pedge)
 {
   CPValueObjectPtr that = boost::dynamic_pointer_cast<CPValueObject>(o);
   if(!that) { return false; }
   return (value == that->value) && (level == that->level);
 }
+
+// Returns whether the two abstract objects denote the same set of concrete objects
+bool CPValueObject::equalSet(AbstractObjectPtr o, PartEdgePtr pedge)
+{
+  CPValueObjectPtr that = boost::dynamic_pointer_cast<CPValueObject>(o);
+  ROSE_ASSERT(that);
+  if(level != that->level) return false;
+  else {
+    if(level == constantValue)
+      return (value == that->value);
+    // If the level is not a constant the sets are equal if the levels are the same.
+    // GB: I am not 100% certain what unknownValue and undefinedValue do here. It seems like they're not actually used.
+    else
+      return true;
+  }
+}
+
+// Computes the meet of this and that and saves the result in this.
+// Returns true if this causes this to change and false otherwise.
+bool CPValueObject::meetUpdateV(ValueObjectPtr that_arg, PartEdgePtr pedge)
+{
+  CPValueObjectPtr that = boost::dynamic_pointer_cast<CPValueObject>(that_arg);
+  ROSE_ASSERT(that);
+  return meetUpdate(that.get());
+}
+
+// Returns whether this lattice denotes the set of all possible execution prefixes.
+bool
+CPValueObject::isFull(PartEdgePtr pedge)
+{ return level == top; }
+
+// Returns whether this lattice denotes the empty set.
+bool
+CPValueObject::isEmpty(PartEdgePtr pedge)
+{ return level == bottom; }
+
 
 // Allocates a copy of this object and returns a pointer to it
 ValueObjectPtr CPValueObject::copyV() const
@@ -650,7 +704,8 @@ void ConstantPropagationAnalysis::genInitLattice(const Function& func, PartPtr p
 {
   AbstractObjectMap* l = new AbstractObjectMap(new MustEqualFunctor(), 
                                                boost::make_shared<CPValueObject>(pedge/*part->inEdgeFromAny()*/),
-                                               pedge);
+                                               pedge,
+                                               getComposer(), this);
   /*Dbg::dbg << "ConstantPropagationAnalysis::initializeState, analysis="<<returning l="<<l<<" n=<"<<Dbg::escape(p.getNode()->unparseToString())<<" | "<<p.getNode()->class_name()<<" | "<<p.getIndex()<<">\n";
   Dbg::dbg << "    l="<<l->str("    ")<<endl;*/
   initLattices.push_back(l);
@@ -677,7 +732,7 @@ ConstantPropagationAnalysis::getTransferVisitor(const Function& func, PartPtr pa
 
 ValueObjectPtr ConstantPropagationAnalysis::Expr2Val(SgNode* n, PartEdgePtr pedge)
 {
-  if(constantPropagationAnalysisDebugLevel>=1) Dbg::dbg << "ConstantPropagationAnalysis::Expr2Val(n="<<cfgUtils::SgNode2Str(n)<<", pedge="<<pedge->str()<<") this="<<this<<endl;
+  if(constantPropagationAnalysisDebugLevel>=1) Dbg::dbg << "ConstantPropagationAnalysis::Expr2Val(n="<<cfgUtils::SgNode2Str(n)<<", pedge="<<pedge->str()<<")"<<endl;
   // If pedge doesn't have wildcards
   if(pedge->source() && pedge->target()) {
     NodeState* state = NodeState::getNodeState(this, pedge->source());
@@ -694,7 +749,9 @@ ValueObjectPtr ConstantPropagationAnalysis::Expr2Val(SgNode* n, PartEdgePtr pedg
     if(constantPropagationAnalysisDebugLevel>=2) {
       Dbg::indent ind;
       Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;p="<<p->str()<<endl;
-      Dbg::dbg << "cpMap="<<cpMap<<"="<<cpMap->str()<<endl;
+      Dbg::dbg << "cpMap Below="<<cpMap<<"="<<cpMap->str()<<endl;
+      
+      Dbg::dbg << "nodeState = "<<state->str()<<endl;
     }
 
     // Return the lattice associated with n's expression since that is likely to be more precise

@@ -122,6 +122,11 @@ class Lattice : public printable
   // Return true if this causes the object to change and false otherwise.
   virtual bool setToEmpty()=0;
   
+  // Returns whether this lattice denotes the set of all possible execution prefixes.
+  virtual bool isFull()=0;
+  // Returns whether this lattice denotes the empty set.
+  virtual bool isEmpty()=0;
+  
   // Functions used to inform this lattice that a given variable is now in use (e.g. a variable has entered 
   //    scope or an expression is being analyzed) or is no longer in use (e.g. a variable has exited scope or
   //    an expression or variable is dead).

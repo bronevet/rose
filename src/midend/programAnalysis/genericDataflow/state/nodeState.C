@@ -10,6 +10,8 @@
 
 using namespace std;
 namespace dataflow {
+int nodeStateDebugLevel=1;
+
 // Records that this analysis has initialized its state at this node
 void NodeState::initialized(Analysis* init)
 {
@@ -217,7 +219,7 @@ Lattice* NodeState::getLattice_ex(const LatticeMap& dfMap, Analysis* analysis,
   std::map<PartEdgePtr, std::vector<Lattice*> >::const_iterator w;
 
   if(dfMap.find((Analysis*)analysis) == dfMap.end()) {
-    Dbg::region reg(1,1, Dbg::region::topLevel, "NodeState::getLattice_ex: Analysis not found!");
+    Dbg::region reg(1,1, Dbg::region::midLevel, "NodeState::getLattice_ex: Analysis not found!");
     Dbg::dbg << "dfMap.find("<<analysis<<")!=dfMap.end() = "<<(dfMap.find((Analysis*)analysis) != dfMap.end())<<" dfMap.size()="<<dfMap.size()<<endl;
     for(LatticeMap::const_iterator i=dfMap.begin(); i!=dfMap.end(); i++)
     { Dbg::dbg << "i="<<i->first<<endl; }
@@ -370,6 +372,7 @@ void NodeState::unionLattices(set<Analysis*>& unionSet, Analysis* master)
 bool NodeState::unionLatticeMaps(map<PartEdgePtr, vector<Lattice*> >& to, 
                                  const map<PartEdgePtr, vector<Lattice*> >& from)
 {
+  Dbg::region reg(nodeStateDebugLevel,2, Dbg::region::midLevel, "NodeState::unionLatticeMaps()");
   // All the analyses in unionSet must have the same number of edges
   ROSE_ASSERT(to.size() == from.size());
 
@@ -385,6 +388,7 @@ bool NodeState::unionLatticeMaps(map<PartEdgePtr, vector<Lattice*> >& to,
     vector<Lattice*>::iterator       lTo;
     vector<Lattice*>::const_iterator lFrom;
     for(lTo=eTo->second.begin(), lFrom=eFrom->second.begin(); lTo!=eTo->second.end(); lTo++, lFrom++) {
+      if(nodeStateDebugLevel>=2) Dbg::dbg << "(*lTo)->finiteLattice()="<<(*lTo)->finiteLattice()<<endl;
       if((*lTo)->finiteLattice())
         modified = (*lTo)->meetUpdate(*lFrom) || modified;
       else {
@@ -665,7 +669,8 @@ void NodeState::copyLatticesOW(map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,
   
   for(map<PartEdgePtr, vector<Lattice*> >::const_iterator eFrom=dfInfoFrom.begin(); eFrom!=dfInfoFrom.end(); eFrom++) {
     for(vector<Lattice*>::const_iterator lFrom=eFrom->second.begin(); lFrom!=eFrom->second.end(); lFrom++) {
-      dfInfoTo[eFrom->first].push_back((*lFrom)->copy());
+      Lattice *lTo = (*lFrom)->copy();
+      dfInfoTo[eFrom->first].push_back(lTo);
     }
   }
 }
@@ -700,6 +705,9 @@ void NodeState::copyLattices(map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,   Pa
 void NodeState::copyLatticesOW(map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,   PartEdgePtr toDepartEdge,
                          const map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom, PartEdgePtr fromDepartEdge, bool adjustPEdge)
 {
+  /*Dbg::region reg(1,1, Dbg::region::midLevel, "NodeState::copyLatticesOW()");
+  Dbg::dbg << "toDepartEdge="<<(toDepartEdge?toDepartEdge->str():"NULLPtr")<<" fromDepartEdge="<<(fromDepartEdge?fromDepartEdge->str():"NULLPtr")<<endl;*/
+  
   ROSE_ASSERT(dfInfoFrom.find(fromDepartEdge) != dfInfoFrom.end());
   
   // First, empty out dfInfoTo[toDepartEdge] if needed
@@ -714,6 +722,8 @@ void NodeState::copyLatticesOW(map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,   
       // Adjust the Lattice's part edge to correspond to its new edge
       lTo->setPartEdge(toDepartEdge);
     dfInfoTo[toDepartEdge].push_back(lTo);
+    Dbg::indent ind(1, 1);
+    //Dbg::dbg << "lTo="<<lTo->str()<<endl;
   }
 }
 
@@ -743,12 +753,12 @@ string NodeState::str(Analysis* analysis, string indent)
   
   // If the analysis has not yet been initialized, say so
   if(initializedAnalyses.find(analysis) == initializedAnalyses.end()) {
-    oss << "[NodeState: NONE for Analysis"<<analysisName.str()<<"]\n";
+    oss << "[NodeState ("<<this<<"): NONE for Analysis"<<analysisName.str()<<"]\n";
     /*for(std::map<Analysis*, bool >::iterator a=initializedAnalyses.begin(); a!=initializedAnalyses.end(); a++)
       oss << "a="<<a->first<<endl;*/
   // If it has been initialized, stringify it
   } else {
-    oss << "[NodeState: analysis ("<<analysisName.str()<<")\n";
+    oss << "[NodeState ("<<this<<"): analysis ("<<analysisName.str()<<")\n";
     /*ROSE_ASSERT(dfInfoAbove.size() == dfInfoBelow.size());
     ROSE_ASSERT(dfInfoAbove.find(analysis) != dfInfoAbove.end());
     ROSE_ASSERT(dfInfoBelow.find(analysis) != dfInfoBelow.end());*/
