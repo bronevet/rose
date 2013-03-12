@@ -19,10 +19,10 @@ class Lattice : public printable
   public:
   // Sets the PartEdge that this Lattice's information corresponds to. 
   // Returns true if this causes the edge to change and false otherwise
-  bool setPartEdge(PartEdgePtr latPEdge);
+  virtual bool setPartEdge(PartEdgePtr latPEdge);
   
   // Returns the PartEdge that this Lattice's information corresponds to
-  PartEdgePtr getPartEdge();
+  virtual PartEdgePtr getPartEdge();
   
   // initializes this Lattice to its default state, if it is not already initialized
   virtual void initialize()=0;
@@ -121,6 +121,11 @@ class Lattice : public printable
   // Set this Lattice object to represent the of no execution prefixes (empty set).
   // Return true if this causes the object to change and false otherwise.
   virtual bool setToEmpty()=0;
+  
+  // Returns whether this lattice denotes the set of all possible execution prefixes.
+  virtual bool isFull()=0;
+  // Returns whether this lattice denotes the empty set.
+  virtual bool isEmpty()=0;
   
   // Functions used to inform this lattice that a given variable is now in use (e.g. a variable has entered 
   //    scope or an expression is being analyzed) or is no longer in use (e.g. a variable has exited scope or

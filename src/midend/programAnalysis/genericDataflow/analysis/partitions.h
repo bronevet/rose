@@ -127,14 +127,46 @@ CompSharedPtr<Type> makePart(Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5 ar
 { return boost::make_shared<Type>(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9); }
 
 // Wrapper for boost::dynamic_pointer_cast for CompSharedPtr
-// Used as: static_part_cast<SomePartImplementation>(objectWithPartPtrType);
+// Used as: dynamic_part_cast<SomePartImplementation>(objectWithPartPtrType);
 template <class TargetType, class SourceType>
-CompSharedPtr<TargetType> static_part_cast(CompSharedPtr<SourceType> s)
-{ return CompSharedPtr<TargetType>(s); }
+CompSharedPtr<TargetType> dynamic_part_cast(CompSharedPtr<SourceType> s)
+{ 
+  if(dynamic_cast<TargetType*>(s.get())) return CompSharedPtr<TargetType>(s);
+  else {
+    CompSharedPtr<TargetType> null;
+    return null;
+  }
+}
+
+template <class TargetType, class SourceType>
+const CompSharedPtr<TargetType> dynamic_const_part_cast(CompSharedPtr<SourceType> s)
+{ 
+  if(dynamic_cast<const TargetType*>(s.get())) return CompSharedPtr<TargetType>(s);
+  else {
+    CompSharedPtr<TargetType> null;
+    return null;
+  }
+}
+
+template <class TargetType, class SourceType>
+CompSharedPtr<TargetType> static_part_cast(const CompSharedPtr<SourceType> s)
+{ 
+  if(static_cast<TargetType*>(s.get())) return CompSharedPtr<TargetType>(s);
+  else {
+    CompSharedPtr<TargetType> null;
+    return null;
+  }
+}
 
 template <class TargetType, class SourceType>
 const CompSharedPtr<TargetType> static_const_part_cast(const CompSharedPtr<SourceType> s)
-{ return CompSharedPtr<TargetType>(s); }
+{ 
+  if(static_cast<const TargetType*>(s.get())) return CompSharedPtr<TargetType>(s);
+  else {
+    CompSharedPtr<TargetType> null;
+    return null;
+  }
+}
 
 // Wrapper for boost::make_shared_from_this.
 // Used as: make_part_from_this(make_shared_from_this());
@@ -152,15 +184,25 @@ CompSharedPtr<Type> init_part(Type* p)
 class Part : public printable {
   protected:
   ComposedAnalysis* analysis;
+  PartPtr parent;
+  
   public:
-  Part(ComposedAnalysis* analysis) : analysis(analysis) {}
-  Part(const Part& that) : analysis(that.analysis) {}
+  Part(ComposedAnalysis* analysis, PartPtr parent) : analysis(analysis), parent(parent) {}
+  Part(const Part& that) : analysis(that.analysis), parent(that.parent) {}
   // Returns true if this PartEdge comes from the same analysis as that PartEdge and false otherwise
   bool compatible(const Part& that) { return analysis == that.analysis; }
   bool compatible(PartPtr that)     { return analysis == that->analysis; }
   
-  virtual std::vector<PartEdgePtr> outEdges()=0;
-  virtual std::vector<PartEdgePtr> inEdges()=0;
+  // Returns the Part from which this Part is derived. This function documents the hierarchical descent of this Part
+  // and makes it possible to find the common parent of parts derived from different analyses.
+  // Returns NULLPart if this part has no parents (i.e. it is implemented by the syntactic analysis)
+  virtual PartPtr getParent() const { return parent; }
+  
+  // Sets this Part's parent
+  virtual void setParent(PartPtr parent) { this->parent = parent; }
+  
+  virtual std::list<PartEdgePtr> outEdges()=0;
+  virtual std::list<PartEdgePtr> inEdges()=0;
   virtual std::set<CFGNode> CFGNodes()=0;
   
   /*// Let A={ set of execution prefixes that terminate at the given anchor SgNode }
@@ -260,13 +302,22 @@ extern PartPtr NULLPart;
 class PartEdge : public printable {
   protected:
   ComposedAnalysis* analysis;
+  PartEdgePtr parent;
   
   public:
-  PartEdge(ComposedAnalysis* analysis) : analysis(analysis) {}
-  PartEdge(const PartEdge& that) : analysis(that.analysis) {}
+  PartEdge(ComposedAnalysis* analysis, PartEdgePtr parent) : analysis(analysis), parent(parent) {}
+  PartEdge(const PartEdge& that) : analysis(that.analysis), parent(that.parent) {}
   // Returns true if this PartEdge comes from the same analysis as that PartEdge and false otherwise
   bool compatible(const PartEdge& that) { return analysis == that.analysis; }
   bool compatible(PartEdgePtr that)     { return analysis == that->analysis; }
+  
+  // Returns the PartEdge from which this PartEdge is derived. This function documents the hierarchical descent of this 
+  // PartEdgeand makes it possible to find the common parent of parts derived from different analyses.
+  // Returns NULLPartEdge if this part has no parents (i.e. it is implemented by the syntactic analysis)
+  virtual PartEdgePtr getParent() const { return parent; }
+  
+  // Sets this PartEdge's parent
+  virtual void setParent(PartEdgePtr parent) { this->parent = parent; }
   
   virtual PartPtr source()=0;
   virtual PartPtr target()=0;
@@ -314,40 +365,55 @@ typedef CompSharedPtr<IntersectionPart> IntersectionPartPtr;
 class IntersectionPartEdge;
 typedef CompSharedPtr<IntersectionPartEdge> IntersectionPartEdgePtr;
 
+// The intersection of multiple Parts and PartEdges. Partition graph intersections are primarily useful for 
+// parallel composition of analyses. In this use-case we have multiple analyses, a subset of which implements their 
+// own partition graphs and the rest of which do not. To support this use-case we need to 
+// - Provide a way to compute intersections the sub-parts and sub-part edges that are implemented. 
+//   This is implemented in methods like Part::outEdges that consider the votes from all the sub-analyses
+//   and return all the permutations of those votes.
+// - When queries are performed on analyses that do or do not implement partition graphs, we need to 
+//   make it easy to extract the part or part edge that is meaningful to each analysis. We support this
+//   by maintaining for each IntersectionPart and IntersectionPartEdge a mapping from all analyses that implement
+//   partition graphs to the Part/PartEdge they implement. For all analyses that do not implement partition
+//   graphs we maintain the Part/PartEdge that these analyses operate on, which is the parent of the 
+//   IntersectionPart/IntersectionPartEdge.
+
+
 // The intersection of multiple Parts. Maintains multiple Parts and responds to API calls with the most 
 //   accurate response that its constituent objects return.
-// For practical purposes analyses should ensure that different instances of IntersectPart 
-//   are only compared if they include the same types of Parts in the same order. Otherwise, 
-//   the comparisons will be uselessly inaccurate.
 class IntersectionPart : public Part
 {
-  std::list<PartPtr> parts;
-  
+  // Parts from analyses that implement partition graphs
+  std::map<ComposedAnalysis*, PartPtr> parts;
+
   public:
   
-  IntersectionPart(PartPtr part, ComposedAnalysis* analysis);
-  IntersectionPart(const std::list<PartPtr>& parts, ComposedAnalysis* analysis);
+  //IntersectionPart(PartPtr part, ComposedAnalysis* analysis);
+  IntersectionPart(const std::map<ComposedAnalysis*, PartPtr>& parts, PartPtr parent, ComposedAnalysis* analysis);
   
-  void add(PartPtr part);
+  // Returns the Part associated with this analysis. If the analysis does not implement the partition graph
+  // (is not among the keys of parts), returns the parent Part.
+  PartPtr getPart(ComposedAnalysis* analysis);
   
   // Returns the list of outgoing IntersectionPartEdge of this Part, which are the cross-product of the outEdges()
   // of its sub-parts.
-  std::vector<PartEdgePtr> outEdges();
-  // Recursive computation of the cross-product of the outEdges of all the sub-parts of this Intersection part.
+  std::list<PartEdgePtr> outEdges();
+  /*// Recursive computation of the cross-product of the outEdges of all the sub-parts of this Intersection part.
   // Hierarchically builds a recursion tree that contains more and more combinations of PartsPtr from the outEdges
   // of different sub-parts. When the recursion tree reaches its full depth (one level per part in parts), it creates
   // an intersection the current combination of 
   // partI - refers to the current part in parts
   // outPartEdges - the list of outgoing edges of the current combination of this IntersectionPart's sub-parts, 
   //         upto partI
-  void outEdges_rec(std::list<PartPtr>::iterator partI, std::list<PartEdgePtr> outPartEdges, 
-                    std::vector<PartEdgePtr>& edges);
+  void outEdges_rec(std::map<ComposedAnalysis*, PartPtr>::iterator partI, 
+                    std::map<ComposedAnalysis*, PartPtr> outPartEdges, 
+                    std::vector<PartEdgePtr>& edges);*/
   
   // Returns the list of incoming IntersectionPartEdge of this Part, which are the cross-product of the inEdges()
   // of its sub-parts.
-  std::vector<PartEdgePtr> inEdges();
+  std::list<PartEdgePtr> inEdges();
   
-  // Recursive computation of the cross-product of the inEdges of all the sub-parts of this Intersection part.
+  /*// Recursive computation of the cross-product of the inEdges of all the sub-parts of this Intersection part.
   // Hierarchically builds a recursion tree that contains more and more combinations of PartsPtr from the inEdges
   // of different sub-parts. When the recursion tree reaches its full depth (one level per part in parts), it creates
   // an intersection the current combination of 
@@ -355,8 +421,8 @@ class IntersectionPart : public Part
   // inPartEdges - the list of incoming edges of the current combination of this IntersectionPart's sub-parts, 
   //         upto partI
   void inEdges_rec(std::list<PartPtr>::iterator partI, std::list<PartEdgePtr> inPartEdges, 
-                   std::vector<PartEdgePtr>& edges);
-  
+                   std::vector<PartEdgePtr>& edges);*/
+    
   // Returns the intersection of the lists of CFGNodes returned by the Parts in parts
   std::set<CFGNode> CFGNodes();
   
@@ -387,32 +453,33 @@ class IntersectionPart : public Part
   // Returns a PartEdgePtr, where the target is a wild-card part (NULLPart) and the source is this Part
   PartEdgePtr outEdgeToAny();
   
-  // Two IntersectionParts are equal of all their constituent sub-parts are equal
+  // Two IntersectionParts are equal if their parents and all their constituent sub-parts are equal
   bool equal(const PartPtr& that) const;
   
-  // Lexicographic ordering: This IntersectionPart is < that IntersectionPart if this has fewer parts than that or
-  // there exists an index i in this.parts and that.parts s.t. forall j<i. this.parts[j]==that.parts[j] and 
-  // this.parts[i] < that.parts[i].
+  // Lexicographic ordering: This IntersectionPart is < that IntersectionPart if 
+  // - their parents are < ordered, OR
+  // - if this has fewer parts than that, OR
+  // - there exists an index i in this.parts and that.parts s.t. forall j<i. this.parts[j]==that.parts[j] and 
+  //   this.parts[i] < that.parts[i].
   bool less(const PartPtr& that) const;
   
   std::string str(std::string indent="");
 };
 
-// The intersection of multiple PartEdges. Maintains multiple PartEdges and responds to API calls with the most 
-//   accurate response that its constituent objects return.
-// For practical purposes analyses should ensure that different instances of IntersectPart 
-//   are only compared if they include the same types of PartEdgess in the same order. Otherwise, 
-//   the comparisons will be uselessly inaccurate.
+
 class IntersectionPartEdge : public PartEdge
 {
-  std::list<PartEdgePtr> edges;
+  // The edges being intersected
+  std::map<ComposedAnalysis*, PartEdgePtr> edges;
   
   public:
   
-  IntersectionPartEdge(PartEdgePtr edge, ComposedAnalysis* analysis);
-  IntersectionPartEdge(const std::list<PartEdgePtr>& edges, ComposedAnalysis* analysis);
+  //IntersectionPartEdge(PartEdgePtr edge, ComposedAnalysis* analysis);
+  IntersectionPartEdge(const std::map<ComposedAnalysis*, PartEdgePtr>& edges, PartEdgePtr parent, ComposedAnalysis* analysis);
   
-  void add(PartEdgePtr edge);
+  // Returns the PartEdge associated with this analysis. If the analysis does not implement the partition graph
+  // (is not among the keys of parts), returns the parent PartEdge.
+  PartEdgePtr getPartEdge(ComposedAnalysis* analysis);
   
   // Return the part that intersects the sources of all the sub-edges of this IntersectionPartEdge
   PartPtr source();

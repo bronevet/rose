@@ -9,11 +9,12 @@ namespace dataflow
  ***** OrthoArrayMemLocObject *****
  ***********************************/
 
+extern int orthoArrayAnalysisDebugLevel;
+class OrthogonalArrayAnalysis;
+  
 // This is an analysis that interprets array expressions of the form a[i] by orthogonally 
 // combining information from a memory location analysis to interpret "a" and a value analysis
 // to interpret "i".
-
-extern int orthoArrayAnalysisDebugLevel;
 
 class OrthoIndexVector_Impl : public IndexVector
 {
@@ -24,48 +25,94 @@ class OrthoIndexVector_Impl : public IndexVector
     std::vector<ValueObjectPtr> index_vector; // a vector of memory objects of named objects or temp expression objects
     std::string str(std::string indent) const; // pretty print for the object
     std::string str(std::string indent) { return ((const OrthoIndexVector_Impl*)this)->str(indent); }
+    
+    // Allocates a copy of this object and returns a pointer to it
+    IndexVectorPtr copyIV() const;
 
-    bool mayEqual(IndexVectorPtr other, PartEdgePtr pedge);
-    bool mustEqual(IndexVectorPtr other, PartEdgePtr pedge);
+    bool mayEqual (IndexVectorPtr other, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+    bool mustEqual(IndexVectorPtr other, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+    
+    // Returns whether the two abstract objects denote the same set of concrete objects
+    bool equalSet(IndexVectorPtr other, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+    
+    bool isFull (PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+    bool isEmpty(PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
 };
 typedef boost::shared_ptr<OrthoIndexVector_Impl> OrthoIndexVector_ImplPtr;
+
 
 
 // Memory object wrapping the information about array
 class OrthoArrayML : public MemLocObject
 {
   protected:
+    // The parent array reference
+    SgNode *array_ref;
     // memory object for the top level array object
     MemLocObjectPtr p_array;
     // list of value objects for the subscripts
     IndexVectorPtr p_iv;
-    // useful to distinguish this object from other memory objects
-    bool isArrayElement;
-
+    
     // to represent other memory objects that are not array
     MemLocObjectPtr p_notarray;
+    
+    // Records whether the p_array/p_iv/p_notarray objects refer to the original MemLocObjectPtr that was 
+    // passed to this object's constructor (true) or is a copy of this original object
+    bool origML; 
+    
+    // useful to distinguish this object from other memory objects
+    typedef enum {empty, array, notarray, full} oaLevels;
+    oaLevels level;
+    //bool isArrayElement;
+    
+    // The analysis that produced this MemLoc
+    OrthogonalArrayAnalysis* oaa;
 
   public:
-    OrthoArrayML(SgNode* sgn, MemLocObjectPtr array, IndexVectorPtr iv) : MemLocObject(sgn), p_array(array), p_iv(iv), isArrayElement(true) { }
-    OrthoArrayML(SgNode* sgn, MemLocObjectPtr notarray) : MemLocObject(sgn), p_notarray(notarray), isArrayElement(false) { }
+    OrthoArrayML(SgNode* sgn, MemLocObjectPtr arrayML, IndexVectorPtr iv, OrthogonalArrayAnalysis* oaa) :
+      MemLocObject(sgn), array_ref(sgn), p_array(arrayML), p_iv(iv), origML(true), level(array)/*isArrayElement(true)*/, oaa(oaa) { }
+    OrthoArrayML(SgNode* sgn, MemLocObjectPtr notarrayML, OrthogonalArrayAnalysis* oaa) : 
+      MemLocObject(sgn), array_ref(sgn), p_notarray(notarrayML), origML(true), level(notarray)/*isArrayElement(false)*/, oaa(oaa) { }
     OrthoArrayML(const OrthoArrayML& that) : MemLocObject(that)
     {
-      p_array = that.p_array;
-      p_iv = that.p_iv;
+      p_array    = that.p_array;
+      p_iv       = that.p_iv;
       p_notarray = that.p_notarray;
-      isArrayElement = that.isArrayElement;
+      origML     = that.origML;
+      //isArrayElement = that.isArrayElement;
+      level      = that.level;
+      oaa        = that.oaa;
     }
     // pretty print
-    std::string str(std::string indent) const;
-    std::string str(std::string indent) { return ((const OrthoArrayML*)this)->str(indent); }
+    std::string str(std::string indent="") const;
+    std::string str(std::string indent="") { return ((const OrthoArrayML*)this)->str(indent); }
 
     // copy this object and return a pointer to it
     MemLocObjectPtr copyML() const { return boost::make_shared<OrthoArrayML>(*this); }
 
-    bool isLive(PartEdgePtr pedge) const;
-    
     bool mayEqualML(MemLocObjectPtr that, PartEdgePtr pedge);
     bool mustEqualML(MemLocObjectPtr that, PartEdgePtr pedge);
+    
+    // Returns whether the two abstract objects denote the same set of concrete objects
+    bool equalSet(AbstractObjectPtr o, PartEdgePtr pedge);
+    
+    bool isLiveML(PartEdgePtr pedge);
+    
+    // Computes the meet of this and that and saves the result in this
+    // returns true if this causes this to change and false otherwise
+    bool meetUpdateML(MemLocObjectPtr that, PartEdgePtr pedge);
+    
+    // Returns whether this AbstractObject denotes the set of all possible execution prefixes.
+    bool isFull(PartEdgePtr pedge);
+    // Returns whether this AbstractObject denotes the empty set.
+    bool isEmpty(PartEdgePtr pedge);
+    
+    // Set this object to represent the set of all possible MemLocs
+    // Return true if this causes the object to change and false otherwise.
+    bool setToFull();
+    // Set this Lattice object to represent the empty set of MemLocs.
+    // Return true if this causes the object to change and false otherwise.
+    bool setToEmpty();
 };
 typedef boost::shared_ptr<OrthoArrayML> OrthoArrayMLPtr;
 
@@ -117,16 +164,15 @@ class OrthogonalArrayAnalysis : virtual public IntraUndirDataflow
 {
   public:
   OrthogonalArrayAnalysis() : IntraUndirDataflow() {}
-  
-  void runAnalysis(const Function&  func, NodeState* state, bool, std::set<Function>) { }
-  
+    
   // The genInitLattice, genInitFact and transfer functions are not implemented since this 
   // is not a dataflow analysis.
    
   // Maps the given SgNode to an implementation of the MemLocObject abstraction.
   // Variant of Expr2Val where Part field is ignored since it makes no difference for the syntactic analysis.
-  MemLocObjectPtr  Expr2MemLoc (SgNode* n, PartEdgePtr pedge);
-
+  MemLocObjectPtr  Expr2MemLoc(SgNode* n, PartEdgePtr pedge);
+  bool implementsExpr2MemLoc() { return true; }
+  
   // pretty print for the object
   std::string str(std::string indent="")
   { return "OrthogonalArrayAnalysis"; }

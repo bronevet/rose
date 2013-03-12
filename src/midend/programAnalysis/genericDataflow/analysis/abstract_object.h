@@ -4,6 +4,7 @@
 #include "rose.h"
 #include "AnalysisDebuggingUtils.h"
 #include "partitions.h"
+#include "CallGraphTraverse.h"
 #include <string>
 #include <cstring>
 #include <vector>
@@ -64,24 +65,65 @@
 // ----------------------------
 
 namespace dataflow {
+class Composer;
+
 // Root class of all abstract objects
 class AbstractObject;
 typedef boost::shared_ptr<AbstractObject> AbstractObjectPtr;
-class AbstractObject : public printable
+
+class MemLocObject;
+class CodeLocObject;
+class ValueObject;
+
+class AbstractObject : public printable, public boost::enable_shared_from_this<AbstractObject>
 {
   SgNode* base;
   
   public:
-  AbstractObject() { /*std::cout << "DEF this="<<this<<" base="<<base<<std::endl;*/ }
-  AbstractObject(SgNode* base) : base(base) { /*std::cout<< "BASE this="<<this<<" base="<<base<<std::endl;*/ }
-  AbstractObject(const AbstractObject& that) : base(that.base) { /*std::cout<< "COPY this="<<this<<" base="<<base<<std::endl;*/ }
-    
+  AbstractObject() {}
+  AbstractObject(SgNode* base) : base(base) {}
+  AbstractObject(const AbstractObject& that) : base(that.base) {}
+  
+  SgNode* getBase() const { return base; }
+
+  // Functions that identify the type of AbstractObject this is. Should be over-ridden by derived
+  // classes to save the cost of a dynamic cast.
+  virtual bool isMemLocObject();
+  virtual bool isCodeLocObject();
+  virtual bool isValueObject();
+  
   // Returns whether this object may/must be equal to o within the given Part p
-  virtual bool mayEqual(AbstractObjectPtr o, PartEdgePtr pedge)=0;
-  virtual bool mustEqual(AbstractObjectPtr o, PartEdgePtr pedge);
+  virtual bool mayEqual(AbstractObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)=0;
+  virtual bool mustEqual(AbstractObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)=0;
+  
+  // Simple equality test that just checks whether the two objects correspond to the same expression
+  bool mustEqualExpr(AbstractObjectPtr o, PartEdgePtr pedge);
+  
+  // Returns whether the two abstract objects denote the same set of concrete objects
+  virtual bool equalSet(AbstractObjectPtr o, PartEdgePtr pedge)=0;
+  
+  // General versions of equalSet() that accounts for framework details before routing the call to the 
+  // derived class' equalSet() check. Specifically, it routes the call through the composer to make 
+  // sure the equalSet() call gets the right PartEdge.
+  bool equalSet(AbstractObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
   
   // Returns true if this object is live at the given part and false otherwise
-  virtual bool isLive(PartEdgePtr pedge) const=0;
+  virtual bool isLive(PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)=0;
+  
+  // Computes the meet of this and that and saves the result in this
+  // returns true if this causes this to change and false otherwise
+  virtual bool meetUpdate(AbstractObjectPtr that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)=0;
+  
+  // Returns whether this AbstractObject denotes the set of all possible execution prefixes.
+  virtual bool isFull(PartEdgePtr pedge)=0;
+  // Returns whether this AbstractObject denotes the empty set.
+  virtual bool isEmpty(PartEdgePtr pedge)=0;
+  
+  // General versions of isFull() and isEmpty that account for framework details before routing the call to the 
+  // derived class' isFull() and isEmpty()  check. Specifically, it routes the call through the composer to make 
+  // sure the isFullML() and isEmptyML() call gets the right PartEdge.
+  bool isFull(PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  bool isEmpty(PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
   
   // Allocates a copy of this object and returns a pointer to it
   virtual AbstractObjectPtr copyAO() const=0;
@@ -106,6 +148,7 @@ class AbstractObject : public printable
 // Major types of abstract objects
 class MemLocObject;
 typedef boost::shared_ptr<MemLocObject> MemLocObjectPtr;
+//typedef boost::shared_ptr<const MemLocObject> ConstMemLocObjectPtr;
 extern MemLocObjectPtr NULLMemLocObject;
 
 class Scalar;
@@ -119,29 +162,60 @@ typedef boost::shared_ptr<Array> ArrayPtr;
 class Pointer;
 typedef boost::shared_ptr<Pointer> PointerPtr;
 
-class MemLocObject : public AbstractObject, public boost::enable_shared_from_this<MemLocObject>
+class MemLocObject : public AbstractObject
 { 
-private:
-  // Returns whether this object may/must be equal to o within the given Part p
-  // These methods are private to prevent analyses from calling them directly.
-  virtual bool mayEqualML(MemLocObjectPtr o, PartEdgePtr pedge)=0;
-  virtual bool mustEqualML(MemLocObjectPtr o, PartEdgePtr pedge)=0;
-  
 public:
 //  MemLocObject() {}
   //# SA
   // should the default mutable value be conservatively true ?
   MemLocObject(SgNode* base) : AbstractObject(base) {}
   MemLocObject(const MemLocObject& that) : AbstractObject(that) {}
+
+  // Wrapper for shared_from_this that returns an instance of this class rather than its parent
+  MemLocObjectPtr shared_from_this() { return boost::static_pointer_cast<MemLocObject>(AbstractObject::shared_from_this()); }
   
-  // General version of mayEqual and mustEqual that implements may/must equality with respect to ExprObj
-  // and uses the derived class' may/mustEqual check for all the other cases
-  bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge);
-  bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge);
+  // Functions that identify the type of AbstractObject this is. Should be over-ridden by derived
+  // classes to save the cost of a dynamic cast.
+  bool isMemLocObject()  { return true;  }
+  bool isCodeLocObject() { return false; }
+  bool isValueObject()   { return false; }
   
-  bool mayEqual(AbstractObjectPtr o, PartEdgePtr pedge);
-  bool mustEqual(AbstractObjectPtr o, PartEdgePtr pedge);
+//private:
+  // Returns whether this object may/must be equal to o within the given Part p
+  // These methods are called by composers and should not be called by analyses.
+  virtual bool mayEqualML(MemLocObjectPtr o, PartEdgePtr pedge)=0;
+  virtual bool mustEqualML(MemLocObjectPtr o, PartEdgePtr pedge)=0;
   
+public:
+  // General version of mayEqual and mustEqual that accounts for framework details before routing the call to the 
+  // derived class' may/mustEqual check. Specifically, it checks may/must equality with respect to ExprObj and routes
+  // the call through the composer to make sure the may/mustEqual call gets the right PartEdge
+  bool mayEqual (MemLocObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  
+  // Check whether that is a MemLocObject and if so, call the version of may/mustEqual specific to MemLocObjects
+  bool mayEqual (AbstractObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  bool mustEqual(AbstractObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  
+  // Returns true if this object is live at the given part and false otherwise
+  virtual bool isLiveML(PartEdgePtr pedge)=0;
+public:
+  MemLocObjectPtr getThis();
+  // General version of isLive that accounts for framework details before routing the call to the derived class' 
+  // isLiveML check. Specifically, it routes the call through the composer to make sure the isLiveML call gets the 
+  // right PartEdge
+  bool isLive(PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  
+  // Computes the meet of this and that and saves the result in this
+  // returns true if this causes this to change and false otherwise
+  virtual bool meetUpdateML(MemLocObjectPtr that, PartEdgePtr pedge)=0;
+  
+  // General version of meetUpdate that accounts for framework details before routing the call to the derived class' 
+  // meetUpdateML check. Specifically, it routes the call through the composer to make sure the meetUpdateML 
+  // call gets the right PartEdge
+  bool meetUpdate(MemLocObjectPtr that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  bool meetUpdate(AbstractObjectPtr that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+    
   // Allocates a copy of this object and returns a pointer to it
   virtual MemLocObjectPtr copyML() const=0;
   AbstractObjectPtr copyAO() const
@@ -176,7 +250,47 @@ public:
 
   virtual PointerPtr isPointer()
   { return boost::dynamic_pointer_cast<Pointer>(shared_from_this()); }
+  
+  // Returns true if the given expression denotes a memory location and false otherwise
+  static bool isMemExpr(SgExpression* expr)
+  { return isSgVarRefExp(expr) || isSgPntrArrRefExp(expr) || isSgPointerDerefExp(expr); }
 };
+
+// Special MemLocObject used internally by the framework to associate with the return value of a function
+class FuncResultMemLocObject : public MemLocObject
+{
+  Function func;
+  public:
+  FuncResultMemLocObject(Function func) : MemLocObject(NULL), func(func) {}
+  
+  // Returns whether this object may/must be equal to o within the given Part p
+  bool mayEqualML(MemLocObjectPtr o, PartEdgePtr pedge);
+  bool mustEqualML(MemLocObjectPtr o, PartEdgePtr pedge);
+  
+  // Returns whether the two abstract objects denote the same set of concrete objects
+  bool equalSet(AbstractObjectPtr o, PartEdgePtr pedge);
+  
+  // Returns true if this object is live at the given part and false otherwise.
+  // This method is called by composers and should not be called by analyses.
+  bool isLiveML(PartEdgePtr pedge) { return true; }
+  
+  // Computes the meet of this and that and saves the result in this
+  // returns true if this causes this to change and false otherwise
+  bool meetUpdateML(MemLocObjectPtr that, PartEdgePtr pedge);
+  
+  // Returns whether this AbstractObject denotes the set of all possible execution prefixes.
+  bool isFull(PartEdgePtr pedge);
+  // Returns whether this AbstractObject denotes the empty set.
+  bool isEmpty(PartEdgePtr pedge);
+  
+  std::string str(std::string indent="") const { return "FuncResultMemLocObject"; }
+  std::string str(std::string indent="")       { return "FuncResultMemLocObject"; }
+  std::string strp(PartEdgePtr pedge, std::string indent="") { return "FuncResultMemLocObject"; }
+  
+  // Allocates a copy of this object and returns a pointer to it
+  MemLocObjectPtr copyML() const;
+};
+typedef boost::shared_ptr<FuncResultMemLocObject> FuncResultMemLocObjectPtr;
 
 // Holds a pair of MemLocObjectPtr (one for the expression object and another for the object in memory) and provides 
 // basic functionality to accessing them easily
@@ -243,11 +357,23 @@ class CombinedMemLocObject : public virtual MemLocObject
   bool mayEqualML(MemLocObjectPtr o, PartEdgePtr pedge);
   bool mustEqualML(MemLocObjectPtr o, PartEdgePtr pedge);
   
+  // Returns whether the two abstract objects denote the same set of concrete objects
+  bool equalSet(AbstractObjectPtr o, PartEdgePtr pedge);
+  
   // Allocates a copy of this object and returns a pointer to it
   MemLocObjectPtr copyML() const;
   
   // Returns true if this object is live at the given part and false otherwise
-  bool isLive(PartEdgePtr pedge) const;
+  bool isLiveML(PartEdgePtr pedge);
+  
+  // Computes the meet of this and that and saves the result in this
+  // returns true if this causes this to change and false otherwise
+  bool meetUpdateML(MemLocObjectPtr that, PartEdgePtr pedge);
+  
+  // Returns whether this AbstractObject denotes the set of all possible execution prefixes.
+  bool isFull(PartEdgePtr pedge);
+  // Returns whether this AbstractObject denotes the empty set.
+  bool isEmpty(PartEdgePtr pedge);
   
   std::string str(std::string indent="");
 };
@@ -264,6 +390,7 @@ typedef boost::shared_ptr<UnionMemLocObject> UnionMemLocObjectPtr;
 
 class CodeLocObject;
 typedef boost::shared_ptr<CodeLocObject> CodeLocObjectPtr;
+//typedef boost::shared_ptr<const CodeLocObject> ConstCodeLocObjectPtr;
 extern CodeLocObjectPtr NULLCodeLocObject;
 
 class CodeLocObject : public AbstractObject
@@ -273,40 +400,51 @@ class CodeLocObject : public AbstractObject
   CodeLocObject(SgNode* base) : AbstractObject(base) {}
   CodeLocObject(const MemLocObject& that) : AbstractObject(that) {}
   
+  // Wrapper for shared_from_this that returns an instance of this class rather than its parent
+  CodeLocObjectPtr shared_from_this() { return boost::static_pointer_cast<CodeLocObject>(AbstractObject::shared_from_this()); }
+  
+  // Functions that identify the type of AbstractObject this is. Should be over-ridden by derived
+  // classes to save the cost of a dynamic cast.
+  bool isMemLocObject()  { return false; }
+  bool isCodeLocObject() { return true; }
+  bool isValueObject()   { return false; }
+  
+//private:
   // Returns whether this object may/must be equal to o within the given Part p
+  // These methods are called by composers and should not be called by analyses.
   virtual bool mayEqualCL(CodeLocObjectPtr o, PartEdgePtr pedge)=0;
   virtual bool mustEqualCL(CodeLocObjectPtr o, PartEdgePtr pedge)=0;
   
+public:
   // General version of mayEqual and mustEqual that implements may/must equality with respect to ExprObj
   // and uses the derived class' may/mustEqual check for all the other cases
   // GREG: Currently nothing interesting here since we don't support ExprObjs for CodeLocObjects
-  bool mayEqual(CodeLocObjectPtr o, PartEdgePtr pedge)
-  {
-    return mayEqualCL(o, pedge);
-  }
-  bool mustEqual(CodeLocObjectPtr o, PartEdgePtr pedge)
-  {
-    if(AbstractObject::mustEqual(boost::static_pointer_cast<AbstractObject>(o), pedge)) return true;
-    
-    if(AbstractObject::mustEqual(o, pedge)) return true;
-    return mustEqualCL(o, pedge);
-  }
+  bool mayEqual(CodeLocObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  bool mustEqual(CodeLocObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
   
-  bool mayEqual(AbstractObjectPtr o, PartEdgePtr pedge)
-  {
-    CodeLocObjectPtr co = boost::dynamic_pointer_cast<CodeLocObject>(o);
-    if(co) return mayEqual(co, pedge);
-    else   return false;
-  }
+  bool mayEqual(AbstractObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  bool mustEqual(AbstractObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
   
-  bool mustEqual(AbstractObjectPtr o, PartEdgePtr pedge)
-  {
-    if(AbstractObject::mustEqual(o, pedge)) return true;
-    
-    CodeLocObjectPtr co = boost::dynamic_pointer_cast<CodeLocObject>(o);
-    if(co) return mustEqual(co, pedge);
-    else   return false;
-  }
+//private:
+  // Returns true if this object is live at the given part and false otherwise.
+  // This method is called by composers and should not be called by analyses.
+  virtual bool isLiveCL(PartEdgePtr pedge)=0;
+  
+public:
+  // General version of isLive that accounts for framework details before routing the call to the derived class' 
+  // isLiveCL check. Specifically, it routes the call through the composer to make sure the isLiveCL call gets the 
+  // right PartEdge
+  bool isLive(PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  
+  // Computes the meet of this and that and saves the result in this
+  // returns true if this causes this to change and false otherwise
+  virtual bool meetUpdateCL(CodeLocObjectPtr that, PartEdgePtr pedge)=0;
+  
+  // General version of meetUpdate that accounts for framework details before routing the call to the derived class' 
+  // meetUpdateCL check. Specifically, it routes the call through the composer to make sure the meetUpdateCL 
+  // call gets the right PartEdge
+  bool meetUpdate(CodeLocObjectPtr that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  bool meetUpdate(AbstractObjectPtr that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
   
   // Allocates a copy of this object and returns a pointer to it
   virtual CodeLocObjectPtr copyCL() const=0;
@@ -328,8 +466,8 @@ public:
   {}
   
   // Returns whether this object may/must be equal to o within the given Part p
-  bool mayEqual(CodeLocObjectPtrPair that, PartEdgePtr pedge);
-  bool mustEqual(CodeLocObjectPtrPair that, PartEdgePtr pedge);
+  bool mayEqual(CodeLocObjectPtrPair that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  bool mustEqual(CodeLocObjectPtrPair that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
   
   // Returns a copy of this object
   CodeLocObjectPtrPair copyCL() const;
@@ -365,8 +503,20 @@ class CombinedCodeLocObject: public CodeLocObject
   bool mayEqualCL(CodeLocObjectPtr o, PartEdgePtr pedge);
   bool mustEqualCL(CodeLocObjectPtr o, PartEdgePtr pedge);
   
+  // Returns whether the two abstract objects denote the same set of concrete objects
+  bool equalSet(AbstractObjectPtr o, PartEdgePtr pedge);
+  
   // Returns true if this object is live at the given part and false otherwise
-  bool isLive(PartEdgePtr pedge) const;
+  bool isLiveCL(PartEdgePtr pedge);
+  
+  // Computes the meet of this and that and saves the result in this
+  // returns true if this causes this to change and false otherwise
+  bool meetUpdateCL(CodeLocObjectPtr that, PartEdgePtr pedge);
+  
+  // Returns whether this AbstractObject denotes the set of all possible execution prefixes.
+  bool isFull(PartEdgePtr pedge);
+  // Returns whether this AbstractObject denotes the empty set.
+  bool isEmpty(PartEdgePtr pedge);
   
   // Allocates a copy of this object and returns a pointer to it
   CodeLocObjectPtr copyCL() const;
@@ -384,6 +534,7 @@ typedef boost::shared_ptr<UnionCodeLocObject> UnionCodeLocObjectPtr;
 
 class ValueObject;
 typedef boost::shared_ptr<ValueObject> ValueObjectPtr;
+//typedef boost::shared_ptr<const ValueObject> ConstValueObjectPtr;
 extern ValueObjectPtr NULLValueObject;
 
 class ValueObject : public AbstractObject
@@ -393,9 +544,51 @@ class ValueObject : public AbstractObject
   ValueObject(SgNode* base) : AbstractObject(base) {}
   ValueObject(const MemLocObject& that) : AbstractObject(that) {}
   
+  // Wrapper for shared_from_this that returns an instance of this class rather than its parent
+  ValueObjectPtr shared_from_this() { return boost::static_pointer_cast<ValueObject>(AbstractObject::shared_from_this()); }
+  
+  // Functions that identify the type of AbstractObject this is. Should be over-ridden by derived
+  // classes to save the cost of a dynamic cast.
+  bool isMemLocObject()  { return false; }
+  bool isCodeLocObject() { return false; }
+  bool isValueObject()   { return true; }
+  
+//private:
   // Returns whether this object may/must be equal to o within the given Part p
-  virtual bool mayEqual(ValueObjectPtr o, PartEdgePtr pedge)=0;
-  virtual bool mustEqual(ValueObjectPtr o, PartEdgePtr pedge)=0;
+  // These methods are called by composers and should not be called by analyses.
+  virtual bool mayEqualV(ValueObjectPtr o, PartEdgePtr pedge)=0;
+  virtual bool mustEqualV(ValueObjectPtr o, PartEdgePtr pedge)=0;
+
+public:
+  
+  // Returns whether this object may/must be equal to o within the given Part p
+  // by propagating the call through the composer
+  bool mayEqual(ValueObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  bool mustEqual(ValueObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  
+  bool mayEqual(AbstractObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  bool mustEqual(AbstractObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  
+//private:
+  // Returns true if this object is live at the given part and false otherwise.
+  // This method is called by composers and should not be called by analyses.
+  // NOTE: we do not currently allow ValueObjects to implement an isLive methods because we assume that they'll always be live
+  bool isLiveV(PartEdgePtr pedge) { return true; }
+  
+public:
+  // Returns true if this object is live at the given part and false otherwise
+  // NOTE: we currently assume that ValueObjects are always live
+  bool isLive(PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis) { return true; }
+  
+  // Computes the meet of this and that and saves the result in this.
+  // Returns true if this causes this to change and false otherwise.
+  virtual bool meetUpdateV(ValueObjectPtr that, PartEdgePtr pedge)=0;
+  
+  // General version of meetUpdate that accounts for framework details before routing the call to the derived class' 
+  // meetUpdateV check. Specifically, it routes the call through the composer to make sure the meetUpdateV
+  // call gets the right PartEdge
+  bool meetUpdate(ValueObjectPtr that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  bool meetUpdate(AbstractObjectPtr that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
   
   // Returns true if this ValueObject corresponds to a concrete value that is statically-known
   virtual bool isConcrete()=0;
@@ -416,14 +609,7 @@ class ValueObject : public AbstractObject
   
   // GB 2012-09-26 : Do we need to have AbstractTypeObjects to represent uncertainty about the type?
   //                 How can we support type uncertainly for MemLocObjects?
-  
-  bool mayEqual(AbstractObjectPtr o, PartEdgePtr pedge);
-  bool mustEqual(AbstractObjectPtr o, PartEdgePtr pedge);
-  
-  // Returns true if this object is live at the given part and false otherwise.
-  // Values are always live.
-  bool isLive(PartEdgePtr pedge) const;
-  
+    
   // Allocates a copy of this object and returns a pointer to it
   virtual ValueObjectPtr copyV() const=0;
   AbstractObjectPtr copyAO() const;
@@ -449,8 +635,20 @@ class CombinedValueObject : public ValueObject
   
   // Returns whether this object may/must be equal to o within the given Part p
   // These methods are private to prevent analyses from calling them directly.
-  bool mayEqual(ValueObjectPtr o, PartEdgePtr pedge);
-  bool mustEqual(ValueObjectPtr o, PartEdgePtr pedge);
+  bool mayEqualV(ValueObjectPtr o, PartEdgePtr pedge);
+  bool mustEqualV(ValueObjectPtr o, PartEdgePtr pedge);
+  
+  // Returns whether the two abstract objects denote the same set of concrete objects
+  bool equalSet(AbstractObjectPtr o, PartEdgePtr pedge);
+  
+  // Computes the meet of this and that and saves the result in this
+  // returns true if this causes this to change and false otherwise
+  bool meetUpdateV(ValueObjectPtr that, PartEdgePtr pedge);
+  
+  // Returns whether this AbstractObject denotes the set of all possible execution prefixes.
+  bool isFull(PartEdgePtr pedge);
+  // Returns whether this AbstractObject denotes the empty set.
+  bool isEmpty(PartEdgePtr pedge);
   
   // Returns true if this ValueObject corresponds to a concrete value that is statically-known
   bool isConcrete();
@@ -584,13 +782,24 @@ typedef boost::shared_ptr<IndexVector> IndexVectorPtr;
 class IndexVector
 {
  public:
-   // the index vector's length
-   size_t getSize(PartEdgePtr pedge);
-   //virtual std::string str(const std::string& indent);
-   virtual std::string str(std::string indent); // pretty print for the object
-   // equal operator
-   virtual bool mayEqual (IndexVectorPtr other, PartEdgePtr pedge);
-   virtual bool mustEqual (IndexVectorPtr other, PartEdgePtr pedge);
+  // the index vector's length
+  size_t getSize(PartEdgePtr pedge);
+  //virtual std::string str(const std::string& indent);
+  virtual std::string str(std::string indent=""); // pretty print for the object
+
+  // Allocates a copy of this object and returns a pointer to it
+  virtual IndexVectorPtr copyIV() const=0;
+
+  // equal operator
+  virtual bool mayEqual  (IndexVectorPtr other, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  virtual bool mustEqual (IndexVectorPtr other, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  virtual bool meetUpdate(IndexVectorPtr other, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  
+  // Returns whether the two abstract objects denote the same set of concrete objects
+  virtual bool equalSet(IndexVectorPtr other, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  
+  virtual bool isFull    (PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
+  virtual bool isEmpty   (PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis);
 };
 
 #if 0 // Still not clear if users will get confused by this class

@@ -22,7 +22,7 @@ Function::Function(string name)
         //printf("Function::Function(string name) this=0x%x\n", this);
         //def = NULL;
         
-        Rose_STL_Container<SgNode*> functions = NodeQuery::querySubTree(cfgUtils::project, V_SgFunctionDeclaration);
+        Rose_STL_Container<SgNode*> functions = NodeQuery::querySubTree(SageInterface::getProject(), V_SgFunctionDeclaration);
         for (Rose_STL_Container<SgNode*>::const_iterator it = functions.begin(); it != functions.end(); it++)
         {
                 ROSE_ASSERT(isSgFunctionDeclaration(*it));

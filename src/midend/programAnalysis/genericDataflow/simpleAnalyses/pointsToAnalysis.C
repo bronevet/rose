@@ -140,8 +140,13 @@ namespace dataflow
                                         std::vector<Lattice*>& initLattices)
   {
     AbstractObjectMap* productlattice = new AbstractObjectMap(new MayEqualFunctor(),
-                                                              boost::make_shared<AbstractObjectSet>(pedge, AbstractObjectSet::may),
-                                                              pedge);
+                                                              boost::make_shared<AbstractObjectSet>(pedge, 
+                                                                                                    getComposer(), 
+                                                                                                    this, 
+                                                                                                    AbstractObjectSet::may),
+                                                              pedge,
+                                                              getComposer(),
+                                                              this);
     initLattices.push_back(productlattice);                                                                                                  
   }
 
@@ -224,7 +229,7 @@ namespace dataflow
       // Merge the lattices along all the outgoing edges
       map<PartEdgePtr, std::vector<Lattice*> >& e2lats = state->getLatticeBelowAllMod(this);
       ROSE_ASSERT(e2lats.size()>=1);
-      boost::shared_ptr<AbstractObjectSet> mergedSet = boost::make_shared<AbstractObjectSet>(pedge, AbstractObjectSet::may);
+      boost::shared_ptr<AbstractObjectSet> mergedSet = boost::make_shared<AbstractObjectSet>(pedge, getComposer(), this, AbstractObjectSet::may);
       for(map<PartEdgePtr, std::vector<Lattice*> >::iterator lats=e2lats.begin(); lats!=e2lats.end(); lats++) 
       {
         PartEdge* edgePtr = lats->first.get();

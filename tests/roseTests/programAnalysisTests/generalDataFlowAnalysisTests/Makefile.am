@@ -91,7 +91,13 @@ clean-taint-analysis:
 # C++ constant propagation tests on local specimens ("cxxcpls" unique prefix)
 ###############################################################################################################################
 
-CXX_CONSTPROP_LOCAL_SPECIMENS = cp_test1.C compositionalTestInput1.C compositionalTestInput2.C compositionalTestInput3.C compositionalTestInput4.C
+CXX_CONSTPROP_LOCAL_SPECIMENS = cp_test1.C \
+							compositionalTestInput1.C \
+							compositionalTestInput2.C \
+							compositionalTestInput3.C \
+							compositionalTestInput4.C \
+							sas13Fig1Example.cpp \
+							simplePtrTest.cpp
 EXTRA_DIST += $(CXX_CONSTPROP_LOCAL_SPECIMENS) constantPropagationTest.conf cp_test_status.txt
 CXX_CONSTPROP_LOCAL_TESTS = $(addprefix cxxcpls_, $(addsuffix .passed, $(CXX_CONSTPROP_LOCAL_SPECIMENS)))
 $(CXX_CONSTPROP_LOCAL_TESTS): cxxcpls_%.passed: $(srcdir)/% $(TEST_EXIT_STATUS) $(COMP_CONST_PROP) constantPropagationTest.conf

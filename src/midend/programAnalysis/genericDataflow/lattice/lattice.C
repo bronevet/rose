@@ -22,7 +22,10 @@ bool Lattice::setPartEdge(PartEdgePtr latPEdge) {
 
 // Returns the PartEdge that this Lattice's information corresponds to
 PartEdgePtr Lattice::getPartEdge()
-{ return this->latPEdge; }
+{ 
+//  Dbg::dbg << "Lattice::getPartEdge() this->latPEdge="<<this->latPEdge<<endl;
+//  Dbg::dbg << "Lattice::getPartEdge() this->latPEdge="<<this->latPEdge->str()<<endl;
+  return this->latPEdge; }
   
 /********************************************
  ************** BoolAndLattice **************
@@ -110,19 +113,27 @@ bool BoolAndLattice::andUpd(bool state)
 // Return true if this causes the object to change and false otherwise.
 bool BoolAndLattice::setToFull()
 {
-bool modified = (state!=1);
-state = 1;
-return modified;
+  bool modified = (state!=1);
+  state = 1;
+  return modified;
 }
 
 // Set this Lattice object to represent the of no execution prefixes (empty set).
 // Return true if this causes the object to change and false otherwise.
 bool BoolAndLattice::setToEmpty()
 {
-bool modified = (state!=-1);
-state = -1;
-return modified;
+  bool modified = (state!=-1);
+  state = -1;
+  return modified;
 }
+
+// Returns whether this lattice denotes the set of all possible execution prefixes.
+bool BoolAndLattice::isFull()
+{ return state==1; }
+
+// Returns whether this lattice denotes the empty set.
+bool BoolAndLattice::isEmpty()
+{ return state==-1; }
 
 string BoolAndLattice::str(string indent)
 {
@@ -261,19 +272,27 @@ bool IntMaxLattice::maximum(int value)
 // Return true if this causes the object to change and false otherwise.
 bool IntMaxLattice::setToFull()
 {
-bool modified = (state!=infinity);
-state = infinity;
-return modified;
+  bool modified = (state!=infinity);
+  state = infinity;
+  return modified;
 }
 
 // Set this Lattice object to represent the of no execution prefixes (empty set).
 // Return true if this causes the object to change and false otherwise.
 bool IntMaxLattice::setToEmpty()
 {
-bool modified = (state!=-1);
-state = -1;
-return modified;
+  bool modified = (state!=-1);
+  state = -1;
+  return modified;
 }
+
+// Returns whether this lattice denotes the set of all possible execution prefixes.
+bool IntMaxLattice::isFull()
+{ return state==infinity; }
+
+// Returns whether this lattice denotes the empty set.
+bool IntMaxLattice::isEmpty()
+{ return state==-1; }
 
 string IntMaxLattice::str(string indent)
 {
@@ -447,7 +466,7 @@ bool ProductLattice::operator==(Lattice* that_arg)
 // Return true if this causes the object to change and false otherwise.
 bool ProductLattice::setToFull()
 {
-bool modified = false;
+  bool modified = false;
   for(vector<Lattice*>::const_iterator it = lattices.begin(); it!=lattices.end(); it++)
       modified = (*it)->setToFull() || modified;
   return modified;
@@ -457,10 +476,33 @@ bool modified = false;
 // Return true if this causes the object to change and false otherwise.
 bool ProductLattice::setToEmpty()
 {
-bool modified = false;
+  bool modified = false;
   for(vector<Lattice*>::const_iterator it = lattices.begin(); it!=lattices.end(); it++)
       modified = (*it)->setToEmpty() || modified;
   return modified;
+}
+
+// Returns whether this lattice denotes the set of all possible execution prefixes.
+bool ProductLattice::isFull()
+{
+  // Since we're not sure whether the contents of the product lattice are exhaustive, 
+  // we don't bother checking if they are individually full and instead conservatively return false.
+  return false;
+}
+// Returns whether this lattice denotes the empty set.
+bool ProductLattice::isEmpty()
+{
+  // Check if all items are empty
+  for(std::vector<Lattice*>::iterator it=lattices.begin(); it!=lattices.end();) {
+    // If at least one is not empty, return false
+    if(!(*it)->isEmpty()) return false;
+    
+    // If this item is empty, remove it from the items list
+    lattices.erase(it++);
+  }
+  // If all are empty, return true
+  ROSE_ASSERT(lattices.size()==0);
+  return true;
 }
 
 // The string that represents this object

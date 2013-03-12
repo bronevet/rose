@@ -107,7 +107,7 @@ void FunctionState::setArgParamMap(PartPtr callPart, SgFunctionCallExp* call,
     // if(argP.expr) arg = argP.expr;
     // else    arg = argP.mem;
     
-    Dbg::dbg << "argParamMap["<<arg->str()<<"]="<< composer->Expr2MemLoc(*itP, funcNode->inEdgeFromAny(), analysis)->str()<<endl;
+    if(analysisDebugLevel>=1) Dbg::dbg << "argParamMap["<<arg->str()<<"]="<< composer->Expr2MemLoc(*itP, funcNode->inEdgeFromAny(), analysis)->str()<<endl;
     argParamMap.insert(make_pair(arg,
          composer->Expr2MemLoc(*itP, funcNode->inEdgeFromAny(), analysis)));
   }
@@ -140,7 +140,7 @@ void FunctionState::setArgByRef2ParamMap(PartPtr callPart, SgFunctionCallExp* ca
     if(isSgReferenceType(typeParam)) {
   // If the current argument expression corresponds to a real memory location, make its key the MemLocObject 
   // that corresponds to its memory location
-  /*Dbg::region reg(1,1, Dbg::region::topLevel, "setArgByRef2ParamMap");
+  /*Dbg::region reg(1,1, Dbg::region::midLevel, "setArgByRef2ParamMap");
   Dbg::dbg << "itParams=["<<(*itParams)->unparseToString()<<" | "<<(*itParams)->class_name()<<"]"<<endl;
   Dbg::dbg << "itParams MemLoc = "<<composer->Expr2MemLoc(*itParams, funcNode, analysis).strp(funcNode)<<endl;*/
   // if(isSgVarRefExp(*itArgs) || isSgPntrArrRefExp(*itArgs))
@@ -164,7 +164,8 @@ void FunctionState::setArgByRef2ParamMap(PartPtr callPart, SgFunctionCallExp* ca
   // paramArgByRef2ParamMap.insert(make_pair(composer->Expr2MemLoc(call, callPart->inEdgeFromAny(), analysis).expr,
   //           composer->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), funcNode->outEdgeToAny(), analysis).mem));
   paramArgByRef2ParamMap.insert(make_pair(composer->Expr2MemLoc(call, callPart->inEdgeFromAny(), analysis),
-                                          composer->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), funcNode->outEdgeToAny(), analysis)));
+                                          //composer->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), funcNode->outEdgeToAny(), analysis)
+                                          boost::make_shared<FuncResultMemLocObject>(func)));
 
   }
 }

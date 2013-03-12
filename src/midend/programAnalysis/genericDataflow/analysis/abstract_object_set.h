@@ -61,112 +61,123 @@ class AbstractObjectSet : public FiniteLattice
 public:
 
 private:
-    // NOTE: container only stores boost::shared_ptr pointer
-    // NOTE: shared_ptr is assumed to be used by all analysis
-    std::list<AbstractObjectPtr> items;
-    
-    /*typedef enum {mayEqual, notMayEqual} simType;
-    std::map<AbstractObjectPtr, std::map<AbstractObjectPtr, simType> > itemSimilarity;
-     int maxElements = 20;
-     */
+  Composer* comp;
+  ComposedAnalysis* analysis;
   
-    bool isFull;
+  // NOTE: container only stores boost::shared_ptr pointer
+  // NOTE: shared_ptr is assumed to be used by all analysis
+  std::list<AbstractObjectPtr> items;
+
+  /*typedef enum {mayEqual, notMayEqual} simType;
+  std::map<AbstractObjectPtr, std::map<AbstractObjectPtr, simType> > itemSimilarity;
+   int maxElements = 20;
+   */
+
+  bool setIsFull;
     
 public:
-    typedef enum {may=0, must=1} conserv;
+  typedef enum {may=0, must=1} conserv;
 private:
-    conserv mode;
+  conserv mode;
     
 public:
-    // constructor
-    AbstractObjectSet(PartEdgePtr pedge, conserv mode): 
-      Lattice(pedge), FiniteLattice(pedge), isFull(false), mode(mode)
-    {}
-    
-    AbstractObjectSet(const AbstractObjectSet* that) : 
-      Lattice(that->latPEdge), FiniteLattice(that->latPEdge), items(that->items), isFull(that->isFull), mode(that->mode)
-    {}
-    
-    AbstractObjectSet(const AbstractObjectSet& that) :
-      Lattice(that.latPEdge), FiniteLattice(that.latPEdge), items(that.items), isFull(that.isFull), mode(that.mode)
-    {}
+  // constructor
+  AbstractObjectSet(PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis, conserv mode): 
+    Lattice(pedge), FiniteLattice(pedge), comp(comp), analysis(analysis), setIsFull(false), mode(mode)
+  {}
 
-    ~AbstractObjectSet() { }
-    
-    int size() const 
-    { return items.size(); }
+  AbstractObjectSet(const AbstractObjectSet* that) : 
+    Lattice(that->latPEdge), FiniteLattice(that->latPEdge), comp(that->comp), analysis(that->analysis), items(that->items), setIsFull(that->setIsFull), mode(that->mode)
+  {}
 
-    // insert ObjSet into the list only if not mustEqual
-    // O(n) time -- inefficient due to lack of any strcuture in data
-    bool insert(AbstractObjectPtr);
+  AbstractObjectSet(const AbstractObjectSet& that) :
+    Lattice(that.latPEdge), FiniteLattice(that.latPEdge), comp(that.comp), analysis(that.analysis), items(that.items), setIsFull(that.setIsFull), mode(that.mode)
+  {}
 
-    // remove all ObjSet* that are mustEqual with this
-    // worst case O(n)
-    bool remove(const AbstractObjectPtr);
+  ~AbstractObjectSet() { }
 
-    // if mustEqual(ObjSet) ? true ; false
-    bool containsMust(const AbstractObjectPtr);
+  int size() const 
+  { return items.size(); }
 
-    bool containsMay(const AbstractObjectPtr);
+  // insert ObjSet into the list only if not mustEqual
+  // O(n) time -- inefficient due to lack of any strcuture in data
+  bool insert(AbstractObjectPtr that);
 
-    // -----------------
-    // Lattice methods
-    
-    // Set this Lattice object to represent the set of all possible execution prefixes.
-    // Return true if this causes the object to change and false otherwise.
-    bool setToFull();
-    
-    // Set this Lattice object to represent the of no execution prefixes (empty set).
-    // Return true if this causes the object to change and false otherwise.
-    bool setToEmpty();
+  // remove all ObjSet* that are mustEqual with this
+  // worst case O(n)
+  bool remove(const AbstractObjectPtr that);
 
-    std::string str(std::string indent);
-    // Variant of the str method that can produce information specific to the current PartEdge.
-    // Useful since AbstractObjects can change from one PartEdge to another.
-    std::string strp(PartEdgePtr pedge, std::string indent="");
-    
-    // initializes this Lattice to its default state, if it is not already initialized
-    void initialize();
-    
-    // returns a copy of this lattice
-    Lattice* copy() const;
-    
-    // overwrites the state of this Lattice with that of that Lattice
-    void copy(Lattice* thatL);
-    
-    // Called by analyses to transfer this lattice's contents from across function scopes from a caller function 
-    //    to a callee's scope and vice versa. If this this lattice maintains any information on the basis of 
-    //    individual MemLocObjects these mappings must be converted, with MemLocObjects that are keys of the ml2ml 
-    //    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
-    //    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets 
-    //    of MemLocObjects) this may not require any actual insertions.
-    // The function takes newPEdge, the edge that points to the part within which the values of ml2ml should be 
-    //    interpreted. It corresponds to the code region(s) to which we are remapping.
-    // remapML must return a freshly-allocated object.
-    // In must mode for each MemLocObject o in the set, if there exist any pairs <old, new> in ml2ml such that 
-    //    o mustEquals old, then new will be included in the final set.
-    // May mode is the same, except if for some pair <old, new> old mayEquals o but not mustEquals o then new is 
-    //    included in the final set but o is not removed.
-    Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartEdgePtr newPEdge);
+  // if mustEqual(ObjSet) ? true ; false
+  bool containsMust(const AbstractObjectPtr that);
 
-    // Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously 
-    //    maintained in this lattice about them.
-    // Returns true if the Lattice state is modified and false otherwise.
-    bool replaceML(Lattice* newL);
-    
-    // computes the meet of this and that and saves the result in this
-    // returns true if this causes this to change and false otherwise
-    bool meetUpdate(Lattice* that);
-    
-    bool operator==(Lattice* that);
-    
-    // Iterator Functions
+  bool containsMay(const AbstractObjectPtr that);
+  
+  // Returns true if this set contains an AbstractObject that denotes the same set as that; false otherwise
+  bool containsEqualSet(const AbstractObjectPtr that);
+
+  // -----------------
+  // Lattice methods
+
+  // Set this Lattice object to represent the set of all possible execution prefixes.
+  // Return true if this causes the object to change and false otherwise.
+  bool setToFull();
+
+  // Set this Lattice object to represent the of no execution prefixes (empty set).
+  // Return true if this causes the object to change and false otherwise.
+  bool setToEmpty();
+  
+  // Returns whether this lattice denotes the set of all possible execution prefixes.
+  bool isFull();
+  // Returns whether this lattice denotes the empty set.
+  bool isEmpty();
+
+  std::string str(std::string indent="");
+  // Variant of the str method that can produce information specific to the current PartEdge.
+  // Useful since AbstractObjects can change from one PartEdge to another.
+  std::string strp(PartEdgePtr pedge, std::string indent="");
+
+  // initializes this Lattice to its default state, if it is not already initialized
+  void initialize();
+
+  // returns a copy of this lattice
+  Lattice* copy() const;
+
+  // overwrites the state of this Lattice with that of that Lattice
+  void copy(Lattice* thatL);
+
+  // Called by analyses to transfer this lattice's contents from across function scopes from a caller function 
+  //    to a callee's scope and vice versa. If this this lattice maintains any information on the basis of 
+  //    individual MemLocObjects these mappings must be converted, with MemLocObjects that are keys of the ml2ml 
+  //    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
+  //    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets 
+  //    of MemLocObjects) this may not require any actual insertions.
+  // The function takes newPEdge, the edge that points to the part within which the values of ml2ml should be 
+  //    interpreted. It corresponds to the code region(s) to which we are remapping.
+  // remapML must return a freshly-allocated object.
+  // In must mode for each MemLocObject o in the set, if there exist any pairs <old, new> in ml2ml such that 
+  //    o mustEquals old, then new will be included in the final set.
+  // May mode is the same, except if for some pair <old, new> old mayEquals o but not mustEquals o then new is 
+  //    included in the final set but o is not removed.
+  Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartEdgePtr newPEdge);
+
+  // Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously 
+  //    maintained in this lattice about them.
+  // Returns true if the Lattice state is modified and false otherwise.
+  bool replaceML(Lattice* newL);
+
+  // computes the meet of this and that and saves the result in this
+  // returns true if this causes this to change and false otherwise
+  bool meetUpdate(Lattice* that);
+
+  bool operator==(Lattice* that);
+
+  // Iterator Functions
 public:
-    typedef std::list<AbstractObjectPtr>::iterator iterator;
-    typedef std::list<AbstractObjectPtr>::const_iterator const_iterator;
+  typedef std::list<AbstractObjectPtr>::iterator iterator;
+  typedef std::list<AbstractObjectPtr>::const_iterator const_iterator;
 
-    const_iterator begin() const { return items.begin(); }
-    const_iterator end() const { return items.end(); }
+  const_iterator begin() const { return items.begin(); }
+  const_iterator end() const { return items.end(); }
 
 /*protected:
     iterator begin() { return items.begin(); }

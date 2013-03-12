@@ -8,7 +8,6 @@
 #include <vector>
 
 namespace dataflow {
-
 template <class LatticeType>
 class VariableStateTransfer : public IntraDFTransferVisitor
 {
@@ -34,7 +33,7 @@ class VariableStateTransfer : public IntraDFTransferVisitor
     ROSE_ASSERT(sgn);
     // MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->inEdgeFromAny(), analysis);
     MemLocObjectPtr p = composer->Expr2MemLoc(sgn, part->inEdgeFromAny(), analysis);
-    Dbg::dbg << "VariableStateTransfer::getLattice() p="<<p->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+    if(debugLevel>=1) Dbg::dbg << "VariableStateTransfer::getLattice() p="<<p->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     
     return getLatticeCommon(sgn, p);
   }
@@ -45,7 +44,7 @@ class VariableStateTransfer : public IntraDFTransferVisitor
     ROSE_ASSERT(sgn);
     // MemLocObjectPtrPair p = composer->OperandExpr2MemLoc(sgn, operand, part->inEdgeFromAny(), analysis);
     MemLocObjectPtr p = composer->OperandExpr2MemLoc(sgn, operand, part->inEdgeFromAny(), analysis);
-    Dbg::dbg << "VariableStateTransfer::getLatticeOperand() p="<<p->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+    if(debugLevel>=1) Dbg::dbg << "VariableStateTransfer::getLatticeOperand() p="<<p->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     
     return getLatticeCommon(operand, p);
   }
@@ -66,7 +65,7 @@ class VariableStateTransfer : public IntraDFTransferVisitor
   
   LatticePtr getLattice(const AbstractObjectPtr o) {
     LatticePtr l = boost::dynamic_pointer_cast<LatticeType>(prodLat->get(o));
-    Dbg::dbg << "getLattice(o="<<o->strp(part->inEdgeFromAny(), "")<<", l="<<l->strp(part->inEdgeFromAny(), "")<<endl;
+    if(debugLevel>=1) Dbg::dbg << "getLattice(o="<<o->strp(part->inEdgeFromAny(), "")<<", l="<<l->strp(part->inEdgeFromAny(), "")<<endl;
     ROSE_ASSERT(l);
     return l;
   }
@@ -77,7 +76,7 @@ class VariableStateTransfer : public IntraDFTransferVisitor
     ROSE_ASSERT(sgn);
     // MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->inEdgeFromAny(), analysis);
     MemLocObjectPtr p = composer->Expr2MemLoc(sgn, part->inEdgeFromAny(), analysis);
-    Dbg::dbg << "setLattice() edge="<<part->inEdgeFromAny()->str()<<" p="<<p->strp(part->inEdgeFromAny(), "&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+    if(debugLevel>=1) Dbg::dbg << "setLattice() edge="<<part->inEdgeFromAny()->str()<<" p="<<p->strp(part->inEdgeFromAny(), "&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     
     setLatticeCommon(sgn, p, lat);
   }
@@ -88,7 +87,7 @@ class VariableStateTransfer : public IntraDFTransferVisitor
     ROSE_ASSERT(sgn);
     // MemLocObjectPtrPair p = composer->OperandExpr2MemLoc(sgn, operand, part->inEdgeFromAny(), analysis);
     MemLocObjectPtr p = composer->OperandExpr2MemLoc(sgn, operand, part->inEdgeFromAny(), analysis);
-    Dbg::dbg << "setLatticeOperand() p="<<p->strp(part->inEdgeFromAny(), "&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+    if(debugLevel>=1) Dbg::dbg << "setLatticeOperand() p="<<p->strp(part->inEdgeFromAny(), "&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     
     setLatticeCommon(operand, p, lat);
   }
@@ -113,9 +112,9 @@ class VariableStateTransfer : public IntraDFTransferVisitor
   }
   
   void setLattice(const AbstractObjectPtr o, LatticePtr lat) {
-    //Dbg::dbg << "setLattice(o="<<o->strp(part->inEdgeFromAny(), "")<<", lat="<<lat->strp(part->inEdgeFromAny(), "")<<endl;
+    //if(debugLevel>=1) Dbg::dbg << "setLattice(o="<<o->strp(part->inEdgeFromAny(), "")<<", lat="<<lat->strp(part->inEdgeFromAny(), "")<<endl;
     updateModified(prodLat->insert(o, lat));
-    //Dbg::dbg << "&nbsp;&nbsp;&nbsp;prodLat="<<prodLat->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+    //if(debugLevel>=1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;prodLat="<<prodLat->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
   }
 
   bool getLattices(SgBinaryOp *sgn, LatticePtr &arg1Lat, LatticePtr &arg2Lat, LatticePtr &resLat) {
@@ -123,7 +122,7 @@ class VariableStateTransfer : public IntraDFTransferVisitor
     arg2Lat = getLatticeOperand(sgn, sgn->get_rhs_operand());
     resLat  = getLattice(sgn);
 
-    //Dbg::dbg << "transfer B, resLat="<<resLat<<"\n";
+    //if(debugLevel>=1) Dbg::dbg << "transfer B, resLat="<<resLat<<"\n";
 
     return (arg1Lat && arg2Lat && resLat);
   }
@@ -137,8 +136,10 @@ class VariableStateTransfer : public IntraDFTransferVisitor
       // GB: This will not work for general lattices
       arg2Lat = (LatticePtr)(new LatticeType(1, part->inEdgeFromAny()));
     }
+    //if(debugLevel>=1)  {
     //Dbg::dbg << "res="<<res.str()<<" arg1="<<arg1.str()<<" arg1Lat="<<arg1Lat<<", arg2Lat="<<arg2Lat<<"\n";
     //Dbg::dbg << "transfer B, resLat="<<resLat<<"\n";
+    // }
     
     return (arg1Lat && arg2Lat && resLat);
   }
@@ -157,7 +158,7 @@ public:
     defaultLat(defaultLat),
     composer(composer), analysis(analysis), part(part)
   {
-    //Dbg::dbg << "transfer A prodLat="<<prodLat<<"="<<prodLat->str("    ")<<"\n";
+    //if(debugLevel>=1) Dbg::dbg << "transfer A prodLat="<<prodLat<<"="<<prodLat->str("    ")<<"\n";
     // Make sure that all the lattices are initialized
     /*conVariableStateTransferst std::vector<Lattice*>& lattices = prodLat->getLattices();
     for(std::vector<Lattice*>::const_iterator it = lattices.begin(); it!=lattices.end(); it++)
@@ -179,7 +180,7 @@ public:
     LatticePtr lhsLat, rhsLat, resLat;
     getLattices(sgn, lhsLat, rhsLat, resLat);
                 
-    if(debugLevel>=1) {
+    if(debugLevel>=1)  {
       Dbg::dbg << "resLat=\n"; { Dbg::indent ind; Dbg::dbg << resLat->str("")<<"\n";}
       Dbg::dbg << "lhsLat=\n"; { Dbg::indent ind; Dbg::dbg << lhsLat->str("")<<"\n";}
       Dbg::dbg << "rhsLat=\n"; { Dbg::indent ind; Dbg::dbg << rhsLat->str("")<<"\n"; }
@@ -235,18 +236,18 @@ public:
 
   void visit(SgInitializedName *initName)
   {
-    Dbg::dbg << "visit(SgInitializedName *initName)"<<endl;
-    Dbg::indent ind;
+    //if(debugLevel>=1) Dbg::dbg << "visit(SgInitializedName *initName)"<<endl;
+    Dbg::indent ind(debugLevel, 1);
     LatticePtr initLat;
     if(initName->get_initializer()) {
       initLat = getLatticeOperand(initName, initName->get_initializer());
-      Dbg::dbg << "initializer exists: "<<initLat->str("    ")<<"\n";
+      if(debugLevel>=1) Dbg::dbg << "initializer exists: "<<initLat->str("    ")<<"\n";
     // If there was no initializer, var's lattice is set to the default lattice 
     } else {
         boost::shared_ptr<Lattice> initLat2(defaultLat->copy());
       initLat = boost::dynamic_pointer_cast<LatticeType>(initLat2);
       initLat->setToEmpty();
-      Dbg::dbg << "no initializer: "<<initLat->str("    ")<<"\n";
+     if(debugLevel>=1) Dbg::dbg << "no initializer: "<<initLat->str("    ")<<"\n";
     }
     setLattice(initName, initLat);
     modified = true;
@@ -254,7 +255,7 @@ public:
   
 /*  void visit(SgVariableDeclaration *decl)
   {
-    Dbg::dbg << "visit(SgVariableDeclaration *decl)"<<endl;
+    if(debugLevel>=1) Dbg::dbg << "visit(SgVariableDeclaration *decl)"<<endl;
     for(SgInitializedNamePtrList::iterator it=decl->get_variables().begin(); it!=decl->get_variables().end(); it++)
       visit(*it);
   }*/
@@ -272,8 +273,8 @@ public:
   }
   
   void visit(SgPntrArrRefExp *sgn) {
-    Dbg::dbg << "<b>VariableStrateTransfer::visit(SgPntrArrRefExp *sgn)" << endl;
-    Dbg::indent ind;
+    if(debugLevel>=1) Dbg::dbg << "<b>VariableStrateTransfer::visit(SgPntrArrRefExp *sgn)" << endl;
+    Dbg::indent ind(debugLevel, 1);
     // Copy data from the memory location identified by the array index expression to the
     // expression object of the SgPntrArrRefExp.
     // MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->inEdgeFromAny(), analysis);
@@ -284,19 +285,21 @@ public:
     //    (!isSgPntrArrRefExp (sgn->get_parent()) || !isSgPntrArrRefExp (isSgPntrArrRefExp (sgn->get_parent())->get_lhs_operand())))
     // {
     //   assert(p.mem);
-    //   Dbg::dbg << "Getting "<<p.mem->str("")<<endl;
+    //   if(debugLevel>=1) Dbg::dbg << "Getting "<<p.mem->str("")<<endl;
     //   dataLat = getLattice(AbstractObjectPtr(p.mem));
     // } else {
-    //   Dbg::dbg << "Getting "<<p.expr->str("")<<endl;
+    //   if(debugLevel>=1) Dbg::dbg << "Getting "<<p.expr->str("")<<endl;
     //   dataLat = getLattice(AbstractObjectPtr(p.expr));
     // }
-    Dbg::dbg << "Getting p="<<p->str("")<<endl;
+    if(debugLevel>=1) Dbg::dbg << "Getting p="<<p->str("")<<endl;
     dataLat = getLattice(AbstractObjectPtr(p));
-    Dbg::dbg << "Setting p="<<p->str("")<<endl;
-    Dbg::dbg << "to lat="<<dataLat->str("")<<endl;
+    if(debugLevel>=1) {
+      Dbg::dbg << "Setting p="<<p->str("")<<endl;
+      Dbg::dbg << "to lat="<<dataLat->str("")<<endl;
+    }
     setLattice(AbstractObjectPtr(p), dataLat);
     modified = true;
-    Dbg::dbg << "</b>"<<endl;
+    if(debugLevel>=1) Dbg::dbg << "</b>"<<endl;
   }
 
   void visit(SgCompoundAssignOp *sgn) {

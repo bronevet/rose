@@ -6,16 +6,50 @@ using namespace std;
 
 namespace dataflow
 {
-bool AbstractObject::mustEqual(AbstractObjectPtr o, PartEdgePtr pedge)
+
+// Functions that identify the type of AbstractObject this is. Should be over-ridden by derived
+// classes to save the cost of a dynamic cast.
+bool AbstractObject::isMemLocObject()  { return dynamic_cast<MemLocObject*> (this); }
+bool AbstractObject::isCodeLocObject() { return dynamic_cast<CodeLocObject*>(this); }
+bool AbstractObject::isValueObject()   { return dynamic_cast<ValueObject*>  (this); }
+  
+// Simple equality test that just checks whether the two objects correspond to the same expression
+bool AbstractObject::mustEqualExpr(AbstractObjectPtr o, PartEdgePtr pedge)
 {
+  // GREG: I'm not sure if this is actually valid since the same expression can denote different sets at different loop iterations
+  
   // If both AbstractObjects have non-NULL bases, we can tell that they're must-equal by simply confirming
   // that their bases are equal
   if(base && o->base && base==o->base) {
-    Dbg::dbg << "AbstractObject::mustEqual() base="<<cfgUtils::SgNode2Str(base)<<" o->base="<<cfgUtils::SgNode2Str(o->base)<<endl;
+    Dbg::dbg << "AbstractObject::mustEqualExpr() base="<<cfgUtils::SgNode2Str(base)<<" o->base="<<cfgUtils::SgNode2Str(o->base)<<endl;
     return true;
   // Otherwise, we don't know and must answer conservatively
   } else return false;
 }
+
+// General versions of equalSet() that accounts for framework details before routing the call to the 
+// derived class' equalSet() check. Specifically, it routes the call through the composer to make 
+// sure the equalSet() call gets the right PartEdge.
+bool AbstractObject::equalSet(AbstractObjectPtr that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{ 
+        if(isMemLocObject() && that->isMemLocObject()) {
+          // If either this or that are FuncResultMemLocObject, they denote the same set if they both are
+          FuncResultMemLocObject* frmlcoThis  = dynamic_cast<FuncResultMemLocObject*>(this);
+          FuncResultMemLocObjectPtr frmlcoThat = boost::dynamic_pointer_cast<FuncResultMemLocObject>(that);
+          if(frmlcoThis) return frmlcoThat;
+          else if(frmlcoThat) return false;
+        }
+        return comp->equalSet(shared_from_this(), that, pedge, analysis);
+}
+
+// General versions of isFull() and isEmpty that account for framework details before routing the call to the 
+// derived class' isFull() and isEmpty()  check. Specifically, it routes the call through the composer to make 
+// sure the isFull(PartEdgePtr) and isEmpty(PartEdgePtr) call gets the right PartEdge.
+bool AbstractObject::isFull(PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{ return comp->isFull(shared_from_this(), pedge, analysis); }
+
+bool AbstractObject::isEmpty(PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{ return comp->isEmpty(shared_from_this(), pedge, analysis); }
 
 /* ########################
    ##### MemLocObject ##### 
@@ -23,48 +57,157 @@ bool AbstractObject::mustEqual(AbstractObjectPtr o, PartEdgePtr pedge)
 
 MemLocObjectPtr NULLMemLocObject;
   
-// General version of mayEqual and mustEqual that implements may/must equality with respect to ExprObj
-// and uses the derived class' may/mustEqual check for all the other cases
-bool MemLocObject::mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)
+// General version of mayEqual and mustEqual that accounts for framework details before routing the call to the 
+// derived class' may/mustEqual check. Specifically, it checks may/must equality with respect to ExprObj and routes
+// the call through the composer to make sure the may/mustEqual call gets the right PartEdge
+bool MemLocObject::mayEqual(MemLocObjectPtr that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
 {
+  // If either this or that are FuncResultMemLocObject, they mayEqual iff they both are
+  FuncResultMemLocObject* frmlcoThis  = dynamic_cast<FuncResultMemLocObject*>(this);
+  FuncResultMemLocObjectPtr frmlcoThat = boost::dynamic_pointer_cast<FuncResultMemLocObject>(that);
+  if(frmlcoThis) return frmlcoThat;
+  else if(frmlcoThat) return false;
+
   // If both this and that are both expression objects or both not expression objects, use the
   // derived class' equality check
   //Dbg::dbg << "MemLocObject::mayEqual() dynamic_cast<const ExprObj*>(this)="<<dynamic_cast<const ExprObj*>(this)<<" dynamic_cast<const ExprObj*>(o.get())="<<dynamic_cast<const ExprObj*>(o.get())<<endl;
-  if((dynamic_cast<const ExprObj*>(this)  && dynamic_cast<const ExprObj*>(o.get())) ||
-     (!dynamic_cast<const ExprObj*>(this) && !dynamic_cast<const ExprObj*>(o.get())))
-  { return mayEqualML(o, pedge); }
+  if((dynamic_cast<const ExprObj*>(this)  && dynamic_cast<const ExprObj*>(that.get())) ||
+     (!dynamic_cast<const ExprObj*>(this) && !dynamic_cast<const ExprObj*>(that.get())))
+  //{ return mayEqualML(that, pedge); }
+  // Route the check through the composer, which makes sure to call the derived class' check at the correct PartEdge
+  { return comp->mayEqualML(shared_from_this(), that, pedge, analysis); }
   // Otherwise, we know they're not equal
+  else
   { return false; }
 }
-bool MemLocObject::mustEqual(MemLocObjectPtr o, PartEdgePtr pedge)
+
+// General version of mayEqual and mustEqual that accounts for framework details before routing the call to the 
+// derived class' may/mustEqual check. Specifically, it checks may/must equality with respect to ExprObj and routes
+// the call through the composer to make sure the may/mustEqual call gets the right PartEdge
+bool MemLocObject::mustEqual(MemLocObjectPtr that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
 {
-  if(AbstractObject::mustEqual(boost::static_pointer_cast<AbstractObject>(o), pedge)) return true;
+  // If either this or that are FuncResultMemLocObject, they mustEqual iff they both are
+  FuncResultMemLocObject* frmlcoThis  = dynamic_cast<FuncResultMemLocObject*>(this);
+  FuncResultMemLocObjectPtr frmlcoThat = boost::dynamic_pointer_cast<FuncResultMemLocObject>(that);
+  if(frmlcoThis) return frmlcoThat;
+  else if(frmlcoThat) return frmlcoThis;
+  
+  // Efficiently compute must equality for simple cases where the two MemLocObjects correspond to the same SgNode
+  if(AbstractObject::mustEqualExpr(boost::static_pointer_cast<AbstractObject>(that), pedge)) return true;
   
   // If both this and that are both expression objects or both not expression objects, use the
   // derived class' equality check
   //Dbg::dbg << "MemLocObject::mustEqual() dynamic_cast<const ExprObj*>(this)="<<dynamic_cast<const ExprObj*>(this)<<"="<<const_cast<MemLocObject*>(this)->str("")<<endl;
   //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;dynamic_cast<const ExprObj*>(o.get())="<<dynamic_cast<const ExprObj*>(o.get())<<"="<<o->str("")<<endl;
-  if((dynamic_cast<const ExprObj*>(this)  && dynamic_cast<const ExprObj*>(o.get())) ||
-     (!dynamic_cast<const ExprObj*>(this) && !dynamic_cast<const ExprObj*>(o.get())))
-  { return mustEqualML(o, pedge); }
+  if((dynamic_cast<const ExprObj*>(this)  && dynamic_cast<const ExprObj*>(that.get())) ||
+     (!dynamic_cast<const ExprObj*>(this) && !dynamic_cast<const ExprObj*>(that.get())))
+  //{ return mustEqualML(that, pedge); }
+  // Route the check through the composer, which makes sure to call the derived class' check at the correct PartEdge
+  { return comp->mustEqualML(shared_from_this(), that, pedge, analysis); }
   // Otherwise, we know they're not equal
+  else
   { return false; }
 }
 
-bool MemLocObject::mayEqual(AbstractObjectPtr o, PartEdgePtr pedge)
+// Check whether that is a MemLocObject and if so, call the version of mayEqual specific to MemLocObjects
+bool MemLocObject::mayEqual(AbstractObjectPtr that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
 {
-  MemLocObjectPtr mo = boost::dynamic_pointer_cast<MemLocObject>(o);
-  if(mo) return mayEqual(mo, pedge);
+  MemLocObjectPtr mo = boost::dynamic_pointer_cast<MemLocObject>(that);
+  if(mo) return mayEqual(mo, pedge, comp, analysis);
   else   return false;
 }
 
-bool MemLocObject::mustEqual(AbstractObjectPtr o, PartEdgePtr pedge)
+// Check whether that is a MemLocObject and if so, call the version of mustEqual specific to MemLocObjects
+bool MemLocObject::mustEqual(AbstractObjectPtr that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
 {
-  if(AbstractObject::mustEqual(o, pedge)) return true;
+  if(AbstractObject::mustEqualExpr(that, pedge)) return true;
   
-  MemLocObjectPtr mo = boost::dynamic_pointer_cast<MemLocObject>(o);
-  if(mo) return mustEqual(mo, pedge);
+  MemLocObjectPtr mo = boost::dynamic_pointer_cast<MemLocObject>(that);
+  if(mo) return mustEqual(mo, pedge, comp, analysis);
   else   return false;
+}
+
+// General version of isLive that accounts for framework details before routing the call to the derived class' 
+// isLiveML check. Specifically, it routes the call through the composer to make sure the isLiveML call gets the 
+// right PartEdge
+bool MemLocObject::isLive(PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{ return comp->isLiveMemLoc(shared_from_this(), pedge, analysis); }
+
+// General version of meetUpdate() that accounts for framework details before routing the call to the derived class' 
+// meetUpdateML check. Specifically, it routes the call through the composer to make sure the meetUpdateML 
+// call gets the right PartEdge
+bool MemLocObject::meetUpdate(MemLocObjectPtr that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{ return comp->meetUpdateMemLoc(shared_from_this(), that, pedge, analysis); }
+
+bool MemLocObject::meetUpdate(AbstractObjectPtr that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{
+  MemLocObjectPtr ml = boost::dynamic_pointer_cast<MemLocObject>(that);
+  ROSE_ASSERT(ml);
+  return meetUpdate(ml, pedge, comp, analysis);
+}
+
+/* ##################################
+   ##### FuncResultMemLocObject ##### 
+   ################################## */
+
+// Special MemLocObject used internally by the framework to associate with the return value of a function
+//FuncResultMemLocObject::FuncResultMemLocObject(Function func) : func(func) {}
+  
+// Returns whether this object may/must be equal to o within the given Part p
+bool FuncResultMemLocObject::mayEqualML(MemLocObjectPtr o, PartEdgePtr pedge)
+{
+  // The logic of MemLocObject::mayEqual should ensure that we never get here
+  ROSE_ASSERT(0);
+  
+  /* // All FuncResultMemLocObjects are equal to each other but not to other types of MemLocObjects
+  FuncResultMemLocObjectPtr that = boost::dynamic_pointer_cast<FuncResultMemLocObject>(o);
+  return that;*/
+  
+  //return func==that->func;
+}
+
+bool FuncResultMemLocObject::mustEqualML(MemLocObjectPtr o, PartEdgePtr pedge)
+{
+  // The logic of MemLocObject::mayEqual should ensure that we never get here
+  ROSE_ASSERT(0);
+  
+  /*// All FuncResultMemLocObjects are equal to each other but not to other types of MemLocObjects
+  FuncResultMemLocObjectPtr that = boost::dynamic_pointer_cast<FuncResultMemLocObject>(o);
+  return that;*/
+  
+  //return func==that->func;
+}
+
+// Returns whether the two abstract objects denote the same set of concrete objects
+bool FuncResultMemLocObject::equalSet(AbstractObjectPtr o, PartEdgePtr pedge)
+{
+  //The two objects denote the same set iff they're both FuncResultMemLocObjects that correspond to the same function
+  FuncResultMemLocObjectPtr that = boost::dynamic_pointer_cast<FuncResultMemLocObject>(o);
+  return that && func==that->func;
+}
+
+// Computes the meet of this and that and saves the result in this
+// returns true if this causes this to change and false otherwise
+bool FuncResultMemLocObject::meetUpdateML(MemLocObjectPtr that, PartEdgePtr pedge)
+{
+  ROSE_ASSERT(0);
+}
+
+// Returns whether this AbstractObject denotes the set of all possible execution prefixes.
+bool FuncResultMemLocObject::isFull(PartEdgePtr pedge)
+{
+  return false;
+}
+
+// Returns whether this AbstractObject denotes the empty set.
+bool FuncResultMemLocObject::isEmpty(PartEdgePtr pedge)
+{
+  return false;
+}
+
+MemLocObjectPtr FuncResultMemLocObject::copyML() const
+{
+  return boost::make_shared<FuncResultMemLocObject>(func);
 }
 
 /* ###############################
@@ -293,7 +436,7 @@ boost::shared_ptr<CombinedMemLocObject<defaultMayEq> > CombinedMemLocObject<defa
 template <bool defaultMayEq>
 boost::shared_ptr<CombinedMemLocObject<defaultMayEq> > CombinedMemLocObject<defaultMayEq>::create(const std::list<MemLocObjectPtr>& memLocs)
 {
-  Dbg::dbg << "CombinedMemLocObject<"<<defaultMayEq<<">::create() generic "<< endl;
+  //Dbg::dbg << "CombinedMemLocObject<"<<defaultMayEq<<">::create() generic "<< endl;
   return boost::make_shared<CombinedMemLocObject<defaultMayEq> >(memLocs);
 }
 
@@ -321,7 +464,7 @@ bool CombinedMemLocObject<defaultMayEq>::mayEqualML(MemLocObjectPtr o, PartEdgeP
       thisIt!=memLocs.end();
       thisIt++, thatIt++)
   {
-    if((*thisIt)->mayEqual(*thatIt, pedge) == defaultMayEq) return defaultMayEq;
+    if((*thisIt)->mayEqualML(*thatIt, pedge) == defaultMayEq) return defaultMayEq;
   }
   
   return !defaultMayEq;
@@ -343,22 +486,83 @@ bool CombinedMemLocObject<defaultMayEq>::mustEqualML(MemLocObjectPtr o, PartEdge
       thisIt!=memLocs.end();
       thisIt++, thatIt++)
   {
-    if((*thisIt)->mustEqual(*thatIt, pedge) == !defaultMayEq) return !defaultMayEq;
+    if((*thisIt)->mustEqualML(*thatIt, pedge) == !defaultMayEq) return !defaultMayEq;
   }
   
   return defaultMayEq;
 }
 
+// Returns whether the two abstract objects denote the same set of concrete objects
+template <bool defaultMayEq>
+bool CombinedMemLocObject<defaultMayEq>::equalSet(AbstractObjectPtr o, PartEdgePtr pedge)
+{
+  boost::shared_ptr<CombinedMemLocObject<defaultMayEq> > that = boost::dynamic_pointer_cast<CombinedMemLocObject<defaultMayEq> >(o);
+  ROSE_ASSERT(that);
+  ROSE_ASSERT(memLocs.size() == that->memLocs.size());
+  
+  // Two unions and intersections denote the same set of their components individually denote the same set
+  // (we can get a more precise answer if we could check set containment relations as well)
+  list<MemLocObjectPtr>::const_iterator mlThis = memLocs.begin();
+  list<MemLocObjectPtr>::const_iterator mlThat = that->memLocs.begin();
+  for(; mlThis!=memLocs.end(); mlThis++, mlThat++)
+    if(!(*mlThis)->equalSet(*mlThat, pedge)) return false;
+  return true;
+}
+
+
 // Returns true if this object is live at the given part and false otherwise
 template <bool defaultMayEq>
-bool CombinedMemLocObject<defaultMayEq>::isLive(PartEdgePtr pedge) const
+bool CombinedMemLocObject<defaultMayEq>::isLiveML(PartEdgePtr pedge)
 {
   // If this is a union type (defaultMayEq=true), an object is live if any of its components are live (weakest constraint)
   // If this is an intersection type (defaultMayEq=false), an object is dead if any of its components are dead (strongest constraint)
   for(list<MemLocObjectPtr>::const_iterator ml=memLocs.begin(); ml!=memLocs.end(); ml++)
-    if((*ml)->isLive(pedge) == defaultMayEq) return defaultMayEq;
+    if((*ml)->isLiveML(pedge) == defaultMayEq) return defaultMayEq;
   
   return !defaultMayEq;
+}
+
+// Computes the meet of this and that and saves the result in this
+// returns true if this causes this to change and false otherwise
+template <bool defaultMayEq>
+bool CombinedMemLocObject<defaultMayEq>::meetUpdateML(MemLocObjectPtr o, PartEdgePtr pedge)
+{
+  boost::shared_ptr<CombinedMemLocObject<defaultMayEq> > that = boost::dynamic_pointer_cast<CombinedMemLocObject<defaultMayEq> >(o);
+  ROSE_ASSERT(that);
+  ROSE_ASSERT(memLocs.size() == that->memLocs.size());
+  bool modified = false;
+  
+  // Perform the meetUpdate operation on all member MemLocs
+  list<MemLocObjectPtr>::const_iterator mlThis = memLocs.begin();
+  list<MemLocObjectPtr>::const_iterator mlThat = that->memLocs.begin();
+  for(; mlThis!=memLocs.end(); mlThis++, mlThat++)
+    modified = (*mlThis)->meetUpdateML(*mlThat, pedge) || modified;
+  return modified;
+}
+
+// Returns whether this AbstractObject denotes the set of all possible execution prefixes.
+template <bool defaultMayEq>
+bool CombinedMemLocObject<defaultMayEq>::isFull(PartEdgePtr pedge)
+{
+  // If this is a union type (defaultMayEq=true), an object is full if any of its components are full (weakest constraint)
+  // If this is an intersection type (defaultMayEq=false), an object is not full if any of its components are not full (strongest constraint)
+  for(list<MemLocObjectPtr>::const_iterator ml=memLocs.begin(); ml!=memLocs.end(); ml++)
+    if((*ml)->isFull(pedge) == defaultMayEq) return defaultMayEq;
+  
+  return !defaultMayEq;
+}
+
+
+// Returns whether this AbstractObject denotes the empty set.
+template <bool defaultMayEq>
+bool CombinedMemLocObject<defaultMayEq>::isEmpty(PartEdgePtr pedge)
+{
+  // If this is a union type (defaultMayEq=true), an object is not empty if any of its components are not empty (weakest constraint)
+  // If this is an intersection type (defaultMayEq=false), an object is empty if any of its components are empty (strongest constraint)
+  for(list<MemLocObjectPtr>::const_iterator ml=memLocs.begin(); ml!=memLocs.end(); ml++)
+    if((*ml)->isEmpty(pedge) != defaultMayEq) return !defaultMayEq;
+  
+  return defaultMayEq;
 }
 
 // Allocates a copy of this object and returns a pointer to it
@@ -370,7 +574,7 @@ template <bool defaultMayEq>
 std::string CombinedMemLocObject<defaultMayEq>::str(std::string indent)
 {
   ostringstream oss;
-  oss << "["<<(defaultMayEq? "UnionML" : "IntersectML")<<": ";
+  if(memLocs.size()>1) oss << "["<<(defaultMayEq? "UnionML" : "IntersectML")<<": ";
   if(memLocs.size()>1) oss << endl;
   for(list<MemLocObjectPtr>::iterator ml=memLocs.begin(); ml!=memLocs.end(); ) {
     if(ml!=memLocs.begin()) oss << indent << "&nbsp;&nbsp;&nbsp;&nbsp;";
@@ -378,7 +582,7 @@ std::string CombinedMemLocObject<defaultMayEq>::str(std::string indent)
     ml++;
     if(ml!=memLocs.end()) oss << endl;
   }
-  oss << "]";
+  if(memLocs.size()>1) oss << "]";
   
   return oss.str();
 }
@@ -408,29 +612,79 @@ static void exampleCombinedMemLocObjects2(MemLocObjectPtr ml, std::list<MemLocOb
 
 CodeLocObjectPtr NULLCodeLocObject;
 
+// General version of mayEqual and mustEqual that implements may/must equality with respect to ExprObj
+// and uses the derived class' may/mustEqual check for all the other cases
+// GREG: Currently nothing interesting here since we don't support ExprObjs for CodeLocObjects
+bool CodeLocObject::mayEqual(CodeLocObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+//{ return mayEqualCL(o, pedge); }
+{ return comp->mayEqualCL(shared_from_this(), o, pedge, analysis); }
+
+bool CodeLocObject::mustEqual(CodeLocObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{
+  if(AbstractObject::mustEqualExpr(o, pedge)) return true;
+  //return mustEqualCL(o, pedge);
+  return comp->mayEqualCL(shared_from_this(), o, pedge, analysis);
+}
+
+bool CodeLocObject::mayEqual(AbstractObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{
+  CodeLocObjectPtr co = boost::dynamic_pointer_cast<CodeLocObject>(o);
+  if(co) return mayEqual(co, pedge, comp, analysis);
+  else   return false;
+}
+
+bool CodeLocObject::mustEqual(AbstractObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{
+  if(AbstractObject::mustEqualExpr(o, pedge)) return true;
+
+  CodeLocObjectPtr co = boost::dynamic_pointer_cast<CodeLocObject>(o);
+  if(co) return mustEqual(co, pedge, comp, analysis);
+  else   return false;
+}
+
+// General version of isLive that accounts for framework details before routing the call to the derived class' 
+// isLiveCL check. Specifically, it routes the call through the composer to make sure the isLiveCL call gets the 
+// right PartEdge
+bool CodeLocObject::isLive(PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{ return comp->isLiveCodeLoc(shared_from_this(), pedge, analysis); }
+
+// General version of meetUpdate that accounts for framework details before routing the call to the derived class' 
+// meetUpdateCL check. Specifically, it routes the call through the composer to make sure the meetUpdateCL 
+// call gets the right PartEdge
+bool CodeLocObject::meetUpdate(CodeLocObjectPtr that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{ return comp->meetUpdateCodeLoc(shared_from_this(), that, pedge, analysis); }
+
+bool CodeLocObject::meetUpdate(AbstractObjectPtr that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{
+  CodeLocObjectPtr cl = boost::dynamic_pointer_cast<CodeLocObject>(that);
+  ROSE_ASSERT(cl);
+  return meetUpdate(cl, pedge, comp, analysis);
+}
+
 /* ################################
    ##### CodeLocObjectPtrPair ##### 
    ################################ */
 
+
 // Returns whether this object may/must be equal to o within the given Part p
-bool CodeLocObjectPtrPair::mayEqual(CodeLocObjectPtrPair that, PartEdgePtr pedge)
+bool CodeLocObjectPtrPair::mayEqual(CodeLocObjectPtrPair that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
 {
   // Both this and that have the same structure
   assert((expr && that.expr) || (!mem && !that.mem));
   // At least one of expr or mem have to be non-NULL
   assert(expr || mem);
-  return (expr ? expr->mayEqual(that.expr, pedge): false) ||
-         (mem  ? mem->mayEqual (that.mem, pedge): false); 
+  return (expr ? expr->mayEqual(that.expr, pedge, comp, analysis): false) ||
+         (mem  ? mem->mayEqual (that.mem, pedge, comp, analysis): false); 
 }
 
-bool CodeLocObjectPtrPair::mustEqual(CodeLocObjectPtrPair that, PartEdgePtr pedge)
+bool CodeLocObjectPtrPair::mustEqual(CodeLocObjectPtrPair that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
 {
   // Both this and that have the same structure
   assert((expr && that.expr) || (!mem && !that.mem));
   // At least one of expr or mem have to be non-NULL
   assert(expr || mem);
-  return (expr ? expr->mustEqual(that.expr, pedge): true) &&
-         (mem  ? mem->mustEqual (that.mem, pedge): true);
+  return (expr ? expr->mustEqual(that.expr, pedge, comp, analysis): true) &&
+         (mem  ? mem->mustEqual (that.mem, pedge, comp, analysis): true);
 }
 
 // Returns a copy of this object
@@ -470,12 +724,12 @@ std::string CodeLocObjectPtrPair::strp(PartEdgePtr pedge, std::string indent)
    ################################# */
 
 template <bool defaultMayEq>
-CombinedCodeLocObject<defaultMayEq>::CombinedCodeLocObject(CodeLocObjectPtr codeLoc): MemLocObject(NULL) {
+CombinedCodeLocObject<defaultMayEq>::CombinedCodeLocObject(CodeLocObjectPtr codeLoc): CodeLocObject(NULL) {
   codeLocs.push_back(codeLoc);
 }
 
 template <bool defaultMayEq>
-CombinedCodeLocObject<defaultMayEq>::CombinedCodeLocObject(const list<CodeLocObjectPtr>& codeLocs) : MemLocObject(NULL), codeLocs(codeLocs) {}
+CombinedCodeLocObject<defaultMayEq>::CombinedCodeLocObject(const list<CodeLocObjectPtr>& codeLocs) : CodeLocObject(NULL), codeLocs(codeLocs) {}
 
 template <bool defaultMayEq>
 void CombinedCodeLocObject<defaultMayEq>::add(CodeLocObjectPtr codeLoc) {
@@ -490,7 +744,7 @@ bool CombinedCodeLocObject<defaultMayEq>::mayEqualCL(CodeLocObjectPtr o, PartEdg
   boost::shared_ptr<CombinedCodeLocObject> that = boost::dynamic_pointer_cast<CombinedCodeLocObject>(o);
   // If the two combination objects include different numbers of CodeLocObjects, say that they may be equal since 
   // we can't be sure either way.
-  if(codeLocs.size() != that.codeLocs.size()) return true;
+  if(codeLocs.size() != that->codeLocs.size()) return true;
   
   // Compare all the pairs of CodeLocObjects in codeLocs and that.codeLocs, returning defaultMayEq if any pair
   // returns defaultMayEq since we're looking for the tightest (if defaultMayEq=false) / loosest (if defaultMayEq=true) 
@@ -499,7 +753,7 @@ bool CombinedCodeLocObject<defaultMayEq>::mayEqualCL(CodeLocObjectPtr o, PartEdg
       thisIt!=codeLocs.end();
       thisIt++, thatIt++)
   {
-    if((*thisIt)->mayEqual(*thatIt, pedge) == defaultMayEq) return defaultMayEq;
+    if((*thisIt)->mayEqualCL(*thatIt, pedge) == defaultMayEq) return defaultMayEq;
   }
   
   return !defaultMayEq;
@@ -511,7 +765,7 @@ bool CombinedCodeLocObject<defaultMayEq>::mustEqualCL(CodeLocObjectPtr o, PartEd
   boost::shared_ptr<CombinedCodeLocObject> that = boost::dynamic_pointer_cast<CombinedCodeLocObject>(o);
   // If the two combination  objects include different numbers of CodeLocObjects, say that they are not must equal since 
   // we can't be sure either way.
-  if(codeLocs.size() != that.codeLocs.size()) return false;
+  if(codeLocs.size() != that->codeLocs.size()) return false;
   
   // Compare all the pairs of CodeLocObjects in codeLocs and that.codeLocs, returning !defaultMayEq if any pair
   // returns !defaultMayEqual since we're looking for the tightest answer that any CodeLocObject in codeLocs can give
@@ -519,23 +773,95 @@ bool CombinedCodeLocObject<defaultMayEq>::mustEqualCL(CodeLocObjectPtr o, PartEd
       thisIt!=codeLocs.end();
       thisIt++, thatIt++)
   {
-    if((*thisIt)->mustEqual(*thatIt, pedge) == !defaultMayEq) return !defaultMayEq;
+    if((*thisIt)->mustEqualCL(*thatIt, pedge) == !defaultMayEq) return !defaultMayEq;
   }
   
   return defaultMayEq;
 }
 
+// Returns whether the two abstract objects denote the same set of concrete objects
+template <bool defaultMayEq>
+bool CombinedCodeLocObject<defaultMayEq>::equalSet(AbstractObjectPtr o, PartEdgePtr pedge)
+{
+  boost::shared_ptr<CombinedCodeLocObject<defaultMayEq> > that = boost::dynamic_pointer_cast<CombinedCodeLocObject<defaultMayEq> >(o);
+  ROSE_ASSERT(that);
+  ROSE_ASSERT(codeLocs.size() == that->codeLocs.size());
+  
+  // Two unions and intersections denote the same set of their components individually denote the same set
+  // (we can get a more precise answer if we could check set containment relations as well)
+  list<CodeLocObjectPtr>::const_iterator clThis = codeLocs.begin();
+  list<CodeLocObjectPtr>::const_iterator clThat = that->codeLocs.begin();
+  for(; clThis!=codeLocs.end(); clThis++, clThat++)
+    if(!(*clThis)->equalSet(*clThat, pedge)) return false;
+  return true;
+}
+
 // Returns true if this object is live at the given part and false otherwise
 template <bool defaultMayEq>
-bool CombinedCodeLocObject<defaultMayEq>::isLive(PartEdgePtr pedge) const
+bool CombinedCodeLocObject<defaultMayEq>::isLiveCL(PartEdgePtr pedge)
 {
   // If this is a union type (defaultMayEq=true), an object is live if any of its components are live (weakest constraint)
   // If this is an intersection type (defaultMayEq=false), an object is dead if any of its components are dead (strongest constraint)
-  for(list<CodeLocObjectPtr>::iterator cl=codeLocs.begin(); cl!=codeLocs.end(); cl++)
-    if((*cl)->isLive(pedge) == defaultMayEq) return defaultMayEq;
+  for(list<CodeLocObjectPtr>::const_iterator cl=codeLocs.begin(); cl!=codeLocs.end(); cl++)
+    if((*cl)->isLiveCL(pedge) == defaultMayEq) return defaultMayEq;
   
   return !defaultMayEq;
 }
+
+// Computes the meet of this and that and saves the result in this
+// returns true if this causes this to change and false otherwise
+template <bool defaultMayEq>
+bool CombinedCodeLocObject<defaultMayEq>::meetUpdateCL(CodeLocObjectPtr o, PartEdgePtr pedge)
+{
+  boost::shared_ptr<CombinedCodeLocObject<defaultMayEq> > that = boost::dynamic_pointer_cast<CombinedCodeLocObject<defaultMayEq> >(o);
+  ROSE_ASSERT(that);
+  ROSE_ASSERT(codeLocs.size() == that->codeLocs.size());
+  bool modified = false;
+  
+  // Perform the meetUpdate operation on all member codeLocss
+  list<CodeLocObjectPtr>::const_iterator clThis = codeLocs.begin();
+  list<CodeLocObjectPtr>::const_iterator clThat = that->codeLocs.begin();
+  for(; clThis!=codeLocs.end(); clThis++, clThat++)
+    modified = (*clThis)->meetUpdateCL(*clThat, pedge) || modified;
+  return modified;
+}
+
+// Returns whether this AbstractObject denotes the set of all possible execution prefixes.
+template <bool defaultMayEq>
+bool CombinedCodeLocObject<defaultMayEq>::isFull(PartEdgePtr pedge)
+{
+  // If this is a union type (defaultMayEq=true), an object is full if any of its components are full (weakest constraint)
+  // If this is an intersection type (defaultMayEq=false), an object is not full if any of its components are not full (strongest constraint)
+  for(list<CodeLocObjectPtr>::const_iterator cl=codeLocs.begin(); cl!=codeLocs.end(); cl++)
+    if((*cl)->isFull(pedge) == defaultMayEq) return defaultMayEq;
+  
+  return !defaultMayEq;
+}
+
+
+// Returns whether this AbstractObject denotes the empty set.
+template <bool defaultMayEq>
+bool CombinedCodeLocObject<defaultMayEq>::isEmpty(PartEdgePtr pedge)
+{
+  // If this is a union type (defaultMayEq=true), an object is not empty if any of its components are not empty (weakest constraint)
+  // If this is an intersection type (defaultMayEq=false), an object is empty if any of its components are empty (strongest constraint)
+  for(list<CodeLocObjectPtr>::const_iterator cl=codeLocs.begin(); cl!=codeLocs.end(); cl++)
+    if((*cl)->isEmpty(pedge) != defaultMayEq) return !defaultMayEq;
+  
+  return defaultMayEq;
+}
+
+/*// Returns true if this object is live at the given part and false otherwise
+template <bool defaultMayEq>
+bool CombinedCodeLocObject<defaultMayEq>::isLive(PartEdgePtr pedge)
+{
+  // If this is a union type (defaultMayEq=true), an object is live if any of its components are live (weakest constraint)
+  // If this is an intersection type (defaultMayEq=false), an object is dead if any of its components are dead (strongest constraint)
+  for(list<CodeLocObjectPtr>::const_iterator cl=codeLocs.begin(); cl!=codeLocs.end(); cl++)
+    if((*cl)->isLive(pedge) == defaultMayEq) return defaultMayEq;
+  
+  return !defaultMayEq;
+}*/
 
 // Allocates a copy of this object and returns a pointer to it
 template <bool defaultMayEq>
@@ -546,7 +872,7 @@ template <bool defaultMayEq>
 std::string CombinedCodeLocObject<defaultMayEq>::str(std::string indent)
 {
   ostringstream oss;
-  oss << "["<<(defaultMayEq? "UnionCLO" : "IntersectCLO")<<": ";
+  if(codeLocs.size()>1) oss << "["<<(defaultMayEq? "UnionCL" : "IntersectCL")<<": ";
   if(codeLocs.size()>1) oss << endl;
   for(list<CodeLocObjectPtr>::iterator cl=codeLocs.begin(); cl!=codeLocs.end(); ) {
     if(cl!=codeLocs.begin()) oss << indent << "&nbsp;&nbsp;&nbsp;&nbsp;";
@@ -554,9 +880,24 @@ std::string CombinedCodeLocObject<defaultMayEq>::str(std::string indent)
     cl++;
     if(cl!=codeLocs.end()) oss << endl;
   }
-  oss << "]";
+  if(codeLocs.size()>1) oss << "]";
   
   return oss.str();
+}
+
+// Create a function that uses examples of combined objects to force the compiler to generate these classes
+static void exampleCombinedCodeLocObjects2(CodeLocObjectPtr cl, std::list<CodeLocObjectPtr> cls, IntersectCodeLocObject& i, UnionCodeLocObject& u, IntersectCodeLocObject& i2, UnionCodeLocObject& u2);
+static void exampleCombinedCodeLocObjects(CodeLocObjectPtr cl, std::list<CodeLocObjectPtr> cls)
+{
+  IntersectCodeLocObject exampleIntersectObject(cl);
+  UnionCodeLocObject     exampleUnionObject(cl);
+  IntersectCodeLocObject exampleIntersectObject2(cls);
+  UnionCodeLocObject     exampleUnionObject2(cls);
+  exampleCombinedCodeLocObjects2(cl, cls, exampleIntersectObject, exampleUnionObject, exampleIntersectObject2, exampleUnionObject2);
+}
+static void exampleCombinedCodeLocObjects2(CodeLocObjectPtr cl, std::list<CodeLocObjectPtr> cls, IntersectCodeLocObject& i, UnionCodeLocObject& u, IntersectCodeLocObject& i2, UnionCodeLocObject& u2)
+{
+  exampleCombinedCodeLocObjects(cl, cls);
 }
 
 /* #######################
@@ -565,22 +906,49 @@ std::string CombinedCodeLocObject<defaultMayEq>::str(std::string indent)
 
 ValueObjectPtr NULLValueObject;
 
-bool ValueObject::mayEqual(AbstractObjectPtr o, PartEdgePtr pedge)
+// Returns whether this object may/must be equal to o within the given Part p
+// by propagating the call through the composer
+bool ValueObject::mayEqual(ValueObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{ return comp->mayEqualV(shared_from_this(), o, pedge, analysis); }
+
+// Returns whether this object may/must be equal to o within the given Part p
+  // by propagating the call through the composer
+bool ValueObject::mustEqual(ValueObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{ return comp->mustEqualV(shared_from_this(), o, pedge, analysis); }
+
+// Returns whether this object may/must be equal to o within the given Part p
+// by propagating the call through the composer
+bool ValueObject::mayEqual(AbstractObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
 {
-  if(AbstractObject::mustEqual(boost::static_pointer_cast<AbstractObject>(o), pedge)) return true;
+  if(AbstractObject::mustEqualExpr(boost::static_pointer_cast<AbstractObject>(o), pedge)) return true;
   
   ValueObjectPtr vo = boost::dynamic_pointer_cast<ValueObject>(o);
-  if(vo) return mayEqual(vo, pedge);
+  if(vo) return mayEqual(vo, pedge, comp, analysis);
   else   return false;
 }
 
-bool ValueObject::mustEqual(AbstractObjectPtr o, PartEdgePtr pedge)
+// Returns whether this object may/must be equal to o within the given Part p
+// by propagating the call through the composer
+bool ValueObject::mustEqual(AbstractObjectPtr o, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
 {
-  if(AbstractObject::mustEqual(boost::static_pointer_cast<AbstractObject>(o), pedge)) return true;
+  if(AbstractObject::mustEqualExpr(boost::static_pointer_cast<AbstractObject>(o), pedge)) return true;
   
   ValueObjectPtr vo = boost::dynamic_pointer_cast<ValueObject>(o);
-  if(vo) return mustEqual(vo, pedge);
+  if(vo) return mustEqual(vo, pedge, comp, analysis);
   else   return false;
+}
+
+// General version of meetUpdate that accounts for framework details before routing the call to the derived class' 
+// meetUpdateV check. Specifically, it routes the call through the composer to make sure the meetUpdateV 
+// call gets the right PartEdge
+bool ValueObject::meetUpdate(ValueObjectPtr that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{ return comp->meetUpdateVal(shared_from_this(), that, pedge, analysis); }
+
+bool ValueObject::meetUpdate(AbstractObjectPtr that, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{ 
+  ValueObjectPtr v = boost::dynamic_pointer_cast<ValueObject>(that);
+  ROSE_ASSERT(v);
+  return meetUpdate(v, pedge, comp, analysis);
 }
 
 // Returns true if this SgValueExp is convertible into a boolean
@@ -620,11 +988,6 @@ bool ValueObject::SgValue2Bool(boost::shared_ptr<SgValueExp> val)
     ROSE_ASSERT(0);
   }
 }
-
-// Returns true if this object is live at the given part and false otherwise.
-// Values are always live.
-bool ValueObject::isLive(PartEdgePtr pedge) const
-{ return true; }
 
 // Allocates a copy of this object and returns a pointer to it
 AbstractObjectPtr ValueObject::copyAO() const
@@ -683,7 +1046,7 @@ void CombinedValueObject<defaultMayEq>::add(ValueObjectPtr val) {
 // Returns whether this object may/must be equal to o within the given Part p
 // These methods are private to prevent analyses from calling them directly.
 template <bool defaultMayEq>
-bool CombinedValueObject<defaultMayEq>::mayEqual(ValueObjectPtr o, PartEdgePtr pedge)
+bool CombinedValueObject<defaultMayEq>::mayEqualV(ValueObjectPtr o, PartEdgePtr pedge)
 {
   boost::shared_ptr<CombinedValueObject> that = boost::dynamic_pointer_cast<CombinedValueObject>(o);
   // If the two combination objects include different numbers of ValueObjects, say that they may be equal since 
@@ -697,14 +1060,14 @@ bool CombinedValueObject<defaultMayEq>::mayEqual(ValueObjectPtr o, PartEdgePtr p
       thisIt!=vals.end();
       thisIt++, thatIt++)
   {
-    if((*thisIt)->mayEqual(*thatIt, pedge) == defaultMayEq) return defaultMayEq;
+    if((*thisIt)->mayEqualV(*thatIt, pedge) == defaultMayEq) return defaultMayEq;
   }
   
   return !defaultMayEq;
 }
 
 template <bool defaultMayEq>
-bool CombinedValueObject<defaultMayEq>::mustEqual(ValueObjectPtr o, PartEdgePtr pedge)
+bool CombinedValueObject<defaultMayEq>::mustEqualV(ValueObjectPtr o, PartEdgePtr pedge)
 {
   boost::shared_ptr<CombinedValueObject> that = boost::dynamic_pointer_cast<CombinedValueObject>(o);
   // If the two combination  objects include different numbers of ValueObjects, say that they are not must equal since 
@@ -717,8 +1080,68 @@ bool CombinedValueObject<defaultMayEq>::mustEqual(ValueObjectPtr o, PartEdgePtr 
       thisIt!=vals.end();
       thisIt++, thatIt++)
   {
-    if((*thisIt)->mustEqual(*thatIt, pedge) == !defaultMayEq) return !defaultMayEq;
+    if((*thisIt)->mustEqualV(*thatIt, pedge) == !defaultMayEq) return !defaultMayEq;
   }
+  
+  return defaultMayEq;
+}
+
+// Returns whether the two abstract objects denote the same set of concrete objects
+template <bool defaultMayEq>
+bool CombinedValueObject<defaultMayEq>::equalSet(AbstractObjectPtr o, PartEdgePtr pedge)
+{
+  boost::shared_ptr<CombinedValueObject<defaultMayEq> > that = boost::dynamic_pointer_cast<CombinedValueObject<defaultMayEq> >(o);
+  ROSE_ASSERT(that);
+  ROSE_ASSERT(vals.size() == that->vals.size());
+  
+  // Two unions and intersections denote the same set of their components individually denote the same set
+  // (we can get a more precise answer if we could check set containment relations as well)
+  list<ValueObjectPtr>::const_iterator vThis = vals.begin();
+  list<ValueObjectPtr>::const_iterator vThat = that->vals.begin();
+  for(; vThis!=vals.end(); vThis++, vThat++)
+    if(!(*vThis)->equalSet(*vThat, pedge)) return false;
+  return true;
+}
+
+// Computes the meet of this and that and saves the result in this
+// returns true if this causes this to change and false otherwise
+template <bool defaultMayEq>
+bool CombinedValueObject<defaultMayEq>::meetUpdateV(ValueObjectPtr o, PartEdgePtr pedge)
+{
+  boost::shared_ptr<CombinedValueObject<defaultMayEq> > that = boost::dynamic_pointer_cast<CombinedValueObject<defaultMayEq> >(o);
+  ROSE_ASSERT(that);
+  ROSE_ASSERT(vals.size() == that->vals.size());
+  bool modified = false;
+  
+  // Perform the meetUpdate operation on all member Values
+  list<ValueObjectPtr>::const_iterator vThis = vals.begin();
+  list<ValueObjectPtr>::const_iterator vThat = that->vals.begin();
+  for(; vThis!=vals.end(); vThis++, vThat++)
+    modified = (*vThis)->meetUpdateV(*vThat, pedge) || modified;
+  return modified;
+}
+
+// Returns whether this AbstractObject denotes the set of all possible execution prefixes.
+template <bool defaultMayEq>
+bool CombinedValueObject<defaultMayEq>::isFull(PartEdgePtr pedge)
+{
+  // If this is a union type (defaultMayEq=true), an object is full if any of its components are full (weakest constraint)
+  // If this is an intersection type (defaultMayEq=false), an object is not full if any of its components are not full (strongest constraint)
+  for(list<ValueObjectPtr>::const_iterator v=vals.begin(); v!=vals.end(); v++)
+    if((*v)->isFull(pedge) == defaultMayEq) return defaultMayEq;
+  
+  return !defaultMayEq;
+}
+
+
+// Returns whether this AbstractObject denotes the empty set.
+template <bool defaultMayEq>
+bool CombinedValueObject<defaultMayEq>::isEmpty(PartEdgePtr pedge)
+{
+  // If this is a union type (defaultMayEq=true), an object is not empty if any of its components are not empty (weakest constraint)
+  // If this is an intersection type (defaultMayEq=false), an object is empty if any of its components are empty (strongest constraint)
+  for(list<ValueObjectPtr>::const_iterator v=vals.begin(); v!=vals.end(); v++)
+    if((*v)->isEmpty(pedge) != defaultMayEq) return !defaultMayEq;
   
   return defaultMayEq;
 }
@@ -794,7 +1217,7 @@ template <bool defaultMayEq>
 std::string CombinedValueObject<defaultMayEq>::str(std::string indent)
 {
   ostringstream oss;
-  oss << "["<<(defaultMayEq? "UnionVO" : "IntersectVO")<<": ";
+  if(vals.size()>1) oss << "["<<(defaultMayEq? "UnionV" : "IntersectV")<<": ";
   if(vals.size()>1) oss << endl;
   for(list<ValueObjectPtr>::iterator v=vals.begin(); v!=vals.end(); ) {
     if(v!=vals.begin()) oss << indent << "&nbsp;&nbsp;&nbsp;&nbsp;";
@@ -802,7 +1225,7 @@ std::string CombinedValueObject<defaultMayEq>::str(std::string indent)
     v++;
     if(v!=vals.end()) oss << endl;
   }
-  oss << "]";
+  if(vals.size()>1) oss << "]";
   
   return oss.str();
 }
@@ -921,19 +1344,48 @@ boost::shared_ptr<LabeledAggregate> LabeledAggregateField::getParent(PartEdgePtr
 // pretty print for the object
 std::string IndexVector::str(std::string indent)
 {
- cerr<<"Error. Direct call to base class (IndexVector)'s str() is not allowed."<<endl;
- ROSE_ASSERT (false);
+ Dbg::dbg<<"Error. Direct call to base class (IndexVector)'s str() is not allowed."<<endl;
+ //ROSE_ASSERT (false);
  return "";  
 }
-bool IndexVector::mayEqual (IndexVectorPtr other, PartEdgePtr pedge)
+bool IndexVector::mayEqual (IndexVectorPtr other, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
 {
  cerr<<"Error. Direct call to base class (IndexVector)'s mayEqual() is not allowed."<<endl;
  ROSE_ASSERT (false);
  return false;  
 }
-bool IndexVector::mustEqual (IndexVectorPtr other, PartEdgePtr pedge)
+bool IndexVector::mustEqual (IndexVectorPtr other, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
 {
- cerr<<"Error. Direct call to base class (IndexVector)'s mustEqual is not allowed."<<endl;
+ cerr<<"Error. Direct call to base class (IndexVector)'s mustEqual() is not allowed."<<endl;
+ ROSE_ASSERT (false);
+ return false;  
+}
+
+// Returns whether the two abstract objects denote the same set of concrete objects
+bool IndexVector::equalSet(IndexVectorPtr other, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{
+ cerr<<"Error. Direct call to base class (IndexVector)'s equalSet() is not allowed."<<endl;
+ ROSE_ASSERT (false);
+ return false;  
+}
+
+bool IndexVector::meetUpdate (IndexVectorPtr other, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{
+ cerr<<"Error. Direct call to base class (IndexVector)'s meetUpdate() is not allowed."<<endl;
+ ROSE_ASSERT (false);
+ return false;  
+}
+
+bool IndexVector::isFull(PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{
+ cerr<<"Error. Direct call to base class (IndexVector)'s isFull() is not allowed."<<endl;
+ ROSE_ASSERT (false);
+ return false;  
+}
+
+bool IndexVector::isEmpty(PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis)
+{
+ cerr<<"Error. Direct call to base class (IndexVector)'s isEmpty() is not allowed."<<endl;
  ROSE_ASSERT (false);
  return false;  
 }

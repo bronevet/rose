@@ -84,8 +84,8 @@ LiveDeadMemTransfer(const Function &f, PartPtr part, CFGNode cn, NodeState &s,
     //ceml(ceml), 
     composer(composer),
     modified(false), 
-    assigned(part->inEdgeFromAny(), AbstractObjectSet::may), 
-    used(part->inEdgeFromAny(), AbstractObjectSet::may), 
+    assigned(part->inEdgeFromAny(), composer, (ComposedAnalysis*)ldma, AbstractObjectSet::may), 
+    used(part->inEdgeFromAny(), composer, (ComposedAnalysis*)ldma, AbstractObjectSet::may), 
     part(part), 
     fseu(fseu)
     {
@@ -145,6 +145,7 @@ public:
     
     // Maps the given SgNode to an implementation of the MemLocObject abstraction.
     MemLocObjectPtr Expr2MemLoc(SgNode* n, PartEdgePtr pedge);
+    bool implementsExpr2MemLoc() { return true; }
     
     // pretty print for the object
     std::string str(std::string indent="")
@@ -164,8 +165,20 @@ class LDMemLocObject : public virtual MemLocObject
   bool mayEqualML(MemLocObjectPtr o, PartEdgePtr pedge);
   bool mustEqualML(MemLocObjectPtr o, PartEdgePtr pedge);
 
+  // Returns whether the two abstract objects denote the same set of concrete objects
+  bool equalSet(AbstractObjectPtr o, PartEdgePtr pedge);
+  
   // Returns true if this object is live at the given part and false otherwise
-  bool isLive(PartEdgePtr pedge) const;
+  bool isLiveML(PartEdgePtr pedge);
+  
+  // Computes the meet of this and that and saves the result in this
+  // returns true if this causes this to change and false otherwise
+  bool meetUpdateML(MemLocObjectPtr that, PartEdgePtr pedge);
+  
+  // Returns whether this AbstractObject denotes the set of all possible execution prefixes.
+  bool isFull(PartEdgePtr pedge);
+  // Returns whether this AbstractObject denotes the empty set.
+  bool isEmpty(PartEdgePtr pedge);
   
   // pretty print for the object
   std::string str(std::string indent="") const;
@@ -185,6 +198,7 @@ typedef boost::shared_ptr<LDMemLocObject> LDMemLocObjectPtr;
 // (LDMemLocObject sub-classes): LDScalar, LDFunctionMemLoc, LDLabeledAggregate, LDArray or LDPointer.
 LDMemLocObjectPtr createLDMemLocObjectCategory(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
 
+/*
 //memory object that has no internal structure
 class LDScalar : virtual public LDMemLocObject, virtual public Scalar
 {
@@ -192,8 +206,8 @@ class LDScalar : virtual public LDMemLocObject, virtual public Scalar
    LDScalar(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
    
   // Implement the required functions by calling the real copies in LDMemLocObject
-  bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqual(o, pedge); }
-  bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge) { return LDMemLocObject::mayEqual(o, pedge); }
+  bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqualML(o, pedge); }
+  bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge) { return LDMemLocObject::mayEqualML(o, pedge); }
   std::string str(std::string indent="") const { return LDMemLocObject::str(indent); }
   std::string str(std::string indent="") { return LDMemLocObject::str(indent); }
   std::string strp(PartEdgePtr pedge, std::string indent="") { return LDMemLocObject::strp(pedge, indent); }
@@ -208,8 +222,8 @@ public:
   LDFunctionMemLoc(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
   
   // Implement the required functions by calling the real copies in LDMemLocObject
-  bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqual(o, pedge); }
-  bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge) { return LDMemLocObject::mayEqual(o, pedge); }
+  bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqualML(o, pedge); }
+  bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge) { return LDMemLocObject::mayEqualML(o, pedge); }
   std::string str(std::string indent="") const { return LDMemLocObject::str(indent); }
   std::string str(std::string indent="") { return LDMemLocObject::str(indent); }
   std::string strp(PartEdgePtr pedge, std::string indent="") { return LDMemLocObject::strp(pedge, indent); }
@@ -230,8 +244,8 @@ class LDLabeledAggregate: virtual public LDMemLocObject, virtual public LabeledA
    std::list<LabeledAggregateFieldPtr > getElements(PartEdgePtr pedge) const; 
    
   // Implement the required functions by calling the real copies in LDMemLocObject
-  bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqual(o, pedge); }
-  bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge) { return LDMemLocObject::mayEqual(o, pedge); }
+  bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqualML(o, pedge); }
+  bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge) { return LDMemLocObject::mayEqualML(o, pedge); }
   std::string str(std::string indent="") const { return LDMemLocObject::str(indent); }
   std::string str(std::string indent="") { return LDMemLocObject::str(indent); }
   std::string strp(PartEdgePtr pedge, std::string indent="") { return LDMemLocObject::strp(pedge, indent); }
@@ -260,8 +274,8 @@ class LDArray: virtual public LDMemLocObject, virtual public Array
    MemLocObjectPtr getDereference(PartEdgePtr pedge);
    
   // Implement the required functions by calling the real copies in LDMemLocObject
-  bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqual(o, pedge); }
-  bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge) { return LDMemLocObject::mayEqual(o, pedge); }
+  bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqualML(o, pedge); }
+  bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge) { return LDMemLocObject::mayEqualML(o, pedge); }
   std::string str(std::string indent="") const { return LDMemLocObject::str(indent); }
   std::string str(std::string indent="") { return LDMemLocObject::str(indent); }
   std::string strp(PartEdgePtr pedge, std::string indent="") { return LDMemLocObject::strp(pedge, indent); }
@@ -277,14 +291,14 @@ class LDPointer: virtual public LDMemLocObject, virtual public Pointer
    MemLocObjectPtr getDereference(PartEdgePtr pedge);
    
   // Implement the required functions by calling the real copies in LDMemLocObject
-  bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqual(o, pedge); }
-  bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge) { return LDMemLocObject::mayEqual(o, pedge); }
+  bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqualML(o, pedge); }
+  bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge) { return LDMemLocObject::mayEqualML(o, pedge); }
   std::string str(std::string indent="") const { return LDMemLocObject::str(indent); }
   std::string str(std::string indent="") { return LDMemLocObject::str(indent); }
   std::string strp(PartEdgePtr pedge, std::string indent="") { return LDMemLocObject::strp(pedge, indent); }
   MemLocObjectPtr copyML() const { return LDMemLocObject::copyML(); }
 };
-typedef boost::shared_ptr<LDPointer> LDPointerPtr;
+typedef boost::shared_ptr<LDPointer> LDPointerPtr;*/
 
 // Initialize vars to hold all the variables and expressions that are live at PartEdgePtr pedge
 void getAllLiveMemAt(LiveDeadMemAnalysis* ldma, PartEdgePtr pedge, const NodeState& state, std::set<AbstractObjectPtr>& vars, std::string indent="");
