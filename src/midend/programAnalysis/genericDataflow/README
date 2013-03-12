@@ -1,0 +1,31 @@
+Greg, Sriram,
+ You may want to add some documentation here.
+--Robb
+
+The following unused files were deleted on 2012-10-04 by Robb with permission from Greg and Sriram.
+#	deleted:    src/midend/programAnalysis/genericDataflow/analysis/non_compositional/partitionedAnalysis.C
+#	deleted:    src/midend/programAnalysis/genericDataflow/analysis/non_compositional/partitionedAnalysis.h
+#	deleted:    src/midend/programAnalysis/genericDataflow/cfgUtils/CFGRewrite.C
+#	deleted:    src/midend/programAnalysis/genericDataflow/cfgUtils/CFGRewrite.h
+#	deleted:    src/midend/programAnalysis/genericDataflow/lattice/non_compositional/ConstrGraph.C
+#	deleted:    src/midend/programAnalysis/genericDataflow/lattice/non_compositional/ConstrGraph.h
+#	deleted:    src/midend/programAnalysis/genericDataflow/lattice/non_compositional/affineInequality.C
+#	deleted:    src/midend/programAnalysis/genericDataflow/lattice/non_compositional/affineInequality.h
+#	deleted:    src/midend/programAnalysis/genericDataflow/lattice/non_compositional/intArithLogical.C
+#	deleted:    src/midend/programAnalysis/genericDataflow/lattice/non_compositional/intArithLogical.h
+#	deleted:    src/midend/programAnalysis/genericDataflow/simpleAnalyses/non_compositional/ConstrGraphAnalysis.C
+#	deleted:    src/midend/programAnalysis/genericDataflow/simpleAnalyses/non_compositional/ConstrGraphAnalysis.h
+#	deleted:    src/midend/programAnalysis/genericDataflow/simpleAnalyses/non_compositional/divAnalysis.C
+#	deleted:    src/midend/programAnalysis/genericDataflow/simpleAnalyses/non_compositional/divAnalysis.h
+#	deleted:    src/midend/programAnalysis/genericDataflow/simpleAnalyses/non_compositional/dominatorAnalysis.C
+#	deleted:    src/midend/programAnalysis/genericDataflow/simpleAnalyses/non_compositional/dominatorAnalysis.h
+#	deleted:    src/midend/programAnalysis/genericDataflow/simpleAnalyses/non_compositional/liveDeadVarAnalysis.C
+#	deleted:    src/midend/programAnalysis/genericDataflow/simpleAnalyses/non_compositional/liveDeadVarAnalysis.h
+#	deleted:    src/midend/programAnalysis/genericDataflow/simpleAnalyses/non_compositional/nodeConstAnalysis.C
+#	deleted:    src/midend/programAnalysis/genericDataflow/simpleAnalyses/non_compositional/nodeConstAnalysis.h
+#	deleted:    src/midend/programAnalysis/genericDataflow/simpleAnalyses/non_compositional/placeUIDs.C
+#	deleted:    src/midend/programAnalysis/genericDataflow/simpleAnalyses/non_compositional/placeUIDs.h
+#	deleted:    src/midend/programAnalysis/genericDataflow/simpleAnalyses/non_compositional/sequenceStructAnalysis.C
+#	deleted:    src/midend/programAnalysis/genericDataflow/simpleAnalyses/non_compositional/sequenceStructAnalysis.h
+#	deleted:    src/midend/programAnalysis/genericDataflow/simpleAnalyses/non_compositional/sgnAnalysis.C
+#	deleted:    src/midend/programAnalysis/genericDataflow/simpleAnalyses/non_compositional/sgnAnalysis.h

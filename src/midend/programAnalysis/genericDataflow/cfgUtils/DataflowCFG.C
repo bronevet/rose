@@ -6,28 +6,45 @@ using namespace std;
 
 namespace VirtualCFG 
 {
-      // the default interesting filter
-      bool defaultFilter (CFGNode cfgn)
-      {
-         SgNode * node = cfgn.getNode();
-          assert (node != NULL) ;
-          //Keep the last index for initialized names. This way the definition of the variable doesn't
-          //propagate to its assign initializer.
-          if (isSgInitializedName(node))
-          { 
-            return (cfgn == node->cfgForEnd());
-          }
-          else
-            return (cfgn.isInteresting());
-      }
+  // the default interesting filter
+  bool defaultFilter (CFGNode cfgn)
+  {
+    SgNode * node = cfgn.getNode();
+    assert (node != NULL) ;
+    //Keep the last index for initialized names. This way the definition of the variable doesn't
+    //propagate to its assign initializer.
+    // if (isSgInitializedName(node))
+    // { 
+    //   return (cfgn == node->cfgForEnd());
+    // }
+    // else
+    //   return (cfgn.isInteresting());
+    switch(node->variantT()) {         
+      //Keep the last index for initialized names. This way the definition of the variable doesn't
+      //propagate to its assign initializer.
+      case V_SgInitializedName:
+          return (cfgn == node->cfgForEnd());
+
+      // filter out this node type
+      // abstract memory object cannot be created for these nodes
+      case V_SgExprListExp:
+          return false;
+
+      /*case V_SgCastExp:
+          return false;*/
+      
+      default:
+          return cfgn.isInteresting();
+    }
+  }
 
         
-        std::string DataflowNode::str(std::string indent) const
-        {
-                ostringstream outs;
-                outs << "<" << getNode() << " | " << getNode()->class_name() << " | " << getNode()->unparseToString() << " | " << getIndex() << ">";
-                return outs.str();
-        }
+  std::string DataflowNode::str(std::string indent) const
+  {
+    ostringstream outs;
+    outs << "<" << getNode() << " | " << getNode()->class_name() << " | " << getNode()->unparseToString() << " | " << getIndex() << ">";
+    return outs.str();
+  }
 
   // XXX: This code is duplicated from frontend/SageIII/virtualCFG/virtualCFG.C
   // Make a set of raw CFG edges closure. Raw edges may have src and dest CFG nodes which are to be filtered out. 
@@ -44,28 +61,8 @@ namespace VirtualCFG
     // cerr << "makeClosure starting with " << orig.size() << endl;
     while (true) {
 top:
-      // cerr << "makeClosure loop: " << currentPaths.size() << endl;
-
-      // CH (5/27/2010): 'push_back' may invalidate iterators of a vector.
-      // Using index instead to fix this subtle bug.
-#if 0 
-      for (vector<CFGPath>::iterator i = currentPaths.begin(); i != currentPaths.end(); ++i) {
-        if (!((*i).*otherSide)().isInteresting()) {
-          unsigned int oldSize = currentPaths.size();
-          vector<CFGEdge> currentPaths2 = (((*i).*otherSide)().*closure)();
-          for (unsigned int j = 0; j < currentPaths2.size(); ++j) {
-            CFGPath merged = (*merge)(*i, currentPaths2[j]);
-            if (std::find(currentPaths.begin(), currentPaths.end(), merged) == currentPaths.end()) {
-              currentPaths.push_back(merged);
-            }
-          }
-          if (currentPaths.size() != oldSize) goto top; // To restart iteration
-        }
-      }
-#else
       for (size_t i = 0; i < currentPaths.size(); ++i) { // check each of the current paths
         // if a path has a node from the other side which is not interesting, do the path merge
-        //if (!(currentPaths[i].*otherSide)().isInteresting()) {
         if (!filter((currentPaths[i].*otherSide)())) {
           unsigned int oldSize = currentPaths.size(); // the number of unique paths before merge
           //get all other successor edges from the non-interesting dest node
@@ -75,14 +72,12 @@ top:
             CFGPath merged = (*merge)(currentPaths[i], currentPaths2[j]);
             if (std::find(currentPaths.begin(), currentPaths.end(), merged) == currentPaths.end()) { // find a new path? push it to the working set of initial edges
               currentPaths.push_back(merged); // a new path will be inserted. Old path ending with non-interesting node still exists
-
             }
           }
           if (currentPaths.size() != oldSize) 
             goto top; // TODO go through all paths again? not very efficient!!
         }
       }
-#endif
       break; // If the iteration got all of the way through: all dest nodes of all paths are interesting or no new merges are made.
     }
     // cerr << "makeClosure loop done: " << currentPaths.size() << endl;
@@ -106,33 +101,33 @@ top:
     return edges;
   }
         
-        vector<DataflowEdge> DataflowNode::outEdges() const {
-                return makeClosureDF(n.outEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter);
-        }
-        
-        vector<DataflowEdge> DataflowNode::inEdges() const {
-                return makeClosureDF(n.inEdges(), &CFGNode::inEdges, &CFGPath::source, &mergePathsReversed, filter);
-        }
+  vector<DataflowEdge> DataflowNode::outEdges() const {
+    return makeClosureDF(n.outEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter);
+  }
+  
+  vector<DataflowEdge> DataflowNode::inEdges() const {
+    return makeClosureDF(n.inEdges(), &CFGNode::inEdges, &CFGPath::source, &mergePathsReversed, filter);
+  }
 
-        bool DataflowNode::isInteresting() const {
-              //  return (n.getNode())->cfgIsIndexInteresting(n.getIndex());
-                //return isDataflowInteresting(n);
-                return filter(n);
-        }
-        
-        bool isDataflowInteresting(CFGNode cn) {
-                ROSE_ASSERT (cn.getNode());
-                return (cn.getNode()->cfgIsIndexInteresting(cn.getIndex()) && 
-                       //!isSgFunctionRefExp(cn.getNode()) &&
-                       !isSgExprListExp(cn.getNode()) &&
-                       !isSgForInitStatement(cn.getNode()) &&
-                       //!isSgVarRefExp(cn.getNode()) &&
-                       //!isSgValueExp(cn.getNode()) &&
-                       //!isSgExprStatement(cn.getNode()) &&
-                       !(isSgInitializedName(cn.getNode()) && cn.getIndex()==0)) 
-                       ||
-                       (isSgIfStmt(cn.getNode()) &&
-                        cn.getIndex()==1 || cn.getIndex()==2);
-        }
+  bool DataflowNode::isInteresting() const {
+    //  return (n.getNode())->cfgIsIndexInteresting(n.getIndex());
+    //return isDataflowInteresting(n);
+    return filter(n);
+  }
+  
+  bool isDataflowInteresting(CFGNode cn) {
+    ROSE_ASSERT (cn.getNode());
+    return (cn.getNode()->cfgIsIndexInteresting(cn.getIndex()) && 
+           //!isSgFunctionRefExp(cn.getNode()) &&
+           !isSgExprListExp(cn.getNode()) &&
+           !isSgForInitStatement(cn.getNode()) &&
+           //!isSgVarRefExp(cn.getNode()) &&
+           //!isSgValueExp(cn.getNode()) &&
+           //!isSgExprStatement(cn.getNode()) &&
+           !(isSgInitializedName(cn.getNode()) && cn.getIndex()==0)) 
+           ||
+           (isSgIfStmt(cn.getNode()) &&
+            (cn.getIndex()==1 || cn.getIndex()==2));
+  }
         
 }

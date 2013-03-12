@@ -2,8 +2,10 @@
 #define NODE_STATE_H
 
 #include "DataflowCFG.h"
+namespace dataflow {
 class NodeFact;
 class NodeState;
+};
 
 #include "lattice.h"
 #include "analysis.h"
@@ -12,15 +14,12 @@ class NodeState;
 #include <string>
 #include <set>
 
-#ifdef THREADED
-#include "tbb/concurrent_hash_map.h"
-#include "tbb/atomic.h"
-#endif
+namespace dataflow {
+class ComposedAnalysis;
+extern int nodeStateDebugLevel;
 
-
-//template<class factType>
 /************************************************
- ***               NodeFact                   ***
+ ***         NodeFact       ***
  *** A fact associated with a CFG node by     ***
  *** some analysis thatis not evolved as part ***
  *** of a dataflow analysis (i.e. it should   ***
@@ -30,329 +29,297 @@ class NodeState;
 // it is not a lattice and is not meant to evolve during the course of a dataflow analysis.
 class NodeFact: public printable
 {
-        public:
-        
-        // The string that represents this object.
-        // Every line of this string must be prefixed by indent.
-        // The last character of the returned string must not be '\n', even if it is a multi-line string.
-        //virtual string str(string indent="")=0;
-        
-                // returns a copy of this node fact
-        virtual NodeFact* copy() const=0;
-        
+  public:
+  
+  // The string that represents this object.
+  // Every line of this string must be prefixed by indent.
+  // The last character of the returned string must not be '\n', even if it is a multi-line string.
+  //virtual string str(string indent="")=0;
+  
+    // returns a copy of this node fact
+  virtual NodeFact* copy() const=0;
+  
 /*      void* fact;
-        
-        public:
-        NodeFact(void* fact)
-        {
-                this->fact = fact;
-        }
-        
-        NodeFact(factType* fact)
-        {
-                this->fact = *fact;
-        }
-        
-        void* getFact()
-        {
-                return fact;
-        }*/
+  
+  public:
+  NodeFact(void* fact)
+  {
+    this->fact = fact;
+  }
+  
+  NodeFact(factType* fact)
+  {
+    this->fact = *fact;
+  }
+  
+  void* getFact()
+  {
+    return fact;
+  }*/
 };
 
 
 /**********************************************
- ***               NodeState                ***
+ ***         NodeState    ***
  *** The state of all the Lattice elements  ***
  *** associated by dataflow analyses with a ***
  *** given node. This state will evolve as  ***
  *** a result of the dataflow analysis.     ***
  **********************************************/
-#ifdef THREADED
-class NodeStateHashCompare
-{ 
-        public:
-        NodeStateHashCompare() {}
-        NodeStateHashCompare(const NodeStateHashCompare & that) {}
-        
-        ~NodeStateHashCompare(){}
-        
-        static bool equal(const Analysis* & j, const Analysis* & k )
-        { return j==k; }
-        
-        static bool equal(const Analysis* const & j, const Analysis* const & k )
-        { return j==k; }
-        
-        static size_t hash( const Analysis* k ) { return (size_t) k; }
-};
-#endif
 
 class NodeState
 {
-        #ifdef THREADED
-        typedef tbb::concurrent_hash_map <Analysis*, std::vector<Lattice*>, NodeStateHashCompare > LatticeMap;
-        //typedef tbb::concurrent_hash_map <Analysis*, map <int, NodeFact*>, NodeStateHashCompare > NodeFactMap;
-        typedef tbb::concurrent_hash_map <Analysis*, std::vector<NodeFact*>, NodeStateHashCompare > NodeFactMap;
-        typedef tbb::concurrent_hash_map <Analysis*, bool, NodeStateHashCompare  > BoolMap;     
-        #else
-        typedef std::map<Analysis*, std::vector<Lattice*> > LatticeMap;
-        //typedef std::map<Analysis*, std::map<int, NodeFact*> > NodeFactMap;
-        typedef std::map<Analysis*, std::vector<NodeFact*> > NodeFactMap;
-        typedef std::map<Analysis*, bool > BoolMap;
-        #endif
-        
-        // the dataflow information Above the node, for each analysis that 
-        // may be interested in the current node
-        LatticeMap dfInfoAbove;
-        
-        // the Analysis information Below the node, for each analysis that 
-        // may be interested in the current node
-        LatticeMap dfInfoBelow;
+  typedef std::map<Analysis*, std::map<PartEdgePtr, std::vector<Lattice*> > > LatticeMap;
+  typedef std::map<Analysis*, std::vector<NodeFact*> > NodeFactMap;
+  typedef std::map<Analysis*, bool > BoolMap;
+  
+  enum nodeSide {above, below};
+  
+  // the dataflow information Above the node, for each analysis that 
+  // may be interested in the current node
+  LatticeMap dfInfoAbove;
+  
+  // the Analysis information Below the node, for each analysis that 
+  // may be interested in the current node
+  LatticeMap dfInfoBelow;
 
-        // the facts that are true at this node, for each analysis that 
-        // may be interested in the current node
-        NodeFactMap facts;
-        
-        // Contains all the Analyses that have initialized their state at this node. It is a map because
-        // TBB doesn't provide a concurrent set.
-        BoolMap initializedAnalyses;
-        
-        // the dataflow node that this NodeState object corresponds to
-        //DataflowNode parentNode;
-        
-        public:
-        /*NodeState(DataflowNode& parentNode) : parentNode(parentNode)
-        {}
-        
-        NodeState(CFGNode& parentNode) : parentNode(parentNode)
-        {}
-        
-        NodeState(CFGNode parentNode) : parentNode(parentNode)
-        {}*/
-        
-        NodeState()
-        {}
-        
-/*      void initialize(Analysis* analysis, int latticeName)
-        {
-                initDfMap(dfInfoAbove);
-                initDfMap(dfInfoBelow);
-        }
-        
-        private:
-        // initializes the given lattice owned by the given analysis in the given map
-        // dfMap may be either dfInfoAbove or dfInfoBelow
-        void initDfMap(std::map<Analysis*, std::vector<Lattice*> >& dfMap)
-        {
-                std::map<Analysis*, std::vector<Lattice*> >::iterator dfLattices;
-                // if this analysis has registered some Lattices at this node
-                if((dfLattices = dfMap.find(analysis)) != dfInfoAbove.end())
-                {
-                        std::map<int, Lattice>::iterator it;
-                        // if the given lattice name was registered by this analysis
-                        if((it = (*dfLattices).find(latticeName) != (*dfLattices).end())
-                        {
-                                (*it)->initialize();
-                        }
-                        else
-                        {
-                                (*dfLattices)[latticeName] = new Lattice();
-                        }
-                }
-                else
-                {
-                        std::map<int, Lattice> newMap;
-                        Lattice newLattice;
-                        newMap[latticeName] = newLattice;
-                        dfMap[analysis] = newMap;
-                }
-        }*/
-        
-        public:
-        // Records that this analysis has initializedAnalyses its state at this node
-        void initialized(Analysis* analysis);
-        
-        // Returns true if this analysis has initialized its state at this node and false otherwise
-        bool isInitialized(Analysis* analysis);
-                
-        // adds the given lattice, organizing it under the given analysis and lattice name
-        //void addLattice(const Analysis* analysis, int latticeName, Lattice* l);
-        
-        
-        // Set this node's lattices for this analysis (possibly above or below only, replacing previous mappings)
-        // These methods take ownership of the pointed-to lattices.
-        void setLattices(const Analysis* analysis, std::vector<Lattice*>& lattices);
-        void setLatticeAbove(const Analysis* analysis, std::vector<Lattice*>& lattices);
-        void setLatticeBelow(const Analysis* analysis, std::vector<Lattice*>& lattices);
-        
-        // returns the given lattice from above the node that is owned by the given analysis
-        Lattice* getLatticeAbove(const Analysis* analysis, int latticeName) const;
-        // returns the given lattice from below the node that is owned by the given analysis
-        Lattice* getLatticeBelow(const Analysis* analysis, int latticeName) const;
+  // the facts that are true at this node, for each analysis that 
+  // may be interested in the current node
+  NodeFactMap facts;
+  
+  // Contains all the Analyses that have initialized their state at this node. It is a map because
+  // TBB doesn't provide a concurrent set.
+  BoolMap initializedAnalyses;
+  
+  // the dataflow node that this NodeState object corresponds to
+  //PartPtr parentNode;
+  
+  public:
+  
+  NodeState()
+  {}
+  
+  public:
+  // Records that this analysis has initializedAnalyses its state at this node
+  void initialized(Analysis* analysis);
+  
+  // Returns true if this analysis has initialized its state at this node and false otherwise
+  bool isInitialized(Analysis* analysis);
+    
+  // adds the given lattice, organizing it under the given analysis and lattice name
+  //void addLattice(Analysis* analysis, int latticeName, Lattice* l);
+  
+  
+  // Set this node's lattices for this analysis (possibly above or below only, replacing previous mappings).
+  // The lattices will be associated with the NULL edge
+  void setLattices    (Analysis* analysis, std::vector<Lattice*>& lattices);
+  void setLatticeAbove(Analysis* analysis, std::vector<Lattice*>& lattices);
+  void setLatticeBelow(Analysis* analysis, std::vector<Lattice*>& lattices);
+  
+  // Set this node's lattices for this analysis, along the given departing edge
+  void setLatticeAbove(Analysis* analysis, PartEdgePtr departEdge, std::vector<Lattice*>& lattices);
+  void setLatticeBelow(Analysis* analysis, PartEdgePtr departEdge, std::vector<Lattice*>& lattices);
+  
+  // Returns the given lattice above the node from the given analysis along the NULL edge
+  Lattice* getLatticeAbove(Analysis* analysis, int latticeName) const;
+  // Returns the given lattice below the node from the given analysis along the NULL edge
+  Lattice* getLatticeBelow(Analysis* analysis, int latticeName) const;
+  
+  // Returns the given lattice above the node from the given analysis along the given departing edge
+  Lattice* getLatticeAbove(Analysis* analysis, PartEdgePtr departEdge, int latticeName) const;
+  // Returns the given lattice below the node from the given analysis along the given departing edge
+  Lattice* getLatticeBelow(Analysis* analysis, PartEdgePtr departEdge, int latticeName) const;
+  
+  // Returns the map containing all the lattices above the node from the given analysis along the all edges
+  // (read-only access)
+  const std::map<PartEdgePtr, std::vector<Lattice*> >& getLatticeAboveAll(Analysis* analysis) const;
+  // Returns the map containing all the lattices below the node from the given analysis along the all edges
+  // (read-only access)
+  const std::map<PartEdgePtr, std::vector<Lattice*> >& getLatticeBelowAll(Analysis* analysis) const;
+  
+  // Returns the map containing all the lattices above the node from the given analysis along the NULL edge
+  // (read-only access)
+  const std::vector<Lattice*>& getLatticeAbove(Analysis* analysis) const;
+  // Returns the map containing all the lattices below the node from the given analysis along the NULL edge
+  // (read-only access)
+  const std::vector<Lattice*>& getLatticeBelow(Analysis* analysis) const;
+  
+  // Returns the map containing all the lattices above the node from the given analysis along the given departing edge
+  // (read-only access)
+  const std::vector<Lattice*>& getLatticeAbove(Analysis* analysis, PartEdgePtr departEdge) const;
+  // Returns the map containing all the lattices below the node from the given analysis along the given departing edge
+  // (read-only access)
+  const std::vector<Lattice*>& getLatticeBelow(Analysis* analysis, PartEdgePtr departEdge) const;
 
-        //! returns all the lattices from above the CFG node (corresponding to SgNode and an CFG index) that are owned by the given analysis
-        // (read-only access)
-        static const std::vector<Lattice*>& getLatticeAbove(const Analysis* analysis, SgNode* n, unsigned int index ) ;
-
-        // returns all the lattices from below the CFG node (corresponding to SgNode and an CFG index) that are owned by the given analysis
-        // (read-only access)
-        static const std::vector<Lattice*>& getLatticeBelow(const Analysis* analysis, SgNode* n, unsigned int index) ;
-
-       
-        // returns the map containing all the lattices from above the node that are owned by the given analysis
-        // (read-only access)
-        const std::vector<Lattice*>& getLatticeAbove(const Analysis* analysis) const;
-        // returns the map containing all the lattices from below the node that are owned by the given analysis
-        // (read-only access)
-        const std::vector<Lattice*>& getLatticeBelow(const Analysis* analysis) const;
-
-        // returns the map containing all the lattices from above the node that are owned by the given analysis
-        // (read/write access)
-        std::vector<Lattice*>& getLatticeAboveMod(const Analysis* analysis);
-        // returns the map containing all the lattices from below the node that are owned by the given analysis
-        // (read/write access)
-        std::vector<Lattice*>& getLatticeBelowMod(const Analysis* analysis);
-        
-        // deletes all lattices above this node associated with the given analysis
-        void deleteLatticeAbove(const Analysis* analysis);
-        
-        // deletes all lattices below this node associated with the given analysis
-        void deleteLatticeBelow(const Analysis* analysis);
-        
-        // returns true if the two lattices vectors are the same and false otherwise
-        static bool eqLattices(const std::vector<Lattice*>& latticesA,
-                               const std::vector<Lattice*>& latticesB);
-        
-        // Creates a copy of all the dataflow state (Lattices and Facts) associated with
-        // analysis srcA and associates this copied state with analysis tgtA.
-        void cloneAnalysisState(const Analysis* srcA, const Analysis* tgtA);
-        
-        // Given a set of analyses, one of which is designated as a master, unions together the 
-        // lattices associated with each of these analyses. The results are associated on each 
-        // CFG node with the master analysis.
-        void unionLattices(std::set<Analysis*>& unionSet, const Analysis* master);
-        
-        //void removeLattice(const Analysis* analysis, int latticeName);
-        
-        private:
-        /*// adds the given lattice to the given dfInfo structure (dfInfoAbove or dfInfoBelow), 
-        // organizing it under the given analysis and lattice name
-        void addLattice_ex(std::map<Analysis*, std::vector<Lattice*> >& dfMap, 
-                          const  Analysis* analysis, int latticeName, Lattice* l);
-        */
-        // returns the given lattice, which owned by the given analysis
-        Lattice* getLattice_ex(const LatticeMap& dfMap, 
-                          const Analysis* analysis, int latticeName) const;
-        
-        /*// removes the given lattice, owned by the given analysis
-        // returns true if the given lattice was found and removed and false if it was not found
-        bool removeLattice_ex(LatticeMap& dfMap, 
-                              const Analysis* analysis, int latticeName);
-        */
-        public:
-        // associates the given analysis/fact name with the given NodeFact, 
-        // deleting any previous association (the previous NodeFact is freed)
-        void addFact(const Analysis* analysis, int factName, NodeFact* f);
-        
-        // associates the given analysis with the given map of fact names to NodeFacts, 
-        // deleting any previous association (the previous NodeFacts are freed). This call
-        // takes the actual provided facts and does not make a copy of them.
-        //void setFacts(const Analysis* analysis, const std::map<int, NodeFact*>& newFacts);
-        void setFacts(const Analysis* analysis, const std::vector<NodeFact*>& newFacts);
-        
-        // returns the given fact, which owned by the given analysis
-        NodeFact* getFact(const Analysis* analysis, int factName) const ;
-        
-        // returns the map of all the facts owned by the given analysis at this NodeState
-        // (read-only access)
-        //const std::map<int, NodeFact*>& getFacts(const Analysis* analysis) const;
-        const std::vector<NodeFact*>& getFacts(const Analysis* analysis) const;
-        
-        // returns the map of all the facts owned by the given analysis at this NodeState
-        // (read/write access)
-        //std::map<int, NodeFact*>& getFactsMod(const Analysis* analysis);
-        std::vector<NodeFact*>& getFactsMod(const Analysis* analysis);
-        
-        // removes the given fact, owned by the given analysis
-        // returns true if the given fact was found and removed and false if it was not found
-        //bool removeFact(const Analysis* analysis, int factName);
-        
-        // deletes all facts at this node associated with the given analysis
-        void deleteFacts(const Analysis* analysis);
-        
-        // delete all state at this node associated with the given analysis
-        void deleteState(const Analysis* analysis);
-        
-        // ====== STATIC ======
-        private:
-        static std::map<DataflowNode, std::vector<NodeState*> > nodeStateMap;
-        static bool nodeStateMapInit;
-        
-        public:
-        // returns the NodeState object associated with the given dataflow node.
-        // index is used when multiple NodeState objects are associated with a given node
-        // (ex: SgFunctionCallExp has 3 NodeStates: entry, function body, exit)
-        static NodeState* getNodeState(const DataflowNode& n, int index=0);
+  // Returns the map containing all the lattices above the node from the given analysis along the all edges
+  // (read/write access)
+  std::map<PartEdgePtr, std::vector<Lattice*> >& getLatticeAboveAllMod(Analysis* analysis);
+  // Returns the map containing all the lattices below the node from the given analysis along the all edges
+  // (read/write access)
+  std::map<PartEdgePtr, std::vector<Lattice*> >& getLatticeBelowAllMod(Analysis* analysis);
+  
+  // Returns the map containing all the lattices above the node from the given analysis along the NULL edge
+  // (read/write access)
+  std::vector<Lattice*>& getLatticeAboveMod(Analysis* analysis);
+  // Returns the map containing all the lattices above the node from the given analysis along the NULL edge
+  // (read/write access)
+  std::vector<Lattice*>& getLatticeBelowMod(Analysis* analysis);
+  
+  // Returns the map containing all the lattices above the node from the given analysis along the given departing edge
+  // (read/write access)
+  std::vector<Lattice*>& getLatticeAboveMod(Analysis* analysis, PartEdgePtr departEdge);
+  // Returns the map containing all the lattices above the node from the given analysis along the given departing edge
+  // (read/write access)
+  std::vector<Lattice*>& getLatticeBelowMod(Analysis* analysis, PartEdgePtr departEdge);
+  
+   // Deletes all lattices above this node associated with the given analysis
+  void deleteLatticeAbove(Analysis* analysis);
+  
+  // Deletes all lattices below this node associated with the given analysis
+  void deleteLatticeBelow(Analysis* analysis);
+  
+  private:
+  
+    // General lattice setter function
+  void setLattice_ex(LatticeMap& dfMap, Analysis* analysis, PartEdgePtr departEdge, 
+                     std::vector<Lattice*>& lattices);
+  
+  // General lattice getter function
+  Lattice* getLattice_ex(const LatticeMap& dfMap, 
+                         Analysis* analysis, PartEdgePtr departEdge, int latticeName) const;
+  
+  
+  // General read-only lattice vector getter function
+  const vector<Lattice*>& getLattice_ex(const LatticeMap& dfMap, Analysis* analysis, 
+                                        PartEdgePtr departEdge) const;
+  
+  // General read-write lattice vector getter function
+  vector<Lattice*>& getLatticeMod_ex(LatticeMap& dfMap, Analysis* analysis, 
+                                     PartEdgePtr departEdge);
+  
+  // Deletes all lattices above/below this node associated with the given analysis
+  void delete_ex(LatticeMap& dfMap, Analysis* analysis);
 
 
-        //returns the NodeState object associated with a given SgNode
-        //index is used when multiple Control flow nodes (and consequently multiple NodeStates) are associated with a given node
-        static NodeState* getNodeState(SgNode * n, int index=0);
-        
-        // returns a vector of NodeState objects associated with the given dataflow node.
-        static const std::vector<NodeState*> getNodeStates(const DataflowNode& n);
-        
-        // returns the number of NodeStates associated with the given DataflowNode
-        static int numNodeStates(DataflowNode& n);
-        
-        private:
-        // initializes the nodeStateMap
-        static void initNodeStateMap(bool (*filter) (CFGNode cfgn));
-        
-        public:
-        /*// copies the facts from that to this
-        void copyFacts(NodeState &that);
-        
-        // copies the dfInfoBelow lattices from that to this
-        void copyLatticesBelow(NodeState &that);
-        
-        // copies the dfInfoAbove lattices from the given map to this
-        void copyLatticesAbove(const LatticeMap& thatInfo);
-        
-        // copies the dfInfoBelow lattices from the given map to this
-        void copyLatticesBelow(const LatticeMap& thatInfo);
-        
-        protected:
-        // copies the dfInfoAbove or dfInfoBelow lattices from that to this
-        void copyLattices(const LatticeMap& dfInfo, 
-                          const LatticeMap& thatInfo);
-        */
-        
-        // copies from's above lattices for the given analysis to to's above lattices for the same analysis
-        static void copyLattices_aEQa(Analysis* analysis, NodeState& to, const NodeState& from);
-        
-        // copies from's above lattices for analysisA to to's above lattices for analysisB
-        static void copyLattices_aEQa(Analysis* analysisA, NodeState& to, Analysis* analysisB, const NodeState& from);
-        
-        // copies from's above lattices for the given analysis to to's below lattices for the same analysis
-        static void copyLattices_bEQa(Analysis* analysis, NodeState& to, const NodeState& from);
-        
-        // copies from's above lattices for analysisA to to's below lattices for analysisB
-        static void copyLattices_bEQa(Analysis* analysisA, NodeState& to, Analysis* analysisB, const NodeState& from);
-        
-        // copies from's below lattices for the given analysis to to's below lattices for the same analysis
-        static void copyLattices_bEQb(Analysis* analysis, NodeState& to, const NodeState& from);
-        
-        // copies from's below lattices for the given analysis to to's above lattices for the same analysis
-        static void copyLattices_aEQb(Analysis* analysis, NodeState& to, const NodeState& from);
-        
-        protected:
-        // makes dfInfoX a copy of dfInfoY
-        static void copyLattices(std::vector<Lattice*>& dfInfoX, const std::vector<Lattice*>& dfInfoY);
-                
-        /*public:
-        void operator=(NodeState& that);*/
-        public:
-        std::string str(Analysis* analysis, std::string indent="") const;
+  public:
+  
+  // Returns true if the two lattices vectors contain equivalent information and false otherwise
+  static bool equivLattices(const std::vector<Lattice*>& latticesA,
+                            const std::vector<Lattice*>& latticesB);
+  
+  // Creates a copy of all the dataflow state (Lattices and Facts) associated with
+  // analysis srcA and associates this copied state with analysis tgtA.
+  void cloneAnalysisState(Analysis* srcA, Analysis* tgtA);
+  
+  // Given a set of analyses, one of which is designated as a master, unions together the 
+  // lattices associated with each of these analyses. The results are associated on each 
+  // CFG node with the master analysis.
+  void unionLattices(std::set<Analysis*>& unionSet, Analysis* master);
+  
+  // Unions the dataflow information in Lattices held by the from map into the to map
+  // Returns true if this causes a change in the lattices in to and false otherwise
+  static bool unionLatticeMaps(std::map<PartEdgePtr, vector<Lattice*> >& to, 
+                        const std::map<PartEdgePtr, vector<Lattice*> >& from);
+  
+  // associates the given analysis/fact name with the given NodeFact, 
+  // deleting any previous association (the previous NodeFact is freed)
+  void addFact(Analysis* analysis, int factName, NodeFact* f);
+  
+  // associates the given analysis with the given map of fact names to NodeFacts, 
+  // deleting any previous association (the previous NodeFacts are freed). This call
+  // takes the actual provided facts and does not make a copy of them.
+  //void setFacts(Analysis* analysis, const std::map<int, NodeFact*>& newFacts);
+  void setFacts(Analysis* analysis, const std::vector<NodeFact*>& newFacts);
+  
+  // returns the given fact, which owned by the given analysis
+  NodeFact* getFact(Analysis* analysis, int factName) const ;
+  
+  // returns the map of all the facts owned by the given analysis at this NodeState
+  // (read-only access)
+  //const std::map<int, NodeFact*>& getFacts(Analysis* analysis) const;
+  const std::vector<NodeFact*>& getFacts(Analysis* analysis) const;
+  
+  // returns the map of all the facts owned by the given analysis at this NodeState
+  // (read/write access)
+  //std::map<int, NodeFact*>& getFactsMod(Analysis* analysis);
+  std::vector<NodeFact*>& getFactsMod(Analysis* analysis);
+  
+  // removes the given fact, owned by the given analysis
+  // returns true if the given fact was found and removed and false if it was not found
+  //bool removeFact(Analysis* analysis, int factName);
+  
+  // deletes all facts at this node associated with the given analysis
+  void deleteFacts(Analysis* analysis);
+  
+  // delete all state at this node associated with the given analysis
+  void deleteState(Analysis* analysis);
+  
+  // ====== STATIC ======
+  private:
+  static std::map<ComposedAnalysis*, std::map<PartPtr, NodeState*> > nodeStateMap;
+  
+  public:
+  // Returns the NodeState object associated with the given Part from the given analysis.
+  static NodeState* getNodeState(ComposedAnalysis* analysis, PartPtr p);
+  
+  public:
+  
+  // Copies from's above lattices for analysis to to's above lattices for the same analysis, both along the NULL edge.
+  static void copyLattices_aEQa(Analysis* analysis, NodeState& to, const NodeState& from);
+  // Copies along the given departing edges
+  static void copyLattices_aEQa(Analysis* analysis, NodeState& to,   PartEdgePtr toDepartEdge, 
+                                              const NodeState& from, PartEdgePtr fromDepartEdge);
+  
+  // Copies from's above lattices for analysis to to's below lattices for the same analysis, both along the NULL edge.
+  static void copyLattices_bEQa(Analysis* analysis, NodeState& to, const NodeState& from);
+  // Copies along the given departing edges
+  static void copyLattices_bEQa(Analysis* analysis, NodeState& to,   PartEdgePtr toDepartEdge, 
+                                              const NodeState& from, PartEdgePtr fromDepartEdge);
+  
+  // Copies from's below lattices for analysis to to's below lattices for the same analysis, both along the NULL edge.
+  static void copyLattices_bEQb(Analysis* analysis, NodeState& to, const NodeState& from);
+  // Copies along the given departing edges
+  static void copyLattices_bEQb(Analysis* analysis, NodeState& to,   PartEdgePtr toDepartEdge, 
+                                              const NodeState& from, PartEdgePtr fromDepartEdge);
+  
+  // Copies from's below lattices for analysis to to's above lattices for the same analysis, both along the NULL edge.
+  static void copyLattices_aEQb(Analysis* analysis, NodeState& to, const NodeState& from);
+  // Copies along the given departing edges
+  static void copyLattices_aEQb(Analysis* analysis, NodeState& to,   PartEdgePtr toDepartEdge, 
+                                              const NodeState& from, PartEdgePtr fromDepartEdge);
+  
+  
+  // Makes dfInfoTo[*] a copy of dfInfoFrom[*], ensuring that they both have the same structure
+  static void copyLattices(std::map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,
+                     const std::map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom);
+  
+  // Makes dfInfoTo[*] a copy of dfInfoFrom[*]. If dfInfoTo is not initially empty, it is cleared and its 
+  // Lattices are deallocated.
+  static void copyLatticesOW(map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,
+                       const map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom);
+
+  // Makes dfInfoTo[toDepartEdge] a copy of dfInfoFrom[fromDepartEdge]
+  // If adjustPEdge is true, calls Lattice::setPartEdge() on the copied lattices in dfInfoTo to associate them with this edge.
+  static void copyLattices(std::map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,   PartEdgePtr toDepartEdge, 
+                     const std::map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom, PartEdgePtr fromDepartEdge,
+                     bool adjustPEdge=false);
+
+  // Makes dfInfoTo[toDepartEdge] a copy of dfInfoFrom[fromDepartEdge]. If dfInfoTo[toDepartEdge] is not initially empty, 
+  // it is cleared and its Lattices are deallocated.
+  // If adjustPEdge is true, calls Lattice::setPartEdge() on the copied lattices in dfInfoTo to associate them with this edge.
+  static void copyLatticesOW(map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,   PartEdgePtr toDepartEdge,
+                       const map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom, PartEdgePtr fromDepartEdge, 
+                       bool adjustPEdge=false);
+  
+  /*public:
+  void operator=(NodeState& that);*/
+  public:
+  std::string str(std::string indent="");
+    
+  std::string str(Analysis* analysis, std::string indent="");
+  
+  // Returns the string representation of the Lattices stored in the given map
+  static string str(const std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, string indent="");
 };
-
+}; // namespace dataflow
 #endif

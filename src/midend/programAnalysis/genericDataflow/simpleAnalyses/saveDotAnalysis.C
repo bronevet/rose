@@ -1,11 +1,11 @@
 #include "saveDotAnalysis.h"
 
-
+namespace dataflow {
 /***********************
  *** SaveDotAnalysis ***
  ***********************/
 
-bool SaveDotAnalysis::runAnalysis(const Function& func, NodeState* state)
+void SaveDotAnalysis::runAnalysis(const Function& func, NodeState* state)
 {
         if(func.get_definition())
         {
@@ -16,7 +16,6 @@ bool SaveDotAnalysis::runAnalysis(const Function& func, NodeState* state)
                 cfgToDot(fileCFG, func.get_name(), func.get_definition()->cfgForBeginning());
                 fileCFG.close();
         }
-        return false;
 }
 
 // Saves the CFGs of all the functions into their own files
@@ -27,3 +26,4 @@ void saveCFGsToDots()
         UnstructuredPassInterAnalysis upia_sda(sda);
         upia_sda.runAnalysis();
 }
+}; // namespace dataflow

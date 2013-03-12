@@ -351,3 +351,9 @@ Makefile.in
 
 # /projects/compass/extensions/checkers/voidStar/
 /projects/compass/extensions/checkers/voidStar/voidStar.compass.external.makefile
+
+/src/midend/programAnalysis/genericDataflow/CMakeFiles/*
+/src/midend/programAnalysis/genericDataflow/nbproject/*
+/src/midend/programAnalysis/genericDataflow/CMakeCache.txt
+/compile
+

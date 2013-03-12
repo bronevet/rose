@@ -22,6 +22,7 @@
 
 #include "VariableStateTransfer.h"
 
+using namespace dataflow;
 // Define taint analysis based on return value from magic function.
 // Define detection of tain as propagation of value to inputs of 2nd magic function.
 

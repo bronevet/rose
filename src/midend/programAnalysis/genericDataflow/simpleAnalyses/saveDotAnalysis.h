@@ -13,6 +13,7 @@
 
 extern int divAnalysisDebugLevel;
 
+namespace dataflow {
 /***********************
  *** SaveDotAnalysis ***
  ***********************/
@@ -21,7 +22,7 @@ class SaveDotAnalysis: virtual public IntraProceduralAnalysis
 {
         public:
         
-        bool runAnalysis(const Function& func, NodeState* state);
+        void runAnalysis(const Function& func, NodeState* state);
 };
 
 
@@ -29,4 +30,5 @@ class SaveDotAnalysis: virtual public IntraProceduralAnalysis
 // Precondition: initAnalysis() has been called
 void saveCFGsToDots();
 
+}; // namespace dataflow
 #endif

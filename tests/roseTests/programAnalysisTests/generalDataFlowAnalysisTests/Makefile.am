@@ -9,6 +9,7 @@ EXTRA_DIST =
 CLEAN_TARGETS =
 C_CHECK_TARGETS =
 FORTRAN_CHECK_TARGETS =
+bin_PROGRAMS =
 
 LDADD = $(ROSE_LIBS) 
 
@@ -18,40 +19,62 @@ INCLUDES = 					\
 	-I$(srcdir)				\
         -I$(SAF_SRC_ROOT)			\
         -I$(SAF_SRC_ROOT)/analysis		\
-        -I$(SAF_SRC_ROOT)/arrIndexLabeler	\
         -I$(SAF_SRC_ROOT)/cfgUtils		\
         -I$(SAF_SRC_ROOT)/lattice		\
-        -I$(SAF_SRC_ROOT)/rwAccessLabeler	\
         -I$(SAF_SRC_ROOT)/simpleAnalyses	\
-        -I$(SAF_SRC_ROOT)/state			\
-        -I$(SAF_SRC_ROOT)/variables
+        -I$(SAF_SRC_ROOT)/state
 
-bin_PROGRAMS = taintAnalysisTest constantPropagationTest taintedFlowAnalysisTest liveDeadVarAnalysisTest pointerAliasAnalysisTest
-EXTRA_DIST += constantPropagation.h taintedFlowAnalysis.h pointerAliasAnalysis.h
-
-taintAnalysisTest_SOURCES = taintAnalysisTest.C
-liveDeadVarAnalysisTest_SOURCES = liveDeadVarAnalysisTest.C
-constantPropagationTest_SOURCES = constantPropagation.C constantPropagationTest.C
-taintedFlowAnalysisTest_SOURCES = taintedFlowAnalysis.C taintedFlowAnalysisTest.C
-pointerAliasAnalysisTest_SOURCES = pointerAliasAnalysis.C pointerAliasAnalysisTest.C
-
-CONST_PROP = ./constantPropagationTest
 TEST_EXIT_STATUS = $(top_srcdir)/scripts/test_exit_status
 
-
+## We need to clean these up if they're really not used (they'll still exist in revision control). [RPM 2012-09-25]
+unused_sources = arrCompositionalTestCode.C constantPropagation.C cpCompositionalTestCode.C \
+	cpCompositionalTestCode_Inter.C cpTest.C ldCompositionalTestCode.C
+.PHONY: warn-unused-sources
+warn-unused-sources:
+	@echo "  FIXME: these sources are unused? $(unused_sources)"
 
 ###############################################################################################################################
-### Taint Analysis tests ("cxxta" unique prefix)
+# Programs
+###############################################################################################################################
+# FIXME: Some of these are commented out because the genericDataflow API has changed since they were written.  The
+# taintAnalysis is commented out by Robb and will be corrected by him.  The liveDeadVarAnalysisTest,
+# taintedFlowAnalysisTest, and pointerAliasAnalysisTest are commented out by Sriram. Don't forget to de-comment the
+# *_CHECK_TARGETS lines below when you enable a test again. [RPM 2012-09-24]
+
+bin_PROGRAMS += compositionalTestAnalysis
+compositionalTestAnalysis_SOURCES = compositionalTestAnalysis.C
+#EXTRA_DIST += constantPropagation.h
+COMP_CONST_PROP = ./compositionalTestAnalysis
+
+#bin_PROGRAMS += liveDeadVarAnalysisTest
+#liveDeadVarAnalysisTest_SOURCES = liveDeadVarAnalysisTest.C
+
+#bin_PROGRAMS += pointerAliasAnalysisTest
+#pointerAliasAnalysisTest_SOURCES = pointerAliasAnalysis.C pointerAliasAnalysisTest.C
+#EXTRA_DIST += pointerAaliasAnalysis.h
+
+#bin_PROGRAMS += taintAnalysisTest
+#taintAnalysisTest_SOURCES = taintAnalysisTest.C
+
+#bin_PROGRAMS += taintedFlowAnalysisTest
+#taintedFlowAnalysisTest_SOURCES = taintedFlowAnalysis.C taintedFlowAnalysisTest.C
+#EXTRA_DIST += taintedFlowAnalysis.h
+
+###############################################################################################################################
+# Taint Analysis tests ("cxxta" unique prefix)
 ###############################################################################################################################
 
-TAINT_ANALYSIS_SPECIMENS = taint_input0.C taint_input1.C taint_input2.C taint_input3.C taint_input4.C taint_input5.C taint_input6.C
+TAINT_ANALYSIS_SPECIMENS = \
+	taint_input0.C taint_input1.C taint_input2.C taint_input3.C taint_input4.C taint_input5.C taint_input6.C
 EXTRA_DIST += $(TAINT_ANALYSIS_SPECIMENS) $(addsuffix .ans, $(TAINT_ANALYSIS_SPECIMENS)) taintAnalysisTest.conf
 
 TAINT_ANALYSIS_TESTS = $(addprefix cxxta_, $(addsuffix .passed, $(TAINT_ANALYSIS_SPECIMENS)))
 $(TAINT_ANALYSIS_TESTS): cxxta_%.passed: $(srcdir)/% taintAnalysisTest taintAnalysisTest.conf
 	@$(RTH_RUN) INPUT=$< ANSWER=$<.ans $(srcdir)/taintAnalysisTest.conf $@
 
-C_CHECK_TARGETS += check-taint-analysis
+##!## FIXME: Commented out because the genericdataflow api changed from under us. [RPM 2012-09-25]
+##!## 
+##!## C_CHECK_TARGETS += check-taint-analysis
 .PHONY: check-taint-analysis
 check-taint-analysis: $(TAINT_ANALYSIS_TESTS)
 
@@ -65,14 +88,14 @@ clean-taint-analysis:
 
 
 ###############################################################################################################################
-### C++ constant propagation tests on local specimens ("cxxcpls" unique prefix)
+# C++ constant propagation tests on local specimens ("cxxcpls" unique prefix)
 ###############################################################################################################################
 
-CXX_CONSTPROP_LOCAL_SPECIMENS = cp_test1.C
-EXTRA_DIST += $(CXX_CONSTPROP_LOCAL_SPECIMENS)
+CXX_CONSTPROP_LOCAL_SPECIMENS = cp_test1.C compositionalTestInput1.C compositionalTestInput2.C compositionalTestInput3.C compositionalTestInput4.C
+EXTRA_DIST += $(CXX_CONSTPROP_LOCAL_SPECIMENS) constantPropagationTest.conf cp_test_status.txt
 CXX_CONSTPROP_LOCAL_TESTS = $(addprefix cxxcpls_, $(addsuffix .passed, $(CXX_CONSTPROP_LOCAL_SPECIMENS)))
-$(CXX_CONSTPROP_LOCAL_TESTS): cxxcpls_%.passed: $(srcdir)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
-	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -c $<" $(TEST_EXIT_STATUS) $@
+$(CXX_CONSTPROP_LOCAL_TESTS): cxxcpls_%.passed: $(srcdir)/% $(TEST_EXIT_STATUS) $(COMP_CONST_PROP) constantPropagationTest.conf
+	@$(RTH_RUN) INPUT=$< ROSE_FLAGS=$(ROSE_FLAGS) CONST_PROP_INCL= $(srcdir)/constantPropagationTest.conf  $@
 
 C_CHECK_TARGETS += check-cxx-constprop-local
 .PHONY: check-cxx-constprop-local
@@ -89,13 +112,17 @@ clean-cxx-constprop-local:
 
 
 ###############################################################################################################################
-### C++ constant propagation tests on specimens from the CXX_TESTDIR directory ("cxxcp" unique prefix)
+# C++ constant propagation tests on specimens from the CXX_TESTDIR directory ("cxxcp" unique prefix)
 ###############################################################################################################################
 
 # This list comes from $(CXX_TESTDIR)/Makefile-pass.inc as of 2011-??-14 so we can remove failing tests.  Do not add these
 # names to EXTRA_DIST since they are in some other directory.  Additional comments about the failing tests can be found
 # scattered through out commit c8f4d3c of this file.
 CXX_TESTDIR = $(top_srcdir)/tests/CompileTests/Cxx_tests
+
+#Run livedeadmem and constant propagation for all analysis using the following flag
+CP_ROSE_FLAGS ="-dataflow:livedeadmemanalysis -dataflow:constantpropagationanalysis"
+
 CXX_CONSTPROP_SPECIMENS =													 \
 	X.C lexPhase2003_01.C math.C test2001_01.C test2001_02.C test2001_05.C test2001_06.C test2001_07.C test2001_08.C	 \
 	test2001_09.C test2001_10.C test2001_11.C test2001_12.C test2001_13.C test2001_15.C test2001_16.C test2001_17.C		 \
@@ -202,8 +229,8 @@ CXX_CONSTPROP_SPECIMENS_HANGING = \
 	test2005_114.C
 
 CXX_CONSTPROP_TESTS = $(addprefix cxxcp_, $(addsuffix .passed, $(CXX_CONSTPROP_SPECIMENS)))
-$(CXX_CONSTPROP_TESTS): cxxcp_%.passed: $(CXX_TESTDIR)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
-	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -I$(CXX_TESTDIR) -c $<" $(TEST_EXIT_STATUS) $@
+$(CXX_CONSTPROP_TESTS): cxxcp_%.passed: $(CXX_TESTDIR)/% $(COMP_CONST_PROP) constantPropagationTest.conf
+	@$(RTH_RUN) INPUT=$< ROSE_FLAGS=$(CP_ROSE_FLAGS) CONST_PROP_INCL=-I$(CXX_TESTDIR) $(srcdir)/constantPropagationTest.conf $@
 
 C_CHECK_TARGETS += check-cxx-constprop
 .PHONY: check-cxx-constprop
@@ -253,9 +280,9 @@ C_CONSTPROP_SPECIMENS_FAILING =											     \
 
 # The EXAMPLE_C_TESTCODES_VERIFIED_TO_PASS have ".C" extentions, not ".c", so we need to first copy each one to a new name.
 C_CONSTPROP_TESTS = $(addprefix ccp_, $(addsuffix .passed, $(C_CONSTPROP_SPECIMENS)))
-$(C_CONSTPROP_TESTS): ccp_%.passed: $(CXX_TESTDIR)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
+$(C_CONSTPROP_TESTS): ccp_%.passed: $(CXX_TESTDIR)/% $(TEST_EXIT_STATUS) $(COMP_CONST_PROP)
 	cp $< ${@:.C.passed=.c}
-	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -I$(CXX_TESTDIR) -c ${@:.C.passed=.c}" $(TEST_EXIT_STATUS) $@
+	@$(RTH_RUN) INPUT=$< ROSE_FLAGS=$(CP_ROSE_FLAGS) CONST_PROP_INCL=-I$(CXX_TESTDIR) $(srcdir)/constantPropagationTest.conf $@
 
 C_CHECK_TARGETS += check-c-constprop
 .PHONY: check-c-constprop
@@ -282,8 +309,9 @@ C99_CONSTPROP_SPECIMENS = bool.c complex_01.c complex_03.c constants.c test2005_
 C99_CONSTPROP_SPECIMENS_FAILING = test2008_01.c
 
 C99_CONSTPROP_TESTS = $(addprefix c99cp_, $(addsuffix .passed, $(C99_CONSTPROP_SPECIMENS)))
-$(C99_CONSTPROP_TESTS): c99cp_%.passed: $(C99_TESTDIR)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
-	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -I$(C99_TESTDIR) -c $<" $(TEST_EXIT_STATUS) $@
+$(C99_CONSTPROP_TESTS): c99cp_%.passed: $(C99_TESTDIR)/% $(TEST_EXIT_STATUS) $(COMP_CONST_PROP)
+	@$(RTH_RUN) INPUT=$< ROSE_FLAGS=$(CP_ROSE_FLAGS) CONST_PROP_INCL=-I$(C99_TESTDIR) $(srcdir)/constantPropagationTest.conf $@
+
 
 C_CHECK_TARGETS += check-c99-constprop
 .PHONY: check-c99-constprop
@@ -323,10 +351,12 @@ F77_CONSTPROP_SPECIMENS_FAILING_CFG =										 \
 	test2007_227.f test2007_256.f test2007_258.f
 
 F77_CONSTPROP_TESTS = $(addprefix f77cp_, $(addsuffix .passed, $(F77_CONSTPROP_SPECIMENS)))
-$(F77_CONSTPROP_TESTS): f77cp_%.passed: $(F77_TESTDIR)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
-	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -rose:f77 -c $<" $(TEST_EXIT_STATUS) $@
+$(F77_CONSTPROP_TESTS): f77cp_%.passed: $(F77_TESTDIR)/% $(TEST_EXIT_STATUS) $(COMP_CONST_PROP)
+	@$(RTH_RUN) CMD="$(CONST_PROP) $(CP_ROSE_FLAGS) -rose:f77 -c $<" $(TEST_EXIT_STATUS) $@
 
-FORTRAN_CHECK_TARGETS += check-f77-constprop
+#!# FIXME: This needs to be de-commented eventually. Commented out by Sriram. [RPM 2012-10-04]
+#!#
+#!#FORTRAN_CHECK_TARGETS += check-f77-constprop
 .PHONY: check-f77-constprop
 check-f77-constprop: $(F77_CONSTPROP_TESTS)
 
@@ -373,10 +403,12 @@ F90_CONSTPROP_SPECIMENS_FAILING_CFG =									   \
 	test2007_99.f90
 
 F90_CONSTPROP_TESTS = $(addprefix f90cp_, $(addsuffix .passed, $(F90_CONSTPROP_SPECIMENS)))
-$(F90_CONSTPROP_TESTS): f90cp_%.passed: $(F90_TESTDIR)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
-	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -rose:f90 -c $<" $(TEST_EXIT_STATUS) $@
+$(F90_CONSTPROP_TESTS): f90cp_%.passed: $(F90_TESTDIR)/% $(TEST_EXIT_STATUS) $(COMP_CONST_PROP)
+	@$(RTH_RUN) CMD="$(CONST_PROP) $(CP_ROSE_FLAGS) -rose:f90 -c $<" $(TEST_EXIT_STATUS) $@
 
-FORTRAN_CHECK_TARGETS += check-f90-constprop
+#!# FIXME: This needs to be de-commented eventually. Commented out by Sriram. [RPM 2012-10-04]
+#!#
+#!#FORTRAN_CHECK_TARGETS += check-f90-constprop
 .PHONY: check-f90-constprop
 check-f90-constprop: $(F90_CONSTPROP_TESTS)
 
@@ -406,11 +438,13 @@ F03_CONSTPROP_SPECIMENS_FAILING_CFG =									  \
 	test2007_30.f03 test2007_35.f03 test2007_43.f03 test2007_45.f03
 
 F03_CONSTPROP_TESTS = $(addprefix f03cp_, $(addsuffix .passed, $(F03_CONSTPROP_SPECIMENS)))
-$(F03_CONSTPROP_TESTS): f03cp_%.passed: $(F03_TESTDIR)/% $(TEST_EXIT_STATUS) $(CONST_PROP)
-	@$(RTH_RUN) CMD="$(CONST_PROP) $(ROSE_FLAGS) -rose:skip_syntax_check -rose:skipfinalCompileStep -rose:f2003 -c $<" \
+$(F03_CONSTPROP_TESTS): f03cp_%.passed: $(F03_TESTDIR)/% $(TEST_EXIT_STATUS) $(COMP_CONST_PROP)
+	@$(RTH_RUN) CMD="$(CONST_PROP) $(CP_ROSE_FLAGS) -rose:skip_syntax_check -rose:skipfinalCompileStep -rose:f2003 -c $<" \
 		$(TEST_EXIT_STATUS) $@
 
-FORTRAN_CHECK_TARGETS += check-f03-constprop
+#!# FIXME: This needs to be de-commented eventually. Commented out by Sriram. [RPM 2012-10-04]
+#!#
+#!#FORTRAN_CHECK_TARGETS += check-f03-constprop
 .PHONY: check-f03-constprop
 check-f03-constprop: $(F03_CONSTPROP_TESTS)
 
@@ -436,7 +470,9 @@ CXX_LIVENESS_TESTS = $(addprefix cxxla_, $(addsuffix .passed, $(CXX_LIVENESS_SPE
 $(CXX_LIVENESS_TESTS): cxxla_%.passed: $(srcdir)/% $(TEST_EXIT_STATUS) liveDeadVarAnalysisTest
 	@$(RTH_RUN) CMD="./liveDeadVarAnalysisTest $(ROSE_FLAGS) -c $<" $(TEST_EXIT_STATUS) $@
 
-C_CHECK_TARGETS += check-cxx-liveness
+##!## FIXME: Commented out because the genericdataflow api changed from under us. [RPM 2012-09-25]
+##!## 
+##!## C_CHECK_TARGETS += check-cxx-liveness
 .PHONY: check-cxx-liveness
 check-cxx-liveness: $(CXX_LIVENESS_TESTS)
 
@@ -461,7 +497,9 @@ CXX_POINTER_ALIAS_TESTS = $(addprefix cxxpa_, $(addsuffix .passed, $(CXX_POINTER
 $(CXX_POINTER_ALIAS_TESTS): cxxpa_%.passed: $(srcdir)/% $(TEST_EXIT_STATUS) ./pointerAliasAnalysisTest
 	@$(RTH_RUN) CMD="./pointerAliasAnalysisTest $(ROSE_FLAGS) -c $<" $(TEST_EXIT_STATUS) $@
 
-C_CHECK_TARGETS += check-cxx-pointer-alias
+##!## FIXME: Commented out because the genericdataflow api changed from under us. [RPM 2012-09-25]
+##!## 
+##!## C_CHECK_TARGETS += check-cxx-pointer-alias
 .PHONY: check-cxx-pointer-alias
 check-cxx-pointer-alias: $(CXX_POINTER_ALIAS_TESTS)
 
@@ -472,8 +510,6 @@ clean-cxx-pointer-alias:
 	rm -f $(CXX_POINTER_ALIAS_TESTS:.passed=.out) $(CXX_POINTER_ALIAS_TESTS:.passed=.err)
 	rm -f $(patsubst cxxpa_%.passed, %*.dot, $(CXX_POINTER_ALIAS_TESTS))
 	rm -f detail.html index.html summary.html
-
-
 
 ###############################################################################################################################
 ### Automake check and clean rules
@@ -502,7 +538,7 @@ check-fortran-languages:
 endif
 
 
-check-local: check-c-languages check-fortran-languages
+check-local: check-c-languages check-fortran-languages warn-unused-sources
 
 # Clean only files that are created by the build system (i.e., no wild cards, because that tends to delete files that
 # developers are working with).  Also, the MOSTLYCLEANFILES list gets too long for the shell, so we use phony targets to

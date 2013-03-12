@@ -22,7 +22,7 @@ Function::Function(string name)
         //printf("Function::Function(string name) this=0x%x\n", this);
         //def = NULL;
         
-        Rose_STL_Container<SgNode*> functions = NodeQuery::querySubTree(cfgUtils::project, V_SgFunctionDeclaration);
+        Rose_STL_Container<SgNode*> functions = NodeQuery::querySubTree(SageInterface::getProject(), V_SgFunctionDeclaration);
         for (Rose_STL_Container<SgNode*>::const_iterator it = functions.begin(); it != functions.end(); it++)
         {
                 ROSE_ASSERT(isSgFunctionDeclaration(*it));
@@ -705,8 +705,8 @@ TraverseCallGraphDataflow::TraverseCallGraphDataflow(SgIncidenceDirectedGraph* g
 void TraverseCallGraphDataflow::traverse()
 {
         // start the traversal from the nodes that are called from no other node
-        for(set<CGFunction>::iterator it = functions.begin(); it!=functions.end(); it++)
-          remaining.push_back(&(*it));
+        for(set<const CGFunction*>::iterator it=noPred.begin(); it!=noPred.end(); it++)
+          remaining.push_back(*it);
         
         // traverse functions for as long as visit keeps adding them to remaining
         while(remaining.size()>0)

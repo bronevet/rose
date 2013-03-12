@@ -41,7 +41,8 @@
 #include "abstract_handle.h"
 #include "roseAdapter.h"
 
-#include "memory_object.h"
+// GB: Moved support to genericDataflow/analysis/abstract_object.h
+//#include "memory_object.h"
 //#include "memory_object_impl.h"
 #endif
 

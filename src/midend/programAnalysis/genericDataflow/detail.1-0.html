@@ -1,0 +1,207 @@
+<html>
+	<head>
+	<title>Composed Analysis</title>
+	<script> src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+	<script>
+	$(document).ready(function() {
+	    $('#MainBack').load('http://www.google.com');    
+	});
+	</script>
+
+	<STYLE TYPE="text/css">
+	BODY
+		{
+		font-family:courier;
+		}
+	.hidden { display: none; }
+	.unhidden { display: block; }
+	</style>
+	<script type="text/javascript">
+	function unhide(divID) {
+	  var parentDiv = document.getElementById("div"+divID);
+		if (parentDiv) {
+			// Hide the parent div
+			parentDiv.className=(parentDiv.className=='hidden')?'unhidden':'hidden';
+			// Get all the tables
+			var childTbls = document.getElementsByTagName("table");
+			condition = new RegExp("table"+divID+"*");
+			for (var i=0; i<childTbls.length; i++){ 
+				var child = childTbls[i];
+				// Set the visibility status of each child table to be the same as its parent div
+				if ("table"+divID!=child.id && child.nodeType==1 && child.id!=undefined && child.id.match(condition)) {
+				    child.className=parentDiv.className;
+				}
+			}
+		}
+	}
+	
+	
+	function resizeIframeHeight(e){
+    // Set width of iframe according to its content
+    if(e.contentDocument && e.contentDocument.body.offsetHeight) { //standards compliant syntax – ie8
+        e.height = e.contentDocument.body.offsetHeight + 35;
+		}
+	}
+
+function setIframeHeight(iframe) {
+    if (iframe) {
+        var iframeWin = iframe.contentWindow || iframe.contentDocument.parentWindow;
+        if (iframeWin.document.body) {
+            iframe.height = iframeWin.document.documentElement.scrollHeight || iframeWin.document.body.scrollHeight;
+            /*alert(iframe.height);
+            alert(iframeWin.document.documentElement.scrollHeight);
+            alert(iframeWin.document.body.scrollHeight);*/
+        }
+    }
+};
+
+function setIframeWidth(iframe) {
+    if (iframe) {
+        var iframeWin = iframe.contentWindow || iframe.contentDocument.parentWindow;
+        if (iframeWin.document.body) {
+            //iframe.width = iframeWin.document.documentElement.scrollWidth || iframeWin.document.body.scrollWidth;
+            iframe.width = iframeWin.document.body.scrollWidth;
+            alert(iframe.width);
+            alert(iframeWin.document.documentElement.scrollWidth);
+            alert(iframeWin.document.body.scrollWidth);
+        }
+    }
+};
+	
+	function loadURLIntoDiv(url, divName) {
+		alert(url);
+		var xhr= new XMLHttpRequest();
+		xhr.open('GET', url, true);
+		xhr.onreadystatechange= function() {
+			alert(this.readyState);
+			if (this.readyState!==4) return;
+		   //if (this.status!==200) return; // or whatever error handling you want
+		   
+		   document.getElementById(divName).innerHTML= this.responseText;
+		};
+		xhr.send();
+	}
+	
+	function includeSubDoc(divName, parentDivName, url)
+	{
+		document.getElementById(divName).src = url;
+		setIframeHeight(document.getElementById(divName));
+		document.getElementById(divName).src = url;
+		setIframeWidth(document.getElementById(divName));
+		/*alert(url);
+		var xhr= new XMLHttpRequest();
+		xhr.open('GET', url, true);
+		xhr.onreadystatechange= function() {
+			alert(this.readyState);
+			alert("responseText="+this.responseText);
+		    if (this.readyState!==4) return;
+		    if (this.status!==200) return; // or whatever error handling you want
+		    document.getElementById(parentDivName).innerHTML= this.responseText;
+		};
+		xhr.send();*/
+		
+		//document.getElementById('div1_0').innerHTML='http://www.google.com'
+		
+		/*if(document.getElementById){
+			alert(document.getElementById(divName).contentWindow.document.body.scrollHeight);
+		  newheight=document.getElementById(divName).contentWindow.document.body.scrollHeight;
+		  newwidth=document.getElementById(divName).contentWindow.document.body.scrollWidth;
+		}
+		newheight*=2;
+		
+		document.getElementById(divName).height= (newheight) + "px";
+		document.getElementById(divName).width= (newwidth) + "px";
+		document.getElementById(parentDivName).height= (newheight) + "px";
+		document.getElementById(parentDivName).width= (newwidth) + "px";*/
+		
+		
+		//alert("height="+document.getElementById(divName).height);
+		//alert("width="+document.getElementById(divName).width);
+	}
+	
+	/*window.onload = function () {
+			setIframeHeight(document.getElementById('calendar'));
+		};*/
+	
+	function highlightLink(divID, newcolor) {
+		var sumLink = top.summary.document.getElementById("link"+divID);
+		sumLink.style.backgroundColor= newcolor;
+	}
+	function focusLink(divID, e) {
+		e = e || window.event;
+		if('cancelBubble' in e) {
+			e.cancelBubble = true;
+			top.summary.location = "summary.1-0.html#anchor"+divID;
+		}
+	}
+	function showNodes(imgNum, str) {
+		var f = document.getElementById('imgFrame_'+imgNum);
+		f.width = "100%"
+		f.height = 100;
+		f = (f.contentWindow ? f.contentWindow : (f.contentDocument.document ? f.contentDocument.document : f.contentDocument));
+		f.document.open();
+		f.document.write("~/Compilers/focusOnNodes.pl ./dbg_imgs/image_"+imgNum+".dot "+str+" > ./dbg_imgs/image_"+imgNum+".focus.dot ; dot -Tsvg -o./dbg_imgs/image_"+imgNum+".focus.svg ./dbg_imgs/image_"+imgNum+".focus.dot");
+		f.document.close();
+	}
+	</script>
+	</head>
+	<body>
+	<h1>Composed Analysis</h1>
+		<table width="100%">
+			<tr width="100%"><td width=50></td><td width="100%">
+				</td></tr>
+				<tr width="100%"><td width=50></td><td width="100%">
+					<table bgcolor="#FF97E8" width="100%" id="table1_0" style="border:1px solid white" onmouseover="this.style.border='1px solid black'; highlightLink('1_0', '#F4FBAA');" onmouseout="this.style.border='1px solid white'; highlightLink('1_0', '#FFFFFF');" onclick="focusLink('1_0', event);">
+					<tr width="100%"><td width=50></td><td width="100%"><h2><a name="1_0" href="javascript:unhide('1_0');">ChainComposer&nbsp;Running&nbsp;Analysis&nbsp;1:&nbsp;LiveDeadMemAnalysis</a></h2></td></tr>
+					<tr width="100%"><td width=50></td><td width="100%"><div id="div1_0" class="unhidden">
+<a href="./index.html.1-1-0.html">LINK</a>
+<a href="javascript:includeSubDoc('calendar', 'div1_0', './detail.1-1-0.html')">GO</a>
+<a href="javascript:loadURLIntoDiv('./detail.1-1-0.html','div1_0')">loadURLIntoDiv</a>
+
+<iframe id="calendar" src="about:blank" frameborder="0" scrolling="no">
+	
+</iframe>
+<br>
+				</td></tr>
+				</table>
+			</td></tr>
+			<tr width="100%"><td width=50></td><td width="100%">
+				</td></tr>
+				<tr width="100%"><td width=50></td><td width="100%">
+					<table bgcolor="#FF97E8" width="100%" id="table2_0" style="border:1px solid white" onmouseover="this.style.border='1px solid black'; highlightLink('2_0', '#F4FBAA');" onmouseout="this.style.border='1px solid white'; highlightLink('2_0', '#FFFFFF');" onclick="focusLink('2_0', event);">
+					<tr width="100%"><td width=50></td><td width="100%"><h2><a name="2_0" href="javascript:unhide('2_0');">ChainComposer&nbsp;Running&nbsp;Analysis&nbsp;2:&nbsp;ConstantPropagationAnalysis</a></h2></td></tr>
+					<tr width="100%"><td width=50></td><td width="100%"><div id="div2_0" class="unhidden">
+<a href="./index.html.1-2-0.html">LINK</a>
+<br>
+				</td></tr>
+				</table>
+			</td></tr>
+			<tr width="100%"><td width=50></td><td width="100%">
+				</td></tr>
+				<tr width="100%"><td width=50></td><td width="100%">
+					<table bgcolor="#FF97E8" width="100%" id="table3_0" style="border:1px solid white" onmouseover="this.style.border='1px solid black'; highlightLink('3_0', '#F4FBAA');" onmouseout="this.style.border='1px solid white'; highlightLink('3_0', '#FFFFFF');" onclick="focusLink('3_0', event);">
+					<tr width="100%"><td width=50></td><td width="100%"><h2><a name="3_0" href="javascript:unhide('3_0');">ChainComposer&nbsp;Running&nbsp;Analysis&nbsp;3:&nbsp;DeadPathElimAnalysis</a></h2></td></tr>
+					<tr width="100%"><td width=50></td><td width="100%"><div id="div3_0" class="unhidden">
+<a href="./index.html.1-3-0.html">LINK</a>
+<br>
+				</td></tr>
+				</table>
+			</td></tr>
+			<tr width="100%"><td width=50></td><td width="100%">
+				</td></tr>
+				<tr width="100%"><td width=50></td><td width="100%">
+					<table bgcolor="#FF97E8" width="100%" id="table4_0" style="border:1px solid white" onmouseover="this.style.border='1px solid black'; highlightLink('4_0', '#F4FBAA');" onmouseout="this.style.border='1px solid white'; highlightLink('4_0', '#FFFFFF');" onclick="focusLink('4_0', event);">
+					<tr width="100%"><td width=50></td><td width="100%"><h2><a name="4_0" href="javascript:unhide('4_0');">ChainComposer&nbsp;Running&nbsp;Analysis&nbsp;4:&nbsp;OrthogonalArrayAnalysis</a></h2></td></tr>
+					<tr width="100%"><td width=50></td><td width="100%"><div id="div4_0" class="unhidden">
+<a href="./index.html.1-4-0.html">LINK</a>
+<br>
+				</td></tr>
+				</table>
+			</td></tr>
+			<tr width="100%"><td width=50></td><td width="100%">
+				</td></tr>
+				<tr width="100%"><td width=50></td><td width="100%">
+					<table bgcolor="#FF97E8" width="100%" id="table5_0" style="border:1px solid white" onmouseover="this.style.border='1px solid black'; highlightLink('5_0', '#F4FBAA');" onmouseout="this.style.border='1px solid white'; highlightLink('5_0', '#FFFFFF');" onclick="focusLink('5_0', event);">
+					<tr width="100%"><td width=50></td><td width="100%"><h2><a name="5_0" href="javascript:unhide('5_0');">ChainComposer&nbsp;Running&nbsp;Analysis&nbsp;5:&nbsp;ConstantPropagationAnalysis</a></h2></td></tr>
+					<tr width="100%"><td width=50></td><td width="100%"><div id="div5_0" class="unhidden">
+<a href="./index.html.1-5-0.html">LINK</a>
