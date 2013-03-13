@@ -238,7 +238,7 @@ int main(int argc, char** argv)
       cout << "FAIL composer\n";
   }
   // passed by command line argument
-  // currently command line assumes loose sequentail
+  // currently command line assumes loose sequential
   else if(analyses.size() > 0)
   {
     checkDataflowInfoPass* cdip = new checkDataflowInfoPass();
