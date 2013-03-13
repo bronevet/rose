@@ -349,13 +349,13 @@ MemLocObjectPtr FuncResultMemLocObject::copyML() const
    ##### CombinedMemLocObject ##### 
    ################################ */
 
-template <bool defaultMayEq>
-CombinedMemLocObject<defaultMayEq>::CombinedMemLocObject(MemLocObjectPtr memLoc) : MemLocObject(NULL) {
-  memLocs.push_back(memLoc);
-}
+// template <bool defaultMayEq>
+// CombinedMemLocObject<defaultMayEq>::CombinedMemLocObject(MemLocObjectPtr memLoc) : MemLocObject(NULL) {
+//   memLocs.push_back(memLoc);
+// }
 
-template <bool defaultMayEq>
-CombinedMemLocObject<defaultMayEq>::CombinedMemLocObject(const std::list<MemLocObjectPtr>& memLocs) : MemLocObject(NULL), memLocs(memLocs) {}
+// template <bool defaultMayEq>
+// CombinedMemLocObject<defaultMayEq>::CombinedMemLocObject(const std::list<MemLocObjectPtr>& memLocs) : MemLocObject(NULL), memLocs(memLocs) {}
 
 // Creates a new CombinedMemLocObject. If all the sub-objects have a given type (Scalar, FunctionMemLoc, 
 // LabeledAggregate, Array or Pointer), the created CombinedMemLocObject has hte same type. Otherwise, the

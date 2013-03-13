@@ -2,6 +2,7 @@ include $(top_srcdir)/config/Makefile.for.ROSE.includes.and.libs
 
 include $(top_srcdir)/projects/symbolicAnalysisFramework/common.for.dep.libs
 
+#SA: not compiling with new framework
 
 # Saf is the short for symbolic analysis framework.
 # it is used to avoid possible name collision 
@@ -25,6 +26,6 @@ include $(top_srcdir)/projects/symbolicAnalysisFramework/common.for.dep.libs
 #	./selfTest test_example.c
 
 EXTRA_DIST =  test_example.c
-clean-local:
-	rm -f *.o rose_*.[cC] *.dot *.out rose_*.cpp *.patch *.loT
+# clean-local:
+# 	rm -f *.o rose_*.[cC] *.dot *.out rose_*.cpp *.patch *.loT
 

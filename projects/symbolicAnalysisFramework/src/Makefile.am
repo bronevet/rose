@@ -1,5 +1,7 @@
 include $(top_srcdir)/config/Makefile.for.ROSE.includes.and.libs
 
+# Sriram : not compiling with new framework
+
 SUBDIRS =  \
          external \
          mpiAnal \
@@ -10,6 +12,7 @@ SUBDIRS =  \
          chkptRangeAnalysis \
 	 taintAnalysis \
 	 parallelCFG
+
 #Liao, 2.24.2012
 # removed duplicated subdirectories
 #         common \
@@ -27,14 +30,14 @@ SUBDIRS =  \
 #	echo "parallel build is disabled in this directory to ease complex inter-directory dependencies"
 
 # Saf stands for symbolic analysis framework
-noinst_LTLIBRARIES = libSafall.la
-libSafall_la_SOURCES = dummyCppFileForLibSafall.C
+#noinst_LTLIBRARIES = libSafall.la
+#libSafall_la_SOURCES = dummyCppFileForLibSafall.C
 
-libSafall_la_LIBADD = \
-          $(top_builddir)/projects/symbolicAnalysisFramework/src/external/libSafexternal.la \
-          $(top_builddir)/projects/symbolicAnalysisFramework/src/ompAnal/libSafompAnal.la \
-          $(top_builddir)/projects/symbolicAnalysisFramework/src/unionFind/libSafunionFind.la \
-          $(top_builddir)/projects/symbolicAnalysisFramework/src/varBitVector/libSafvarBitVector.la 
+#libSafall_la_LIBADD = \
+#          $(top_builddir)/projects/symbolicAnalysisFramework/src/external/libSafexternal.la \
+#          $(top_builddir)/projects/symbolicAnalysisFramework/src/ompAnal/libSafompAnal.la \
+#          $(top_builddir)/projects/symbolicAnalysisFramework/src/unionFind/libSafunionFind.la \
+#          $(top_builddir)/projects/symbolicAnalysisFramework/src/varBitVector/libSafvarBitVector.la 
 #          $(top_builddir)/projects/symbolicAnalysisFramework/src/common/libSafcommon.la \
 #          $(top_builddir)/projects/symbolicAnalysisFramework/src/analysis/libSafanalysis.la \
 #          $(top_builddir)/projects/symbolicAnalysisFramework/src/arrIndexLabeler/libSafarrIndexLabeler.la \

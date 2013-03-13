@@ -417,7 +417,6 @@ cxxcp_test2005_26.C                      no
 cxxcp_test2005_27.C                      no
 cxxcp_test2005_30.C                      no
 cxxcp_test2005_31.C                      no
-cxxcp_test2005_32.C                      no
 cxxcp_test2005_33.C                      no
 cxxcp_test2005_36.C                      no
 cxxcp_test2005_38.C                      no
@@ -509,7 +508,6 @@ cxxcp_test2006_140.C                     no
 cxxcp_test2006_142.C                     no
 cxxcp_test2006_143.C                     no
 cxxcp_test2006_144.C                     no
-cxxcp_test2006_145.C                     no
 cxxcp_test2006_146.C                     no
 cxxcp_test2006_149.C                     no
 cxxcp_test2006_150.C                     no
@@ -597,8 +595,6 @@ cxxcp_test2007_01.C                      no
 cxxcp_test2007_02.C                      no
 cxxcp_test2007_03.C                      no
 cxxcp_test2007_04.C                      no
-cxxcp_test2007_05.C                      no
-cxxcp_test2007_06.C                      no
 cxxcp_test2007_07.C                      no
 cxxcp_test2007_08.C                      no
 cxxcp_test2007_09.C                      no
@@ -807,3 +803,5 @@ cxxcpls_compositionalTestInput2.C        no
 cxxcpls_compositionalTestInput3.C        no
 cxxcpls_compositionalTestInput4.C        no
 cxxcpls_cp_test1.C                       no
+cxxcpls_sas13Fig1Example.cpp             no
+cxxcpls_simplePtrTest.cpp                no

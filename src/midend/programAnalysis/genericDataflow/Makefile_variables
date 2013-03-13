@@ -30,6 +30,7 @@ mpaGenericDataflow_la_sources=\
 	$(mpaGenericDataflowPath)/simpleAnalyses/dead_path_elim_analysis.C \
 	$(mpaGenericDataflowPath)/simpleAnalyses/live_dead_analysis.C \
 	$(mpaGenericDataflowPath)/simpleAnalyses/ortho_array_analysis.C \
+	$(mpaGenericDataflowPath)/simpleAnalyses/pointsToAnalysis.C \
 	$(mpaGenericDataflowPath)/simpleAnalyses/printAnalysisStates.C \
 	$(mpaGenericDataflowPath)/simpleAnalyses/saveDotAnalysis.C \
 	$(mpaGenericDataflowPath)/simpleAnalyses/taintAnalysis.C \
@@ -56,6 +57,7 @@ mpaGenericDataflow_includeHeaders=\
 	$(mpaGenericDataflowPath)/analysis/dataflow.h \
 	$(mpaGenericDataflowPath)/analysis/compose.h \
 	$(mpaGenericDataflowPath)/analysis/abstract_object.h \
+        $(mpaGenericDataflowPath)/analysis/data_structures.h \
 	$(mpaGenericDataflowPath)/analysis/abstract_object_map.h \
 	$(mpaGenericDataflowPath)/analysis/abstract_object_set.h \
 	$(mpaGenericDataflowPath)/analysis/stx_analysis.h \
@@ -79,6 +81,7 @@ mpaGenericDataflow_includeHeaders=\
 	$(mpaGenericDataflowPath)/simpleAnalyses/dead_path_elim_analysis.h \
 	$(mpaGenericDataflowPath)/simpleAnalyses/live_dead_analysis.h \
 	$(mpaGenericDataflowPath)/simpleAnalyses/ortho_array_analysis.h \
+	$(mpaGenericDataflowPath)/simpleAnalyses/pointsToAnalysis.h \
 	$(mpaGenericDataflowPath)/simpleAnalyses/printAnalysisStates.h \
 	$(mpaGenericDataflowPath)/simpleAnalyses/saveDotAnalysis.h \
 	$(mpaGenericDataflowPath)/simpleAnalyses/taintAnalysis.h

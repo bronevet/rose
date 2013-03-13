@@ -341,8 +341,8 @@ class CombinedMemLocObject : public virtual MemLocObject
   std::list<MemLocObjectPtr> memLocs;
   
   public:
-  CombinedMemLocObject(MemLocObjectPtr memLoc);
-  CombinedMemLocObject(const std::list<MemLocObjectPtr>& memLocs);
+  CombinedMemLocObject(MemLocObjectPtr memLoc) : MemLocObject(NULL) {   memLocs.push_back(memLoc); }
+  CombinedMemLocObject(const std::list<MemLocObjectPtr>& memLocs) : MemLocObject(NULL), memLocs(memLocs) {}
   
   public:
   // Creates a new CombinedMemLocObject. If all the sub-objects have a given type (Scalar, FunctionMemLoc, 
