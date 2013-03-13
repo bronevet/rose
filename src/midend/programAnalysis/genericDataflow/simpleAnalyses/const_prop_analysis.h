@@ -89,6 +89,7 @@ class CPValueObject : public FiniteLattice, public ValueObject
   // computes the meet of this and that and saves the result in this
   // returns true if this causes this to change and false otherwise
   bool meetUpdate(Lattice* that);
+  bool meetUpdate(CPValueObject* that);
   
   // Set this Lattice object to represent the set of all possible execution prefixes.
   // Return true if this causes the object to change and false otherwise.
@@ -98,13 +99,30 @@ class CPValueObject : public FiniteLattice, public ValueObject
   // Return true if this causes the object to change and false otherwise.
   bool setToEmpty();
   
+  // Returns whether this lattice denotes the set of all possible execution prefixes.
+  bool isFull();
+  // Returns whether this lattice denotes the empty set.
+  bool isEmpty();
+  
   // pretty print for the object
   std::string str(std::string indent="") const;
   std::string str(std::string indent="") { return ((const CPValueObject*)this)->str(indent); }
   std::string strp(PartEdgePtr pedge, std::string indent="") const;
     
-  bool mayEqual(ValueObjectPtr o, PartEdgePtr pedge);
-  bool mustEqual(ValueObjectPtr o, PartEdgePtr pedge);
+  bool mayEqualV(ValueObjectPtr o, PartEdgePtr pedge);
+  bool mustEqualV(ValueObjectPtr o, PartEdgePtr pedge);
+  
+  // Returns whether the two abstract objects denote the same set of concrete objects
+  bool equalSet(AbstractObjectPtr o, PartEdgePtr pedge);
+  
+  // Computes the meet of this and that and saves the result in this.
+  // Returns true if this causes this to change and false otherwise.
+  bool meetUpdateV(ValueObjectPtr that, PartEdgePtr pedge);
+  
+  // Returns whether this AbstractObject denotes the set of all possible execution prefixes.
+  bool isFull(PartEdgePtr pedge);
+  // Returns whether this AbstractObject denotes the empty set.
+  bool isEmpty(PartEdgePtr pedge);
   
   // Allocates a copy of this object and returns a pointer to it
   ValueObjectPtr copyV() const;
@@ -145,6 +163,7 @@ class ConstantPropagationAnalysis : virtual public IntraFWDataflow
                                               NodeState& state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo);
   
   boost::shared_ptr<ValueObject> Expr2Val(SgNode* n, PartEdgePtr pedge);
+  bool implementsExpr2Val() { return true; }
   
   // pretty print for the object
   std::string str(std::string indent="")

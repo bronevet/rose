@@ -6,13 +6,6 @@
 #include "rose.h"
 namespace cfgUtils
 {
-  extern SgProject* project;
-
-  // initializes the cfgUtils module
-  void initCFGUtils(SgProject* project_arg);
-
-  SgProject* getProject();
-
   // Returns whether a given AST node that represents a constant is an integer and
   // sets *val to be the numeric value of that integer (all integer types are included
   // but not floating point, characters, etc.)

@@ -1,67 +1,81 @@
 include $(top_srcdir)/config/Makefile.for.ROSE.includes.and.libs
 include $(top_srcdir)/projects/symbolicAnalysisFramework/common.for.dep.libs
 
+#SA: not compiling with new framework
+
 # Saf is the short for symbolic analysis framework.
 # it is used to avoid possible name collision 
-noinst_LTLIBRARIES = libSafpcfgAnalyses.la
-libSafpcfgAnalyses_la_SOURCES = pCFG.C \
-				MPIDepAnalysis.C \
-				pCFGAnnotations.C \
-				pCFGIteratorTransfer.C \
-				pCFGIterator.C
+# noinst_LTLIBRARIES = libSafpcfgAnalyses.la
+# libSafpcfgAnalyses_la_SOURCES = pCFG.C \
+# 				MPIDepAnalysis.C \
+# 				pCFGAnnotations.C \
+# 				pCFGIteratorTransfer.C \
+# 				pCFGIterator.C
 
-include_HEADERS = pCFG.h pCFGIterator.h pCFGIteratorTransfer.h pCFGAnnotations.h MPIDepAnalysis.h
+# include_HEADERS = pCFG.h pCFGIterator.h pCFGIteratorTransfer.h pCFGAnnotations.h MPIDepAnalysis.h
 
-noinst_PROGRAMS = pcfgiterator
-pcfgiterator_SOURCES = pCFGIteratorSelfTest.C
+# noinst_PROGRAMS = pcfgiterator
+# pcfgiterator_SOURCES = pCFGIteratorSelfTest.C
 
-LDADD = $(ROSE_LIBS) libSafpcfgAnalyses.la
+# LDADD = $(ROSE_LIBS) libSafpcfgAnalyses.la
 
 # Currently dataflow framework cannot handle mpicxx.h
 # we use .c to test this code
 # more test codes to be added after optimizing the match
-TESTCODES_TO_PASS = \
-test1.c \
-test2.c
+# TESTCODES_TO_PASS = \
+# test1.c \
+# test2.c
 
-EXTRA_DIST = tests
+EXTRA_DIST = tests \
+			pCFG.C \
+			MPIDepAnalysis.C \
+			pCFGAnnotations.C \
+			pCFGIteratorTransfer.C \
+			pCFGIterator.C \
+			pCFG.h \
+			pCFGIterator.h \
+			pCFGIteratorTransfer.h \
+			pCFGAnnotations.h \
+			MPIDepAnalysis.h \
+			pCFGIteratorSelfTest.C
 
-TEST_ANALYSIS = ./pcfgiterator
 
-ROSE_FLAGS = --edg:no_warnings -w -rose:verbose 0 --edg:restrict
+# TEST_ANALYSIS = ./pcfgiterator
 
-C_FILES = ${TESTCODES_TO_PASS:.c=.c-o}
+# ROSE_FLAGS = --edg:no_warnings -w -rose:verbose 0 --edg:restrict
 
-$(C_FILES): $(TEST_ANALYSIS) $(srcdir)/tests/$(@:.c-o:.c)
-	cp $(srcdir)/tests/$(@:.c-o=.c) $(@:.c-o=.temp.c)
-	$(TEST_ANALYSIS) $(ROSE_FLAGS) -I$(srcdir)/tests -c $(@:.c-o=.temp.c) && touch $@
+# C_FILES = ${TESTCODES_TO_PASS:.c=.c-o}
 
-check-c: $(C_FILES)
+# $(C_FILES): $(TEST_ANALYSIS) $(srcdir)/tests/$(@:.c-o:.c)
+# 	cp $(srcdir)/tests/$(@:.c-o=.c) $(@:.c-o=.temp.c)
+# 	$(TEST_ANALYSIS) $(ROSE_FLAGS) -I$(srcdir)/tests -c $(@:.c-o=.temp.c) && touch $@
 
-if ROSE_BUILD_CXX_LANGUAGE_SUPPORT
-check-c_languages: check-c
-else
-check-c_languages: 
-endif
+# check-c: $(C_FILES)
 
-if ROSE_BUILD_FORTRAN_LANGUAGE_SUPPORT
-check-fortran:
-else
-check-fortran:
-endif
+# if ROSE_BUILD_CXX_LANGUAGE_SUPPORT
+# check-c_languages: check-c
+# else
+# check-c_languages: 
+# endif
 
-clean-local:
-	rm -f       \
-		*.temp.c  \
-		*.dot     \
-		*.c-o     \
-		*.html
+# if ROSE_BUILD_FORTRAN_LANGUAGE_SUPPORT
+# check-fortran:
+# else
+# check-fortran:
+# endif
+
+# clean-local:
+# 	rm -f       \
+# 		*.temp.c  \
+# 		*.dot     \
+# 		*.c-o     \
+# 		*.html
 
 #check-local: check-c
-check-local: check-c_languages check-fortran
-	@echo "******************************************************************************************************************************"
-	@echo "*** ROSE/projects/symbolicAnalysisFramework/src/parallelCFG/tests : make check rule complete (terminated normally) ***"
-	@echo "******************************************************************************************************************************"
+# check-local: check-c_languages check-fortran
+# 	@echo "******************************************************************************************************************************"
+# 	@echo "*** ROSE/projects/symbolicAnalysisFramework/src/parallelCFG/tests : make check rule complete (terminated normally) ***"
+# 	@echo "******************************************************************************************************************************"
 
 
 #LDADD = $(LIBS_WITH_RPATH) $(ROSE_LIBS) \

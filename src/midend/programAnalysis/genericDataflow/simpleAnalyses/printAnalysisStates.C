@@ -10,7 +10,7 @@ UnstructuredPassIntraAnalysis(creator), latticeNames(latticeNames), factNames(fa
 void printAnalysisStates::visit(const Function& func, PartPtr part, NodeState& state)
 {
   ostringstream funcName; funcName<< "function "<<func.get_name().getString()<<"() part=["<<part->str()<<" state="<<(&state)<<" analysis="<<analysis->str();
-  Dbg::region reg(1, 1, Dbg::region::topLevel, funcName.str());
+  Dbg::region reg(1, 1, Dbg::region::midLevel, funcName.str());
   //const vector<Lattice*>* masterLat;
   //if(latSide==above) masterLat = &(state.getLatticeAbove(creator));
   //else         masterLat = &(state.getLatticeBelow(creator));

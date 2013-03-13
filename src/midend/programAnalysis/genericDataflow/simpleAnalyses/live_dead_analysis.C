@@ -3,7 +3,7 @@
 #include <boost/make_shared.hpp>
 
 namespace dataflow {
-int liveDeadAnalysisDebugLevel=1;
+int liveDeadAnalysisDebugLevel=0;
 
 // ###############################
 // ##### LiveDeadMemAnalysis #####
@@ -19,7 +19,7 @@ fseu(fseu)
 void LiveDeadMemAnalysis::genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
                                          std::vector<Lattice*>& initLattices)
 {
-  AbstractObjectSet* s = new AbstractObjectSet(part->outEdgeToAny(), AbstractObjectSet::may);
+  AbstractObjectSet* s = new AbstractObjectSet(part->outEdgeToAny(), getComposer(), this, AbstractObjectSet::may);
   
   // If this part is the return statement of main(), make sure that its return value is live
   //if(func.get_name().getString() == "main" && 
@@ -103,9 +103,11 @@ public:
       // Only make the operand(s) live if the expression is live
       if(!ldmt.isMemLocLive(sgn)) return;
       
-      Dbg::dbg << "LDMAExpressionTransfer::visit(SgAssignInitializer *sgn)"<<endl;
-      Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;sgn="<<cfgUtils::SgNode2Str(sgn)<<endl;
-      Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;sgn->get_operand()="<<cfgUtils::SgNode2Str(sgn->get_operand())<<endl;
+      if(liveDeadAnalysisDebugLevel>=1) {
+        Dbg::dbg << "LDMAExpressionTransfer::visit(SgAssignInitializer *sgn)"<<endl;
+        Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;sgn="<<cfgUtils::SgNode2Str(sgn)<<endl;
+        Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;sgn->get_operand()="<<cfgUtils::SgNode2Str(sgn->get_operand())<<endl;
+      }
       ldmt.use(sgn, sgn->get_operand());
     }
     // Initializer for a function arguments
@@ -155,16 +157,16 @@ public:
     }
     // Array access
     void visit(SgPntrArrRefExp *sgn) {
-      if(ldmt.isMemLocLive(sgn)) {
-        Dbg::dbg << "visit(SgPntrArrRefExp *sgn)"<<endl;
+      //if(ldmt.isMemLocLive(sgn)) {
+        if(liveDeadAnalysisDebugLevel>=1) Dbg::dbg << "visit(SgPntrArrRefExp *sgn)"<<endl;
         // The only way for this SgPntrArrRefExp to appear s if it is used by its parent expression
         ldmt.useMem(sgn);
         // Both the lhs and rhs are used to identify the memory location being accessed
-        Dbg::dbg << "LHS"<<endl;
+        if(liveDeadAnalysisDebugLevel>=1) Dbg::dbg << "LHS"<<endl;
         ldmt.use(sgn, sgn->get_lhs_operand());
-        Dbg::dbg << "RHS"<<endl;
+        if(liveDeadAnalysisDebugLevel>=1) Dbg::dbg << "RHS"<<endl;
         ldmt.use(sgn, sgn->get_rhs_operand());
-      }
+      //}
     }
     // Binary Operations
     void visit(SgBinaryOp *sgn) {
@@ -173,7 +175,7 @@ public:
       if(isSgCompoundAssignOp(sgn))
         ldmt.assign(sgn, sgn->get_lhs_operand());*/
       
-      Dbg::dbg << "LiveDead: visit("<<cfgUtils::SgNode2Str(sgn)<<") ldmt.isMemLocLive(sgn)="<<ldmt.isMemLocLive(sgn)<<endl;
+      if(liveDeadAnalysisDebugLevel>=1) Dbg::dbg << "LiveDead: visit("<<cfgUtils::SgNode2Str(sgn)<<") ldmt.isMemLocLive(sgn)="<<ldmt.isMemLocLive(sgn)<<endl;
       
       // If this expression is live or writes writes to a live memory location, make the operands live
       if(ldmt.isMemLocLive(sgn) || (isSgCompoundAssignOp(sgn) && ldmt.isMemLocLive(sgn, sgn->get_lhs_operand()))) {
@@ -252,29 +254,36 @@ public:
     }
     // Function Calls
     void visit(SgFunctionCallExp *sgn) {
-      // Function calls and their side-effects are processed by inter-procedural analyses. Here we only need
-      // to worry about the variable that identifies the function being called.
+      // The side-effects of calls to functions for which source is available are processed by inter-procedural 
+      // analyses. Here we need to consider the variable that identifies the function being called and the 
+      // side-effects of functions for which source is not available.
       
       // !!! CURRENTLY WE HAVE NO NOTION OF VARIABLES THAT IDENTIFY FUNCTIONS, SO THIS CASE IS EXCLUDED FOR NOW
       /*// The expression that identifies the called function is used
         ldmt.use(sgn, sgn->get_function());*/
                               
-      /*// The function call's arguments are used
-      SgExprListExp* exprList = sgn->get_args();
-      for(SgExpressionPtrList::iterator expr=exprList->get_expressions().begin();
-          expr!=exprList->get_expressions().end(); expr++)
-          ldmt.use(sgn, *expr);
-                              
-      // If this function has no definition and the user provided a class to provide 
-      // the variables that are used by such functions
-      if(sgn->getAssociatedFunctionDeclaration() && 
-         sgn->getAssociatedFunctionDeclaration()->get_definition()==NULL &&
-         ldmt.fseu) {
-          set<MemLocObjectPtr> funcUsedVars = ldmt.fseu->usedVarsInFunc(Function(sgn->getAssociatedFunctionDeclaration()), ldmt.part, ldmt.nodeState);
-          //ldmt.use(sgn, funcUsedVars.begin(), funcUsedVars.end());
-          for(set<MemLocObjectPtr>::iterator used=funcUsedVars.begin(); used!=funcUsedVars.end(); used++)
-          ldmt.use(sgn, *used);
-      }*/
+      // If the function's source code is not available
+      Function func(sgn);
+      if(!func.get_definition()) {
+        if(liveDeadAnalysisDebugLevel>=1) Dbg::dbg << "LiveDeadAnalysis::visit(SgFunctionCallExp *sgn) Function "<<func.get_name().getString()<<"() with no definition."<<endl;
+      
+        // The function call's arguments are used
+        SgExprListExp* exprList = sgn->get_args();
+        for(SgExpressionPtrList::iterator expr=exprList->get_expressions().begin();
+            expr!=exprList->get_expressions().end(); expr++)
+            ldmt.use(sgn, *expr);
+
+        /*// If this function has no definition and the user provided a class to provide 
+        // the variables that are used by such functions
+        if(sgn->getAssociatedFunctionDeclaration() && 
+           sgn->getAssociatedFunctionDeclaration()->get_definition()==NULL &&
+           ldmt.fseu) {
+            set<MemLocObjectPtr> funcUsedVars = ldmt.fseu->usedVarsInFunc(Function(sgn->getAssociatedFunctionDeclaration()), ldmt.part, ldmt.nodeState);
+            //ldmt.use(sgn, funcUsedVars.begin(), funcUsedVars.end());
+            for(set<MemLocObjectPtr>::iterator used=funcUsedVars.begin(); used!=funcUsedVars.end(); used++)
+            ldmt.use(sgn, *used);
+        }*/
+      }
     }
     // Sizeof
     void visit(SgSizeOfOp *sgn) {
@@ -319,11 +328,12 @@ void LiveDeadMemTransfer::assign(SgNode *sgn, SgExpression* operand)
 // Note that the variable corresponding to this expression is used
 void LiveDeadMemTransfer::use(SgNode *sgn, SgExpression* operand)
 {
-  Dbg::dbg << "part->outEdgeToAny()="<<part->outEdgeToAny()->str()<<endl;
+  //Dbg::dbg << "part->outEdgeToAny()="<<part->outEdgeToAny()->str()<<endl;
   // MemLocObjectPtrPair p = composer->OperandExpr2MemLoc(sgn, operand, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
+  if(liveDeadAnalysisDebugLevel>=1) Dbg::dbg << "LiveDeadMemTransfer::use()"<<endl;
   MemLocObjectPtr p = composer->OperandExpr2MemLoc(sgn, operand, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
-  Dbg::dbg << "LiveDeadMemTransfer::use(sgn=["<<Dbg::escape(sgn->unparseToString())<<" | "<<sgn->class_name()<<"]"<<endl;
-  Dbg::dbg << "p="<<p->str()<<endl;
+  //Dbg::dbg << "LiveDeadMemTransfer::use(sgn=["<<Dbg::escape(sgn->unparseToString())<<" | "<<sgn->class_name()<<"]"<<endl;
+  //Dbg::dbg << "p="<<p->str()<<endl;
   // In almost all cases we only need expressions to use their operands, which are also expressions.
   // if(p.expr) used.insert(p.expr);
   // At statement boundaries SgVarRefExp and SgArrPntrRefExp refer to real memory locations that were written by prior
@@ -340,7 +350,7 @@ void LiveDeadMemTransfer::useMem(SgVarRefExp* sgn)
 {
   // MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
   MemLocObjectPtr p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
-  Dbg::dbg << "LiveDeadMemTransfer::useMem(SgVarRefExp)(sgn=["<<Dbg::escape(sgn->unparseToString())<<" | "<<sgn->class_name()<<"]"<<endl;
+  if(liveDeadAnalysisDebugLevel>=1) Dbg::dbg << "LiveDeadMemTransfer::useMem(SgVarRefExp)(sgn=["<<Dbg::escape(sgn->unparseToString())<<" | "<<sgn->class_name()<<"]"<<endl;
   // used.insert(p.mem);
   used.insert(p);
 }
@@ -349,7 +359,7 @@ void LiveDeadMemTransfer::useMem(SgPntrArrRefExp* sgn)
 {
   // MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
   MemLocObjectPtr p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
-  Dbg::dbg << "LiveDeadMemTransfer::useMem(SgPntrArrRefExp)(sgn=["<<Dbg::escape(sgn->unparseToString())<<" | "<<sgn->class_name()<<"]"<<endl;
+  if(liveDeadAnalysisDebugLevel>=1) Dbg::dbg << "LiveDeadMemTransfer::useMem(SgPntrArrRefExp)(sgn=["<<Dbg::escape(sgn->unparseToString())<<" | "<<sgn->class_name()<<"]"<<endl;
   // If a memory object is available, insert it. Not all SgPntrArrRefExps correspond to a real memory location.
   // e.g. in array2d[a][b] the expression array2D[a] doesn't denote a memory location.
   // if(p.mem) used.insert(p.mem);
@@ -382,10 +392,11 @@ bool LiveDeadMemTransfer::isMemLocLive(SgExpression* sgn) {
 
 void LiveDeadMemTransfer::visit(SgExpression *sgn)
 {
+  if(liveDeadAnalysisDebugLevel>=1) Dbg::dbg << "LiveDeadMemTransfer::visit(SgExpression *sgn)"<<endl;
+  
   //AbstractMemoryObject::ObjSet* objset = SgExpr2ObjSet(sgn);
   // MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
   MemLocObjectPtr p = composer->Expr2MemLoc(sgn, part->outEdgeToAny(), ldma);//ceml->Expr2Obj(sgn);
-  /**/
   LDMAExpressionTransfer helper(*this);
   sgn->accept(helper);
   
@@ -400,7 +411,9 @@ void LiveDeadMemTransfer::visit(SgExpression *sgn)
   // if(p.expr) assigned.insert(p.expr);
   // #SA
   // Should we discard expressions that are memory here ?
-  if(p) assigned.insert(p);
+  // # GB
+  // No, we should not. Fixed.
+  if(!MemLocObject::isMemExpr(sgn) && p) assigned.insert(p);
 }
 
 void LiveDeadMemTransfer::visit(SgInitializedName *sgn) {
@@ -491,7 +504,6 @@ bool LiveDeadMemTransfer::finish()
   // First process assignments, then uses since we may assign and use the same variable
   // and in the end we want to first remove it and then re-insert it.   
   if(liveDeadAnalysisDebugLevel>=1) {
-    
     Dbg::dbg << "used=[";
     { Dbg::indent ind;
     for(AbstractObjectSet::const_iterator asgn=used.begin(); asgn!=used.end(); ) {
@@ -565,7 +577,7 @@ MemLocObjectPtr LiveDeadMemAnalysis::Expr2MemLoc(SgNode* n, PartEdgePtr pedge)
   // if(p.mem) return createLDMemLocObjectCategory(n, p.mem, this);
   // else      return p.expr;
   MemLocObjectPtr p = composer->Expr2MemLoc(n, pedge, this);
-  Dbg::dbg << "LiveDeadMemAnalysis::Expr2MemLoc() p="<<p->strp(pedge)<<endl;
+  if(liveDeadAnalysisDebugLevel>=1) Dbg::dbg << "LiveDeadMemAnalysis::Expr2MemLoc() p="<<p->strp(pedge)<<endl;
   // #SA
   // createLDMemLocObject for objects returned by composer for now
   return boost::make_shared<LDMemLocObject>(n, p, this);
@@ -586,9 +598,8 @@ LDMemLocObject::LDMemLocObject(const LDMemLocObject& that) :
 bool LDMemLocObject::mayEqualML(MemLocObjectPtr o, PartEdgePtr pedge)
 {
   LDMemLocObjectPtr that = boost::dynamic_pointer_cast<LDMemLocObject>(o);
-  ROSE_ASSERT(that);
-  bool isThisLive = isLive(pedge);
-  bool isThatLive = that->isLive(pedge);
+  bool isThisLive = isLiveML(pedge);
+  bool isThatLive = that->isLiveML(pedge);
 
   /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;LDMemLocObject::mayEqual"<<endl;
   Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;this (live="<<isThisLive<<")="<<str("")<<endl;
@@ -598,7 +609,7 @@ bool LDMemLocObject::mayEqualML(MemLocObjectPtr o, PartEdgePtr pedge)
   //Dbg::dbg << "    isThisLive="<<isThisLive<<" isThisLive="<<isThisLive<<endl;
   // If both objects may be live, use the parents' equality operator
   if(isThisLive && isThatLive) {
-    bool tmp=parent->mayEqual(that->parent, pedge);
+    bool tmp=parent->mayEqual(that->parent, pedge, ldma->getComposer(), ldma);
     //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;==>"<<(tmp?"TRUE":"FALSE")<<endl; 
     return tmp;
   // If both objects are definitely not live, they're counted as being equal
@@ -613,9 +624,8 @@ bool LDMemLocObject::mayEqualML(MemLocObjectPtr o, PartEdgePtr pedge)
 bool LDMemLocObject::mustEqualML(MemLocObjectPtr o, PartEdgePtr pedge)
 {
   LDMemLocObjectPtr that = boost::dynamic_pointer_cast<LDMemLocObject>(o);
-  ROSE_ASSERT(that);
-  bool isThisLive = isLive(pedge);
-  bool isThatLive = that->isLive(pedge);
+  bool isThisLive = isLiveML(pedge);
+  bool isThatLive = that->isLiveML(pedge);
         
   /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;LDMemLocObject::mustEqual"<<endl;
   Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;this (live="<<isThisLive<<")="<<str("")<<endl;
@@ -624,7 +634,29 @@ bool LDMemLocObject::mustEqualML(MemLocObjectPtr o, PartEdgePtr pedge)
   if(!that) { /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;==>FALSE"<<endl;*/ return false; }
   // If both objects may be live, use the parents' equality operator
   if(isThisLive && isThisLive) {
-    bool tmp=parent->mustEqual(that->parent, pedge);
+    bool tmp=parent->mustEqual(that->parent, pedge, ldma->getComposer(), ldma);
+    //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;==>"<<(tmp?"TRUE":"FALSE")<<endl; 
+    return tmp;
+  // If both objects are definitely not live, they're counted as being equal
+  } else if(!isThisLive && !isThatLive) {
+    //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;==>TRUE"<<endl; 
+    return true;
+  // Otherwise, they're in different classes and thus unequal
+  } else
+  { /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;==>FALSE"<<endl;*/ return false; }
+}
+
+// Returns whether the two abstract objects denote the same set of concrete objects
+bool LDMemLocObject::equalSet(AbstractObjectPtr o, PartEdgePtr pedge)
+{
+  LDMemLocObjectPtr that = boost::dynamic_pointer_cast<LDMemLocObject>(o);
+  bool isThisLive = isLiveML(pedge);
+  bool isThatLive = that->isLiveML(pedge);
+        
+  if(!that) { /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;==>FALSE"<<endl;*/ return false; }
+  // If both objects may be live, use the parents' equality operator
+  if(isThisLive && isThisLive) {
+    bool tmp=parent->equalSet(that->parent, pedge, ldma->getComposer(), ldma);
     //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;==>"<<(tmp?"TRUE":"FALSE")<<endl; 
     return tmp;
   // If both objects are definitely not live, they're counted as being equal
@@ -637,17 +669,47 @@ bool LDMemLocObject::mustEqualML(MemLocObjectPtr o, PartEdgePtr pedge)
 }
 
 // Returns true if this object is live at the given part and false otherwise
-bool LDMemLocObject::isLive(PartEdgePtr pedge) const
+bool LDMemLocObject::isLiveML(PartEdgePtr pedge)
 { 
-  /*Dbg::dbg << "LDMemLocObject::isLive() part="<<cfgUtils::SgNode2Str(part.getNode())<<endl;
-  Dbg::dbg << "parent str="<<parent->str()<<endl;
-  Dbg::dbg << "parent strp="<<parent->strp(part)<<endl;
-  Dbg::dbg << "MemLocObject::isFunctionMemLoc()="<<MemLocObject::isFunctionMemLoc()<<endl;
-  Dbg::dbg << "live="<<isLiveMay(parent, ldma, part, *NodeState::getNodeState(part), "")<<endl;*/
-  //Dbg::dbg << "state="<<NodeState::getNodeState(ldma, pedge->target())->str(ldma)<<endl;
-  // We don't track liveness of function pointers so we default them to live
+  //Dbg::dbg << "LDMemLocObject::isLive() pedge="<<pedge->str()<<endl;
+  //Dbg::dbg << "parent str="<<parent->str()<<endl;
+  //Dbg::dbg << "parent strp="<<parent->strp(pedge)<<endl;
+  //Dbg::dbg << "live="<<isLiveMay(parent, ldma, pedge, "")<<endl;
+  //Dbg::dbg << "state="<<NodeState::getNodeState(ldma, pedge->target())->str(ldma)<<endl;*/
+  
+  // The MemLocObject for the SgFunctionDefinition is special since it denotes the return values of a function
+  // It should always be live.
+  /*MemLocObject funcDeclML = 
+          
+          getComposer()->Expr2MemLoc(SageInterface::getEnclosingProcedure(parent)
+          func.get_declaration()->search_for_symbol_from_symbol_table(), part->inEdgeFromAny(), analysis),
+  
   if(parent->isFunctionMemLoc()) return true;
-  else return isLiveMay(parent, ldma, pedge, "");
+  else */
+  
+  bool live = isLiveMay(parent, ldma, pedge, "");
+  return live;
+}
+
+// Computes the meet of this and that and saves the result in this
+// returns true if this causes this to change and false otherwise
+bool LDMemLocObject::meetUpdateML(MemLocObjectPtr o, PartEdgePtr pedge)
+{
+  LDMemLocObjectPtr that = boost::dynamic_pointer_cast<LDMemLocObject>(o);
+  ROSE_ASSERT(that); 
+  return parent->meetUpdate(that->parent, pedge, ldma->getComposer(), ldma);
+}
+
+// Returns whether this AbstractObject denotes the set of all possible execution prefixes.
+bool LDMemLocObject::isFull(PartEdgePtr pedge)
+{
+  return parent->isFull(pedge, ldma->getComposer(), ldma);
+}
+
+// Returns whether this AbstractObject denotes the empty set.
+bool LDMemLocObject::isEmpty(PartEdgePtr pedge)
+{
+  return parent->isEmpty(pedge, ldma->getComposer(), ldma);
 }
 
 // pretty print for the object
@@ -656,11 +718,11 @@ std::string LDMemLocObject::str(std::string indent) const
   ostringstream oss;
   
   // Choose the string description to use based on the sub-type of this LDMemLocObject
-  string name = "";
-       if(dynamic_cast<const LDScalar*>(this))         name = "LDScalar";
+  string name = "LDML";
+  /*     if(dynamic_cast<const LDScalar*>(this))         name = "LDScalar";
   else if(dynamic_cast<const LDFunctionMemLoc*>(this)) name = "LDFunctionMemLoc";
   else if(dynamic_cast<const LDArray*>(this))          name = "LDArray";
-  else if(dynamic_cast<const LDPointer*>(this))        name = "LDPointer";
+  else if(dynamic_cast<const LDPointer*>(this))        name = "LDPointer";*/
   
   oss << "["<<name<<": "<<parent->str("    ")<<"]";
   return oss.str();
@@ -669,7 +731,7 @@ std::string LDMemLocObject::str(std::string indent) const
 std::string LDMemLocObject::strp(PartEdgePtr pedge, std::string indent)
 {
   ostringstream oss;
-  if(isLive(pedge))
+  if(isLiveML(pedge))
     oss << "[LDMemLocObject: LIVE: "<<parent->str("    ")<<"]";
   else
     oss << "[LDMemLocObject: DEAD]";
@@ -682,6 +744,7 @@ MemLocObjectPtr LDMemLocObject::copyML() const
   return boost::make_shared<LDMemLocObject>(*this);
 }
 
+/*
 // Creates an instance of an LDMemLocObject that belongs to one of the MemLocObject categories
 // (LDMemLocObject sub-classes): LDScalar, LDFunctionMemLoc, LDLabeledAggregate, LDArray or LDPointer.
 LDMemLocObjectPtr createLDMemLocObjectCategory(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
@@ -709,15 +772,15 @@ LDMemLocObjectPtr createLDMemLocObjectCategory(SgNode* n, MemLocObjectPtr parent
 
 LDScalar::LDScalar(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
   : MemLocObject(n), LDMemLocObject(n, parent, ldma)
-{ /*Dbg::dbg << "LDScalar::LDScalar(parent="<<(parent ? parent->str("") : "NULL")<<")"<<endl;*/ }
+{ / *Dbg::dbg << "LDScalar::LDScalar(parent="<<(parent ? parent->str("") : "NULL")<<")"<<endl;* / }
 
 LDFunctionMemLoc::LDFunctionMemLoc(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
   :MemLocObject(n),  LDMemLocObject(n, parent, ldma)
-{ /*Dbg::dbg << "LDFunctionMemLoc::LDFunctionMemLoc(parent="<<(parent ? parent->str("") : "NULL")<<")"<<endl;*/ }
+{ / *Dbg::dbg << "LDFunctionMemLoc::LDFunctionMemLoc(parent="<<(parent ? parent->str("") : "NULL")<<")"<<endl;* / }
 
 LDLabeledAggregate::LDLabeledAggregate(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
   : MemLocObject(n), LDMemLocObject(n, parent, ldma)
-{/* Dbg::dbg << "LDLabeledAggregate::LDLabeledAggregate(parent="<<(parent ? parent->str("") : "NULL")<<")"<<endl;*/ }
+{/ * Dbg::dbg << "LDLabeledAggregate::LDLabeledAggregate(parent="<<(parent ? parent->str("") : "NULL")<<")"<<endl;* / }
 
 size_t LDLabeledAggregate::fieldCount(PartEdgePtr pedge)
 {
@@ -730,15 +793,15 @@ std::list<LabeledAggregateFieldPtr> LDLabeledAggregate::getElements(PartEdgePtr 
 {
   //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "")) 
     return parent->isLabeledAggregate()->getElements(pedge);
-  /*else {
+  / *else {
     std::vector<boost::shared_ptr<LabeledAggregateField> > ret;
     return ret;
-  }*/
+  }* /
 }
 
 LDArray::LDArray(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
   : MemLocObject(n), LDMemLocObject(n, parent, ldma)
-{ /*Dbg::dbg << "LDArray::LDArray(parent="<<(parent ? parent->str("") : "NULL")<<")"<<endl;*/ }
+{ / *Dbg::dbg << "LDArray::LDArray(parent="<<(parent ? parent->str("") : "NULL")<<")"<<endl;* / }
 
 // Returns a memory object that corresponds to all the elements in the given array
 MemLocObjectPtr LDArray::getElements(PartEdgePtr pedge)
@@ -776,7 +839,7 @@ MemLocObjectPtr LDArray::getDereference(PartEdgePtr pedge)
 
 LDPointer::LDPointer(SgNode* n, MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
   : MemLocObject(n), LDMemLocObject(n, parent, ldma)
-{ /*Dbg::dbg << "LDPointer::LDPointer(parent="<<(parent ? parent->str("") : "NULL")<<")"<<endl;*/ }
+{ / *Dbg::dbg << "LDPointer::LDPointer(parent="<<(parent ? parent->str("") : "NULL")<<")"<<endl;* / }
 
 MemLocObjectPtr LDPointer::getDereference(PartEdgePtr pedge)
 {
@@ -784,6 +847,7 @@ MemLocObjectPtr LDPointer::getDereference(PartEdgePtr pedge)
   return createLDMemLocObjectCategory(NULL, parent->isPointer()->getDereference(pedge), ldma);
   //else return MemLocObjectPtr();
 }
+*/
 
 // Initialize vars to hold all the variables and expressions that are live at PartEdgePtr pedge
 void getAllLiveMemAt(LiveDeadMemAnalysis* ldma, PartEdgePtr pedge, const NodeState& state, set<AbstractObjectPtr>& vars, string indent)
@@ -846,6 +910,7 @@ bool isLiveMust(MemLocObjectPtr mem, LiveDeadMemAnalysis* ldma, PartEdgePtr pedg
 // Returns true if the given MemLocObject may be live at the given PartEdgePtr pedge
 bool isLiveMay(MemLocObjectPtr mem, LiveDeadMemAnalysis* ldma, PartEdgePtr pedge, string indent)
 {
+  //Dbg::region reg(1,1, Dbg::region::midLevel, "isLiveMay()");
   //Dbg::dbg << "isLiveMay(mem="<<mem->str("")<<", pedge="<<pedge->str()<<")"<<endl;
   
   // If this is not a wildcard edge, check if mem is live along it
@@ -871,7 +936,7 @@ bool isLiveMay(MemLocObjectPtr mem, LiveDeadMemAnalysis* ldma, PartEdgePtr pedge
       ROSE_ASSERT(p->target() == pedge.get()->target());
       AbstractObjectSet* liveL = dynamic_cast<AbstractObjectSet*>(*(lats->second.begin()));
       
-      //Dbg::dbg << "isLiveMay: edge="<<p->str()<<" liveLAbove="<<liveL->str("")<<endl;
+      //Dbg::dbg << "edge="<<p->str()<<" liveLAbove="<<liveL->str("")<<endl;
     
       ROSE_ASSERT(liveL);
       if(liveL->containsMay(mem)) return true;

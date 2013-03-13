@@ -4,12 +4,7 @@
 // to be preceded by [OrthogonalArrayAnalysis, ConstantPropagationAnalysis, OrthogonalArrayAnalysis] to
 // enable it to interpret expressions such as array2D[array2D[1][1]][1].
 
-#pragma ChainComposer OrthogonalArrayAnalysis
-#pragma ChainComposer ConstantPropagationAnalysis
-#pragma ChainComposer OrthogonalArrayAnalysis
-#pragma ChainComposer LiveDeadMemAnalysis
-#pragma ChainComposer OrthogonalArrayAnalysis
-#pragma ChainComposer ConstantPropagationAnalysis
+#pragma fuse lc(oa, cp, oa, ld, oa, cp)
 void CompDebugAssert(bool, ...);
 int global;
 

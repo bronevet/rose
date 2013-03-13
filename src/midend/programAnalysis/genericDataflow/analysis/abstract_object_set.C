@@ -5,7 +5,7 @@
 using namespace std;
 namespace dataflow
 {  
-int AbstractObjectSetDebugLevel=1;
+int AbstractObjectSetDebugLevel=0;
 // returns true only if the list grows
 // false implies element is already present
 // insert(o) : In both modes we insert o unless o is must-equal to another AbstractObject already inside the set.
@@ -15,21 +15,34 @@ int AbstractObjectSetDebugLevel=1;
 //             would also be conservative if we replaced multiple AbstractObject with a single AbstractObject that 
 //             over-approximates their union. In must mode insert would also be conservative if we removed any 
 //             AbstractObject from the set.
-bool AbstractObjectSet::insert(AbstractObjectPtr that) 
+bool AbstractObjectSet::insert(AbstractObjectPtr that)
 {
   ROSE_ASSERT(that);
-    
+  /*ostringstream label; label << "AbstractObjectSet::insert("<<that->str()<<")";
+  Dbg::region reg(AbstractObjectSetDebugLevel, 1, Dbg::region::midLevel, label.str());
+  
+  Dbg::dbg << "this="<<str()<<endl;*/
+  
   // Do not insert mappings for dead keys
-  if(!that->isLive(latPEdge)) { 
+  if(!that->isLive(latPEdge, comp, analysis)) { 
     if(AbstractObjectSetDebugLevel>=1) Dbg::dbg << "<b>AbstractObjectSet::insert() WARNING: attempt to insert dead element "<<that->strp(latPEdge)<<"<\b>"<<endl;
     return false;
   }
     
   bool retval = false;
-  if(!containsMust(that)) {
+  if(!containsEqualSet(that)) {
+    Dbg::indent(AbstractObjectSetDebugLevel, 1);
+    if(AbstractObjectSetDebugLevel>=1) Dbg::dbg << "Object not contained."<<endl;// Inserting into"<<endl<<str("")<<endl;
+    
     items.push_back(that);
     retval = true;
   }
+  
+  // Having inserted the new item we need to clean up the map to ensure that it stays bounded in size
+  // Step 1: call isEmpty to check for any keys mapped to empty sets
+  isEmpty();
+  // Step 2: if the map is larger than some fixed bound, merge some key->value mappings together
+  // !!! TODO !!!
   
   /*if(!containsMust(that)) {
     // The similarity between that and each AbstractObject currently in items
@@ -74,18 +87,19 @@ bool AbstractObjectSet::insert(AbstractObjectPtr that)
 //             over-approximation of the set of concrete objects in the AbstractObjectSet. In must mode uses mayEqual 
 //             to ensure that all concrete objects that may equal to o are removed to keep the AbstractObjectSet an 
 //             under-approximation.
-bool AbstractObjectSet::remove(const AbstractObjectPtr that) 
+bool AbstractObjectSet::remove(const AbstractObjectPtr that)
 {
     Dbg::indent ind(AbstractObjectSetDebugLevel, 1);
     bool retval = false;
     bool found = false;
     ROSE_ASSERT(that);
     std::list<AbstractObjectPtr>::iterator it = items.begin();
-    Dbg::dbg << "AbstractObjectSet::remove("<<that->str("")<<")"<<endl;
+    //Dbg::dbg << "AbstractObjectSet::remove("<<that->str("")<<")"<<endl;
     for(; it != items.end(); it++) {
-        Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;it="<<(*it)->str("")<<endl;
-        if((mode==may  && (*it)->mustEqual(that, latPEdge)) ||
-           (mode==must && (*it)->mayEqual(that, latPEdge))) {
+        /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;it="<<(*it)->str("")<<" "<<(mode==may? "mustEqual": "mayEqual")<<"="<<((mode==may  && (*it)->mustEqual(that, latPEdge, comp, analysis)) ||
+           (mode==must && (*it)->mayEqual(that, latPEdge, comp, analysis)))<<endl;*/
+        if((mode==may  && (*it)->mustEqual(that, latPEdge, comp, analysis)) ||
+           (mode==must && (*it)->mayEqual(that, latPEdge, comp, analysis))) {
             items.erase(it);
             found = true;
             break; // only one object that mustEqual(that) should be present
@@ -107,20 +121,23 @@ bool AbstractObjectSet::remove(const AbstractObjectPtr that)
     return retval;
 }
 
-// returns true if a mustEqual is present; false otherwise
+// Returns true if a mustEqual is present; false otherwise
 bool AbstractObjectSet::containsMust(const AbstractObjectPtr that) 
 {
-    ROSE_ASSERT(that);
-    bool retval = false;
-    std::list<AbstractObjectPtr>::iterator it = items.begin();
-    for( ; it != items.end(); it++) {
-        if((*it)->mustEqual(that, latPEdge)) {
-            retval = true;
-            break;
-        } // end if
-    } // end for
+  /*Dbg::dbg << "AbstractObjectSet::containsMust("<<that->str("")<<")"<<endl;
+  Dbg::indent(1, 1);*/
+  ROSE_ASSERT(that);
+  bool retval = false;
+  std::list<AbstractObjectPtr>::iterator it = items.begin();
+  for( ; it != items.end(); it++) {
+    //Dbg::dbg << "it="<<(*it)->str()<<" mustEqual="<<(*it)->mustEqual(that, latPEdge, comp, analysis)<<endl;
+    if((*it)->mustEqual(that, latPEdge, comp, analysis)) {
+      retval = true;
+      break;
+    } // end if
+  } // end for
 
-    return retval;
+  return retval;
 }
 
 bool AbstractObjectSet::containsMay(const AbstractObjectPtr that)
@@ -131,7 +148,7 @@ bool AbstractObjectSet::containsMay(const AbstractObjectPtr that)
     std::list<AbstractObjectPtr>::iterator it = items.begin();
     for( ; it != items.end(); it++) {
         //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;it="<<(*it)->str("")<<")"<<endl;
-        if((*it)->mayEqual(that, latPEdge)) {
+        if((*it)->mayEqual(that, latPEdge, comp, analysis)) {
             retval = true;
             break;
         } // end if
@@ -139,13 +156,33 @@ bool AbstractObjectSet::containsMay(const AbstractObjectPtr that)
     return retval;
 }
 
+// Returns true if this set contains an AbstractObject that denotes the same set as that; false otherwise
+bool AbstractObjectSet::containsEqualSet(const AbstractObjectPtr that) 
+{
+  /*Dbg::dbg << "AbstractObjectSet::containsEqualSet("<<that->str("")<<")"<<endl;
+  Dbg::indent(1, 1);*/
+  ROSE_ASSERT(that);
+  bool retval = false;
+  std::list<AbstractObjectPtr>::iterator it = items.begin();
+  for( ; it != items.end(); it++) {
+    /*Dbg::dbg << "it="<<(*it)->str()<<endl;
+    Dbg::dbg << "equalSet="<<(*it)->equalSet(that, latPEdge, comp, analysis)<<endl;*/
+    if((*it)->equalSet(that, latPEdge, comp, analysis)) {
+      retval = true;
+      break;
+    } // end if
+  } // end for
+
+  return retval;
+}
+
 // Set this Lattice object to represent the set of all possible execution prefixes.
 // Return true if this causes the object to change and false otherwise.
 bool AbstractObjectSet::setToFull()
 {
-  bool modified = !isFull;
+  bool modified = !setIsFull;
   items.clear();
-  isFull = true;
+  setIsFull = true;
   return modified;
 }
 
@@ -156,6 +193,29 @@ bool AbstractObjectSet::setToEmpty()
   bool modified = !items.empty();
   items.clear();
   return modified;
+}
+
+// Returns whether this lattice denotes the set of all possible execution prefixes.
+bool AbstractObjectSet::isFull()
+{
+  return setIsFull;
+}
+
+// Returns whether this lattice denotes the empty set.
+bool AbstractObjectSet::isEmpty()
+{
+  // Check if all items are empty
+  for(std::list<AbstractObjectPtr>::iterator i=items.begin(); i!=items.end();) {
+    // If at least one is not empty, return false
+    if(!(*i)->isEmpty(getPartEdge(), comp, analysis)) return false;
+    
+    // If this item is empty, remove it from the items list
+    Dbg::dbg << "AbstractObjectSet::isEmpty() removing "<<(*i)->str()<<endl;
+    items.erase(i++);
+  }
+  // If all are empty, return true
+  ROSE_ASSERT(items.size()==0);
+  return true;
 }
 
 // debug: prints the elements of set as string
@@ -208,7 +268,7 @@ void AbstractObjectSet::copy(Lattice* thatL)
   
   try {
     AbstractObjectSet *that = dynamic_cast <AbstractObjectSet*> (thatL);
-    isFull = that->isFull;
+    setIsFull = that->setIsFull;
     items = that->items;
   } catch (bad_cast & bc) { 
     ROSE_ASSERT(false);
@@ -237,11 +297,13 @@ Lattice* AbstractObjectSet::remapML(const std::set<pair<MemLocObjectPtr, MemLocO
     // Print notices of this skipping once
     for(std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >::const_iterator m=ml2ml.begin(); m!=ml2ml.end(); m++)
       // If either the key or the value of this mapping is dead within its respective part, skip it
-      if(!m->first->isLive(latPEdge) || (m->second && !m->second->isLive(newPEdge)))
-        Dbg::dbg << "AbstractObjectSet::remapML() WARNING: Skipping dead ml2ml mapping "<<m->first->strp(latPEdge)<<"(live="<<m->first->isLive(latPEdge)<<") => "<<(m->second ? m->second->strp(newPEdge) : "NULL")<<"(live="<<(m->second ? m->second->isLive(newPEdge) : -1)<<")"<<endl;
+      if(!m->first->isLive(latPEdge, comp, analysis) || (m->second && !m->second->isLive(newPEdge, comp, analysis)))
+        Dbg::dbg << "AbstractObjectSet::remapML() WARNING: Skipping dead ml2ml mapping "<<m->first->strp(latPEdge)<<"(live="<<m->first->isLive(latPEdge, comp, analysis)<<") => "<<(m->second ? m->second->strp(newPEdge) : "NULL")<<"(live="<<(m->second ? m->second->isLive(newPEdge, comp, analysis) : -1)<<")"<<endl;
   }
   
-  AbstractObjectSet* newS = new AbstractObjectSet(newPEdge, mode);
+  Dbg::region reg(AbstractObjectSetDebugLevel, 1, Dbg::region::midLevel, "AbstractObjectSet::remapML");
+  
+  AbstractObjectSet* newS = new AbstractObjectSet(newPEdge, comp, analysis, mode);
   // Set of ml2ml values that need to be added to newS because they match (may-equal or must-equal)
   // MemLocObjects currently in items
   set<MemLocObjectPtr> vals2add;
@@ -252,38 +314,38 @@ Lattice* AbstractObjectSet::remapML(const std::set<pair<MemLocObjectPtr, MemLocO
 
     for(std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >::const_iterator m=ml2ml.begin(); m!=ml2ml.end(); m++) {
       // If either the key or the value of this mapping is dead within its respective part, skip it
-      if(!m->first->isLive(latPEdge) || (m->second && !m->second->isLive(newPEdge))) continue;
+      if(!m->first->isLive(latPEdge, comp, analysis) || (m->second && !m->second->isLive(newPEdge, comp, analysis))) continue;
       
       // If the current item in this set may- or must-equals a key in ml2ml, record this and add the corresponding
       // value in ml2ml to be added to newS
-      if((*i)->mustEqual(m->first, latPEdge)) {
-        Dbg::dbg << "i="<<(*i)->str("")<<" mustEqual m->first="<<m->first->str("")<<" m->second="<<(m->second ? m->second->str("") : "NULL")<<endl;
+      if((*i)->mustEqual(m->first, latPEdge, comp, analysis)) {
+        //Dbg::dbg << "i="<<(*i)->str("")<<" mustEqual m->first="<<m->first->str("")<<" m->second="<<(m->second ? m->second->str("") : "NULL")<<endl;
         existsMustEqual = true;
         // Insert the corresponding value in ml2ml if it is not NULL
         if(m->second) vals2add.insert(m->second);
-      } else if(mode == may && (*i)->mayEqual(m->first, latPEdge)) {
-        Dbg::dbg << "i="<<(*i)->str("")<<" mayEqual m->first="<<m->first->str("")<<" m->second="<<(m->second ? m->second->str("") : "NULL")<<endl;
+      } else if(mode == may && (*i)->mayEqual(m->first, latPEdge, comp, analysis)) {
+        if(AbstractObjectSetDebugLevel>=1) Dbg::dbg << "i="<<(*i)->str("")<<" mayEqual m->first="<<m->first->str("")<<" m->second="<<(m->second ? m->second->str("") : "NULL")<<endl;
         existsMayEqual = true;
         // Insert the corresponding value in ml2ml if it is not NULL
         vals2add.insert(m->second);
       }
     }
-    Dbg::dbg << "existsMustEqual="<<existsMustEqual<<" existsMayEqual="<<existsMayEqual<<endl;
+    if(AbstractObjectSetDebugLevel>=1) Dbg::dbg << "existsMustEqual="<<existsMustEqual<<" existsMayEqual="<<existsMayEqual<<endl;
     
     // If this item is not must-equal to some key(s) in ml2ml, copy it over to newS
     if(!existsMustEqual) {
       // Skip items that are dead in newPEdge
-      if(!(*i)->isLive(newPEdge)) continue;
+      if(!(*i)->isLive(newPEdge, comp, analysis)) continue;
       newS->items.push_back(*i);
     }
     // Otherwise, we skip this item since it will be replaced by the value(s) of the key(s) it was must-equal to
   }
   
   // Now add the values of all the keys in ml2ml that got matched to this set's items
-  Dbg::dbg << "vals2add=" << endl;
+  if(AbstractObjectSetDebugLevel>=1) Dbg::dbg << "vals2add=" << endl;
   for(set<MemLocObjectPtr>::iterator v=vals2add.begin(); v!=vals2add.end(); v++) {
-    Dbg::indent ind(1,1);
-    Dbg::dbg << (*v)->str("") << endl;
+    Dbg::indent ind(AbstractObjectSetDebugLevel,1);
+    if(AbstractObjectSetDebugLevel>=1) Dbg::dbg << (*v)->str("") << endl;
     newS->items.push_back(*v);
   }
   
@@ -333,7 +395,7 @@ bool AbstractObjectSet::replaceML(Lattice* newL)
     MemLocObjectPtr ml = boost::dynamic_pointer_cast<MemLocObject>(*i);
     ROSE_ASSERT(ml);
     // Do not copy over mappings with keys that are dead in this set's host part
-    if(!ml->isLive(latPEdge)) continue;
+    if(!ml->isLive(latPEdge, comp, analysis)) continue;
     
     modified = insert(ml) || modified;
   }
@@ -349,10 +411,10 @@ bool AbstractObjectSet::replaceML(Lattice* newL)
 bool AbstractObjectSet::meetUpdate(Lattice* thatL)
 {
   try {
-    Dbg::region reg(AbstractObjectSetDebugLevel, 2, Dbg::region::topLevel, "AbstractObjectSet::meetUpdate");
+    Dbg::region reg(AbstractObjectSetDebugLevel, 2, Dbg::region::midLevel, "AbstractObjectSet::meetUpdate");
     AbstractObjectSet *that = dynamic_cast <AbstractObjectSet*> (thatL);
-    if(isFull) return false;
-    if(that->isFull) {
+    if(setIsFull) return false;
+    if(that->setIsFull) {
       setToFull();
       return true;
     }
@@ -364,7 +426,7 @@ bool AbstractObjectSet::meetUpdate(Lattice* thatL)
       Dbg::indent ind(AbstractObjectSetDebugLevel, 2);
       for(std::list<AbstractObjectPtr>::iterator it=that->items.begin(); it!=that->items.end(); it++) {
         // Do not copy over mappings with keys that are dead in this set's host part
-        if(!(*it)->isLive(latPEdge)) continue;
+        if(!(*it)->isLive(latPEdge, comp, analysis)) continue;
         
         if(AbstractObjectSetDebugLevel>=2) Dbg::dbg << "it="<<it->get()->str()<<endl;
         modified = insert(*it) || modified;
@@ -374,7 +436,7 @@ bool AbstractObjectSet::meetUpdate(Lattice* thatL)
       // Remove all the AbstractObjects in this that do not also appear in that
       for(std::list<AbstractObjectPtr>::iterator it=that->items.begin(); it!=that->items.end(); it++) {
         // Do not copy over mappings with keys that are dead in this set's host part
-        if(!(*it)->isLive(latPEdge)) continue;
+        if(!(*it)->isLive(latPEdge, comp, analysis)) continue;
         
         if(!containsMust(*it))
           modified = remove(*it) || modified;
@@ -392,7 +454,8 @@ bool AbstractObjectSet::operator==(Lattice* thatL)
   ROSE_ASSERT(latPEdge == thatL->getPartEdge());
   try {
     AbstractObjectSet *that = dynamic_cast <AbstractObjectSet*> (thatL);
-    
+    ROSE_ASSERT(comp     == that->comp);
+    ROSE_ASSERT(analysis == that->analysis);
     // GB: This is a quadratic time comparison. Can make it linear if we sort the objects somehow.
     
     // Iterate through this->items and confirm that all its elements are in that->items
