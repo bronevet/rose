@@ -1,8 +1,4 @@
-#pragma ChainComposer LiveDeadMemAnalysis
-#pragma ChainComposer OrthogonalArrayAnalysis
-#pragma ChainComposer ConstantPropagationAnalysis
-#pragma ChainComposer OrthogonalArrayAnalysis
-#pragma ChainComposer ConstantPropagationAnalysis
+#pragma fuse lc(ld, oa, cp, oa, cp, oa, cp)
 void CompDebugAssert(bool, ...);
 int global;
 

@@ -272,6 +272,13 @@ public:
     modified = true;
   }
   
+  // These BinaryOps are no-ops because they don't update state and we don't
+  // need to set their expression objects to their values since we can access
+  // their values at their uses
+  void visit(SgDotExp *sgn) { }
+  void visit(SgArrowExp *sgn) { }
+  
+  // GB 2013-03-12: So we actually need this? It just gets a lattice at p and then sets it to itself!
   void visit(SgPntrArrRefExp *sgn) {
     if(debugLevel>=1) Dbg::dbg << "<b>VariableStrateTransfer::visit(SgPntrArrRefExp *sgn)" << endl;
     Dbg::indent ind(debugLevel, 1);

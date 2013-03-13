@@ -5,7 +5,7 @@
 #include <boost/make_shared.hpp>
   
 namespace dataflow {
-int constantPropagationAnalysisDebugLevel = 0;
+int constantPropagationAnalysisDebugLevel = 1;
 
 // **********************************************************************
 //              ConstantPropagationLattice

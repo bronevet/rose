@@ -17,12 +17,12 @@ using namespace cfgUtils;
 
 namespace dataflow {
 
-int stxAnalysisDebugLevel=0;
+int stxAnalysisDebugLevel=1;
   
 /*****************************
  ***** SyntacticAnalysis *****
  *****************************/
-  
+
 // the top level builder for MemLocObject from any SgNode
 
 SyntacticAnalysis* SyntacticAnalysis::_instance = 0;
@@ -37,13 +37,83 @@ SyntacticAnalysis* SyntacticAnalysis::instance()
 MemLocObjectPtr SyntacticAnalysis::Expr2MemLoc(SgNode* n, PartEdgePtr pedge)
 { return SyntacticAnalysis::Expr2MemLocStatic(n, pedge); }
 
+// Returns if r is an indirect lexical variable reference a->b or a.b.c where a is a reference type
+/*bool isIndirectDotVarRef(SgExpression* r)
+{
+  // a is not a reference type
+  while(isSgDotExp(r) && 
+        !isSgReferenceType(isSgDotExp(r)->get_rhs_operand()) &&
+        isSgVarRefExp((isSgDotExp(r)->get_lhs_operand()))) {
+    if(!isSgExpression(r->get_parent())) break;
+    r = isSgExpression(r->get_parent());
+  }
+
+  // If the root of the expression is a->b or a.b where a is a reference type, then VarRefExp r
+  // was accessed through an indirection
+  return 
+    // a->b.c.d
+    !isSgArrowExp(r) &&
+    // a.b.c.d where a is a reference type
+    !(isSgDotExp(r) && isSgReferenceType(isSgDotExp(r)->get_rhs_operand()));
+}*/
+
+// If this a reference to a static variable (e.g., a, a.b), return the SgSymbol for this variable and NULL otherwise.
+SgSymbol* isDirectVarRef(SgNode* r)
+{
+  //Dbg::dbg << "isDirectVarRef("<<cfgUtils::SgNode2Str(r)<<")"<<endl;
+  // a
+  if(isSgVarRefExp(r)) {
+    Dbg::dbg << "isDirectVarRef("<<cfgUtils::SgNode2Str(r)<<") => varref "<<cfgUtils::SgNode2Str(isSgVarRefExp(r)->get_symbol())<<endl;
+    return isSgVarRefExp(r)->get_symbol();
+  // a.b
+  } else if(isSgDotExp(r)) {
+    /*{
+      SgDotExp* cur = isSgDotExp(r);
+      Dbg::dbg << "r="<<endl;
+      while(cur) {
+        Dbg::dbg << "    "<<cfgUtils::SgNode2Str(cur)<<endl;
+        Dbg::dbg << "    left="<<cfgUtils::SgNode2Str(cur->get_lhs_operand())<< " | type="<<cfgUtils::SgNode2Str(cur->get_lhs_operand()->get_type())<<endl;
+        Dbg::dbg << "    right="<<cfgUtils::SgNode2Str(cur->get_rhs_operand())<< " | type="<<cfgUtils::SgNode2Str(cur->get_rhs_operand()->get_type())<<endl;
+        cur = isSgDotExp(cur->get_lhs_operand());
+      }
+    }*/
+    
+    // Check that this is an expression of form a.b.c.d where each component is a VarRefExp that does not 
+    // have a reference type
+    SgDotExp *cur = isSgDotExp(r);
+    while(cur) {
+      if(isSgReferenceType(cur->get_rhs_operand()->get_type())) return NULL;
+      if(isSgReferenceType(cur->get_lhs_operand()->get_type())) return NULL;
+      if(!isSgVarRefExp(cur->get_rhs_operand())) return NULL;
+      
+      cur = isSgDotExp(cur->get_lhs_operand());
+    }
+    
+    //Dbg::dbg << "isDirectVarRef("<<cfgUtils::SgNode2Str(r)<<") => dotexp "<<cfgUtils::SgNode2Str(isSgVarRefExp(isSgDotExp(r)->get_rhs_operand())->get_symbol())<<endl;
+    return isSgVarRefExp(isSgDotExp(r)->get_rhs_operand())->get_symbol();
+  }
+
+  return NULL;
+}
+
+// If this is a memory reference that works through indirection (*a, a->b, a.b.c where a is a reference type)
+bool isIndirectVarRef(SgNode* r)
+{
+  return isSgPointerDerefExp(r) ||
+         isSgArrowExp(r) ||
+         (isSgDotExp(r) && !isDirectVarRef(r));
+}
+
 MemLocObjectPtr SyntacticAnalysis::Expr2MemLocStatic(SgNode* n, PartEdgePtr pedge)
 {
   MemLocObjectPtr rt;
 
   ROSE_ASSERT(n);
-  /*Dbg::dbg << "isSgPntrArrRefExp (n)="<<isSgPntrArrRefExp (n)<<" isSgPntrArrRefExp (n->get_parent())="<<isSgPntrArrRefExp (n->get_parent())<<endl;
-  if(isSgPntrArrRefExp (n->get_parent())) {
+  /*ostringstream label; if(stxAnalysisDebugLevel>=1) label << "Expr2MemLocStatic("<<cfgUtils::SgNode2Str(n)<<")"<<endl;
+  Dbg::region reg(stxAnalysisDebugLevel, 1, Dbg::region::midLevel, label.str());*/
+  
+  //Dbg::dbg << "isSgPntrArrRefExp (n)="<<isSgPntrArrRefExp (n)<<endl;//" isSgPntrArrRefExp (n->get_parent())="<<isSgPntrArrRefExp (n->get_parent())<<endl;
+  /*if(isSgPntrArrRefExp (n->get_parent())) {
     Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;parent->lhs=["<<Dbg::escape(isSgPntrArrRefExp (n->get_parent())->get_lhs_operand()->unparseToString())<<" | "<<isSgPntrArrRefExp (n->get_parent())->get_lhs_operand()->class_name()<<"]"<<endl;
     Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;parent->rhs=["<<Dbg::escape(isSgPntrArrRefExp (n->get_parent())->get_rhs_operand()->unparseToString())<<" | "<<isSgPntrArrRefExp (n->get_parent())->get_rhs_operand()->class_name()<<"]"<<endl;
     Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;isSgPntrArrRefExp (n->get_parent())->get_rhs_operand()==n)="<<(isSgPntrArrRefExp (n->get_parent())->get_lhs_operand()==n)<<endl;
@@ -59,18 +129,17 @@ MemLocObjectPtr SyntacticAnalysis::Expr2MemLocStatic(SgNode* n, PartEdgePtr pedg
     //Dbg::dbg<< "NamedML"<<endl;
     SgPntrArrRefExp* r = isSgPntrArrRefExp(n);
     assert (r != NULL);
-    rt = createNamedMemLocObject(n, r, pedge);
-  } 
-  else if (isSgVarRefExp (n))
+    rt = createNamedMemLocObject_PntrArrRef(n, r, pedge);
+  }
+  else if (isDirectVarRef(n))
   {
-    SgVarRefExp* varexp = isSgVarRefExp (n);
-    assert (varexp != NULL);
-    rt = createNamedMemLocObject(n, varexp, pedge);
+    // Create a NamedMemLocObject from a static variable reference of form a and a.b.c where a is not a reference type
+    ROSE_ASSERT(isSgExpression(n));
+    rt = createNamedMemLocObject_DirectVarRef(n, isSgExpression(n), pedge);
   }
   else if (SgExpression* sgexp=isSgExpression(n)) // the order matters !! Must put after V_SgVarRefExp, SgPntrArrRefExp etc.
   {
-    //Dbg::dbg<< "ExprML"<<endl;
-    if(isSgPointerDerefExp(sgexp)) {
+    if(isIndirectVarRef(sgexp)) {
       // create the aliased object based on its type
       ROSE_ASSERT(sgexp->get_type());
       rt = createAliasedMemLocObject(sgexp, sgexp->get_type(), pedge);
@@ -99,9 +168,15 @@ MemLocObjectPtr SyntacticAnalysis::Expr2MemLocStatic(SgNode* n, PartEdgePtr pedg
       // This symbol is part of an aggregate object
       // We cannot create an MemLocObject based on this symbol alone since it can be instantiated to multiple instances, based on the parent obj, and optional index value
       // We should create something like a.b when this field (b) is referenced in the AST
+      /*Dbg::dbg << "n->get_parent()->get_parent()="<<cfgUtils::SgNode2Str(n->get_parent()->get_parent())<<endl;
+      Dbg::dbg << "n->get_parent()="<<cfgUtils::SgNode2Str(n->get_parent())<<endl;
+      Dbg::dbg << "n="<<cfgUtils::SgNode2Str(n)<<endl;
+      Dbg::dbg << "s="<<cfgUtils::SgNode2Str(s)<<endl;*/
       ROSE_ASSERT(0);
-    }  
+    }
   } else ROSE_ASSERT(0);
+  //Dbg::dbg << "SyntacticAnalysis::Expr2MemLocStatic(n"<<cfgUtils::SgNode2Str(n)<<", pedge="<<pedge->str()<<")"<<endl;
+  //Dbg::dbg << "rt="<<(rt? rt->str(): "NULLML")<<endl;
   
   return rt;
 }
@@ -124,8 +199,9 @@ PartPtr SyntacticAnalysis::GetFunctionStartPart_Spec(const Function& func)
   // Find the SgFunctionParameterList node by walking the CFG forwards from the function's start
   /*Dbg::dbg << "SyntacticAnalysis::GetFunctionStartPart()"<<endl;
   Dbg::indent ind;*/
+  //cout << "func.get_definition()="<<cfgUtils::SgNode2Str(func.get_definition())<<endl;
   for(VirtualCFG::back_iterator it(cfgUtils::getFuncEndCFG(func.get_definition())); it!=VirtualCFG::back_iterator::end(); it++) {
-    //Dbg::dbg << "it="<<cfgUtils::CFGNode2Str(*it)<<endl;
+    //cout << "it="<<cfgUtils::CFGNode2Str(*it)<<" isSgFunctionParameterList((*it).getNode()="<<isSgFunctionParameterList((*it).getNode())<<endl;
     if(isSgFunctionParameterList((*it).getNode())/* && (*it).getIndex()==1*/)
       return makePart<StxPart>(*it, this, filter);//boost::make_shared<StxPart>(*it, filter);
   }
@@ -152,7 +228,7 @@ CFGNode NULLCFGNode;
 // XXX: This code is duplicated from frontend/SageIII/virtualCFG/virtualCFG.C
 // Make a set of raw CFG edges closure. Raw edges may have src and dest CFG nodes which are to be filtered out. 
 // The method used is to connect them into CFG paths so src and dest nodes of each path are interesting, skipping intermediate filtered nodes)
-list<StxPartEdgePtr> makeClosureDF(const vector<CFGEdge>& orig, // raw in or out edges to be processed
+map<StxPartEdgePtr, bool> makeClosureDF(const vector<CFGEdge>& orig, // raw in or out edges to be processed
                                      vector<CFGEdge> (CFGNode::*closure)() const, // find successor edges from a node, CFGNode::outEdges() for example
                                      CFGNode (CFGPath::*otherSide)() const, // node from the other side of the path: CFGPath::target()
                                      CFGPath (*merge)(const CFGPath&, const CFGPath&),  // merge two paths into one
@@ -202,51 +278,63 @@ top:
   // cerr << "makeClosure loop done: " << currentPaths.size() << endl;
 
   // Now convert the set of CFG paths with interesting src and dest nodes into a set of DataflowEdge 
-  list<StxPartEdgePtr> edges;
+  //list<StxPartEdgePtr> edges;
+  // Maps edges to bools. A map is used to enable efficient lookups to avoid inserting duplicate edges, 
+  // which may happen in situations like an if statement with empty true and false bodies.
+  map<StxPartEdgePtr, bool> edges;
   for (vector<CFGPath>::iterator i = currentPaths.begin(); i != currentPaths.end(); ++i) {
     // Only if the end node of the path is interesting
     //if (((*i).*otherSide)().isInteresting())
-    if (filter(((*i).*otherSide)()))
+    if (filter(((*i).*otherSide)())) {
       //edges.push_back(/*boost::static_pointer_cast<PartEdge>(*/boost::make_shared<StxPartEdge>(*i, filter)/*)*/);
-      edges.push_back(makePart<StxPartEdge>(*i, analysis, filter));
+      //edges.push_back(makePart<StxPartEdge>(*i, analysis, filter));
+      StxPartEdgePtr newEdge = makePart<StxPartEdge>(*i, analysis, filter);
+      if(edges.find(newEdge) == edges.end()) edges[newEdge] = true;
+    }
   }
-  //cout << "makeClosure done: #edges=" << edges.size() << endl;
+  //Dbg::dbg << "makeClosure done: #edges=" << edges.size() << endl;
   //for(vector<DataflowEdge>::iterator e=edges.begin(); e!=edges.end(); e++)
   //    printf("Current Node %p<%s | %s>\n", e.target().getNode(), e.target().getNode()->unparseToString().c_str(), e.target().getNode()->class_name().c_str());
-  for (list<StxPartEdgePtr>::iterator i = edges.begin(); i != edges.end(); ++i) {
-    ROSE_ASSERT((*i)->source()->filterAny(filter)  || 
-                (*i)->target()->filterAny(filter)); // at least one node is interesting
+  //for (list<StxPartEdgePtr>::iterator i = edges.begin(); i != edges.end(); ++i) {
+  for (map<StxPartEdgePtr, bool>::iterator i = edges.begin(); i != edges.end(); ++i) {
+    StxPartEdgePtr edge = i->first;
+    ROSE_ASSERT(edge->source()->filterAny(filter)  || 
+                edge->target()->filterAny(filter)); // at least one node is interesting
   }
   return edges;
 }
 
 list<PartEdgePtr> StxPart::outEdges() {
-  list<StxPartEdgePtr> vStx = makeClosureDF(n.outEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter, analysis);
+  map<StxPartEdgePtr, bool> vStx = makeClosureDF(n.outEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter, analysis);
   list<PartEdgePtr> v;
-  for(list<StxPartEdgePtr>::iterator i=vStx.begin(); i!=vStx.end(); i++) {
-    v.push_back(dynamic_part_cast<PartEdge>(*i));
-    //v.push_back(static_cast<PartEdgePtr>(*i));
+  for(map<StxPartEdgePtr, bool>::iterator i=vStx.begin(); i!=vStx.end(); i++) {
+    v.push_back(dynamic_part_cast<PartEdge>(i->first));
   }
   return v;
 }
 
 list<StxPartEdgePtr> StxPart::outStxEdges() {
-  return makeClosureDF(n.outEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter, analysis);
+  map<StxPartEdgePtr, bool> vStx = makeClosureDF(n.outEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter, analysis);
+  list<StxPartEdgePtr> v;
+  for(map<StxPartEdgePtr, bool>::iterator i=vStx.begin(); i!=vStx.end(); i++)
+    v.push_back(i->first);
+  return v;
 }
 
 list<PartEdgePtr> StxPart::inEdges() {
-  list<StxPartEdgePtr> vStx = makeClosureDF(n.inEdges(), &CFGNode::inEdges, &CFGPath::source, &mergePathsReversed, filter, analysis);
+  map<StxPartEdgePtr, bool> vStx = makeClosureDF(n.inEdges(), &CFGNode::inEdges, &CFGPath::source, &mergePathsReversed, filter, analysis);
   list<PartEdgePtr> v;
-  for(list<StxPartEdgePtr>::iterator i=vStx.begin(); i!=vStx.end(); i++) {
-    v.push_back(dynamic_part_cast<PartEdge>(*i));
-    //v.push_back(static_cast<PartEdgePtr>(*i));
-  }
-  
+  for(map<StxPartEdgePtr, bool>::iterator i=vStx.begin(); i!=vStx.end(); i++)
+    v.push_back(dynamic_part_cast<PartEdge>(i->first));
   return v;
 }
 
 list<StxPartEdgePtr> StxPart::inStxEdges() {
-  return makeClosureDF(n.inEdges(), &CFGNode::inEdges, &CFGPath::source, &mergePathsReversed, filter, analysis);
+  map<StxPartEdgePtr, bool> vStx = makeClosureDF(n.inEdges(), &CFGNode::inEdges, &CFGPath::source, &mergePathsReversed, filter, analysis);
+  list<StxPartEdgePtr> v;
+  for(map<StxPartEdgePtr, bool>::iterator i=vStx.begin(); i!=vStx.end(); i++)
+    v.push_back(i->first);
+  return v;
 }
 
 set<CFGNode> StxPart::CFGNodes()
@@ -345,7 +433,7 @@ std::list<PartEdgePtr> StxPartEdge::getOperandPartEdge(SgNode* anchor, SgNode* o
   // edge along the path from operand to anchor. Since operand is part of anchor's expression
   // tree we're guaranteed that there is only one such path.
   CFGNode opCFG = operand->cfgForEnd();
-  //cout << "opCFG="<<cfgUtils::CFGNode2Str(opCFG)<<endl;
+  //Dbg::dbg << "opCFG="<<cfgUtils::CFGNode2Str(opCFG)<<endl;
   StxPart opPart(opCFG, analysis);
   ROSE_ASSERT(opPart.outEdges().size()==1);
   list<PartEdgePtr> l;
@@ -417,11 +505,9 @@ bool StxPartEdge::less(const PartEdgePtr& o) const
 std::string StxPartEdge::str(std::string indent)
 {
   ostringstream oss;
-  /* Commenting out for performance reasons
   oss << (isNULLCFGNode(p.source().getNode())? "*" : source()->str()) << 
          Dbg::escape(" ==> ") << 
-         (isNULLCFGNode(p.target().getNode())? "*" : target()->str());// << ", analysis="<<analysis;
-   */
+         (isNULLCFGNode(p.target().getNode())? "*" : target()->str());// << ", analysis="<<analysis
   return oss.str();
 }
 
@@ -440,7 +526,9 @@ AliasedObj* StxMemLocObjectKind::isAliasedObj() { return dynamic_cast<AliasedObj
  ***************************/
 StxMemLocObject::StxMemLocObject(SgNode* n, SgType* t, StxMemLocObjectKindPtr kind) : 
   MemLocObject(n), type(t), kind(kind)
-{}
+{
+  ROSE_ASSERT(kind);
+}
 
 StxMemLocObject::eqType StxMemLocObject::equal(StxMemLocObjectPtr that_arg, PartEdgePtr pedge) 
 {
@@ -1337,10 +1425,10 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   {
     string rt;
     
-/*    if (anchor_exp!= NULL)
-      rt += anchor_exp->class_name()+ ": " + anchor_exp->unparseToString()/ * + " @ " + StringUtility::numberToString (anchor_exp)* /;
+    if (anchor_exp!= NULL)
+      rt += anchor_exp->class_name()+ ": " + anchor_exp->unparseToString()/* + " @ " + StringUtility::numberToString (anchor_exp)*/;
     else
-      rt += "expression: NULL";*/
+      rt += "expression: NULL";
 
     return rt;
   }
@@ -1531,7 +1619,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   void LabeledAggregateExprObj::init(SgExpression* e, PartEdgePtr pedge)
   {
     assert (e != NULL);
-    SgClassType * c_t = isSgClassType(e->get_type());
+    SgClassType * c_t = isSgClassType(e->get_type()->findBaseType());
     assert (c_t != NULL);
     fillUpElements(boost::dynamic_pointer_cast<LabeledAggregate>(shared_from_this()), LabeledAggregate_Impl::getElements(pedge), c_t, pedge);
   }
@@ -1949,9 +2037,9 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     /*else
       rt += "symbol: NULL";*/
 
-    /*if (parent)
-      rt += "  parent: @ " + StringUtility::numberToString(parent.get()); // use address is sufficient
-    else
+    if (parent)
+      rt += "  parent: " + parent->str();//StringUtility::numberToString(parent.get()); // use address is sufficient
+    /*else
       rt += "  parent: NULL";*/
 
     if (array_index_vector != NULL)
@@ -2153,10 +2241,10 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     
     // typedef objects are created with base types
     SgClassType * c_t;
-    if(isSgTypedefType(s->get_type()))
+    if(isSgTypedefType(s->get_type()->findBaseType()))
       c_t = isSgClassType((s->get_type())->findBaseType());
     else      
-      c_t = isSgClassType(s->get_type());
+      c_t = isSgClassType(s->get_type()->findBaseType());
     
     fillUpElements(boost::dynamic_pointer_cast<LabeledAggregate>(shared_from_this()), LabeledAggregate_Impl::getElements(pedge), c_t, pedge);
   }
@@ -2348,17 +2436,17 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string AliasedObj::str(const string& indent)
   std::string AliasedObj::str(std::string indent) // pretty print for the object  
   {
-    /*string rt;
+    string rt;
     if (type != NULL )
-      rt += type->unparseToString()/ * + " @ " + StringUtility::numberToString(type)* /;
-    return rt;*/
-    return "";
+      rt += type->unparseToString()/* + " @ " + StringUtility::numberToString(type)*/;
+    return rt;
   }
 
   // Simplest alias analysis: same type ==> aliased
   bool isAliased (const SgType *t1, const SgType* t2) 
   {
     // TODO : consider subtype, if type1 is a subtype of type2, they are aliased to each other also
+    // TODO : consider relationship between pointer and reference types (should be equivalent)
     if (t1 == t2)
       return true;
     else if (isSgFunctionType(t1) && isSgFunctionType(t2)) // function type, check return and argument types
@@ -2684,34 +2772,40 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     assert (t!= NULL);
     StxMemLocObjectKindPtr rt;
     map<SgType*, StxMemLocObjectKindPtr >::const_iterator iter;
-    iter = aliased_objset_map.find(t);
+    SgType* baseT = t->stripType(SgType::STRIP_MODIFIER_TYPE | SgType::STRIP_REFERENCE_TYPE | SgType::STRIP_TYPEDEF_TYPE);
+    
+    iter = aliased_objset_map.find(baseT);
     if (iter == aliased_objset_map.end())
     { // None found, create a new one and update the map
-      if (SageInterface::isScalarType(t))
+      if (SageInterface::isScalarType(baseT) || isSgEnumType(baseT))
         // We define the following SgType as scalar types: 
         // char, short, int, long , void, Wchar, Float, double, long long, string, bool, complex, imaginary 
-      { rt = boost::make_shared<ScalarAliasedObj>(n, t, pedge); }
-      else if (isSgPointerType(t))
-      { rt = boost::make_shared<PointerAliasedObj>(n, t, pedge); }
-      else if (isSgArrayType(t))
+        // any type of enum
+      { rt = boost::make_shared<ScalarAliasedObj>(n, baseT, pedge); }
+      else if (isSgPointerType(baseT) || isSgReferenceType(t))
+      { rt = boost::make_shared<PointerAliasedObj>(n, baseT, pedge); }
+      else if (isSgArrayType(baseT))
       {
         // TODO: We may wan to only generate a single array aliased obj for a multi-dimensional array
         // which will have multiple SgArrayType nodes , each per dimension
-        rt = boost::make_shared<ArrayAliasedObj>(n, t, pedge);
+        rt = boost::make_shared<ArrayAliasedObj>(n, baseT, pedge);
       }
-      else if (isSgClassType(t))
-      { rt = boost::make_shared<LabeledAggregateAliasedObj>(n, t, pedge); }
-      else if (isSgFunctionType(t))
-      { rt = boost::make_shared<FunctionAliasedObj>(n, t, pedge); }  
+      else if (isSgClassType(baseT))
+      { rt = boost::make_shared<LabeledAggregateAliasedObj>(n, baseT, pedge); }
+      else if (isSgFunctionType(baseT))
+      { rt = boost::make_shared<FunctionAliasedObj>(n, baseT, pedge); }  
+      // Unwrap typedefs
+      /*else if (isSgTypedefType(t))
+      { rt = createAliasedMemLocObjectKind(n, baseT, pedge); }*/
       else
       {
-        cerr<<"Warning: createAliasedMemLocObject(): unhandled type:"<<t->class_name()<<endl;
+        cerr<<"Warning: createAliasedMemLocObject(): unhandled type: \""<<t->class_name()<<"\" base type: \""<<baseT->class_name()<<"\" n="<<(n? cfgUtils::SgNode2Str(n): "NULL")<<endl;
         assert_flag = false;
       }
       
       // Update the map only if something has been created
       if (rt) 
-        aliased_objset_map[t]= rt;
+        aliased_objset_map[baseT]= rt;
     }
     else // Found one, return it directly
     {
@@ -2721,7 +2815,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     if (assert_flag) assert (rt); // we cannot always assert this since not all SgType are supported now
     return rt;
   } 
-
+  
   // variables that are explicitly declared/named in the source code
   // local, global, static variables,
   // formal and actual function parameters
@@ -2729,11 +2823,19 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //  Labeled aggregate
   //  Pointer
   //  Array
+  // anchor_symbol - the anchor lexical symbol from which the created object is based. For array reference expressions
+  //    array[i] this is the symbol of array. For dot expressions a.b it is the symbol of b. anchor_symbol serves
+  //    as a first filter for determining whether two NamedObjs denote the same memory location
+  // type - the type of the actual expression for which the NamedObj is being created (e.g. for array[i] it is the
+  //    type of expression array[i], not the anchor_symbol array. The type determines whether we create a 
+  //    ScalarNamedObj, PointerNamedObj, etc.
   // ------------------------------------------------------------------
   MemLocObjectPtr createNamedMemLocObject(SgNode* n, SgSymbol* anchor_symbol, SgType* t, PartEdgePtr pedge, MemLocObjectPtr parent, IndexVectorPtr iv)
   {
     StxMemLocObjectKindPtr rt;
 
+    SgType* baseT = t->stripType(SgType::STRIP_MODIFIER_TYPE | SgType::STRIP_REFERENCE_TYPE | SgType::STRIP_TYPEDEF_TYPE);
+    
     if (!isSgVariableSymbol(anchor_symbol) && !isSgFunctionSymbol(anchor_symbol))
     {
       cerr<<"Warning. createNamedMemLocObject() skips non-variable and non-function symbol:"<< anchor_symbol->class_name() <<endl;
@@ -2744,8 +2846,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     // check parameters
     assert (anchor_symbol != NULL);
     // ! (isArray || isPointer) ==> !isArray && !isPointer
-    if (! isSgArrayType(anchor_symbol->get_type())  && ! isSgPointerType(anchor_symbol->get_type()) &&
-        ! isSgTypedefType(anchor_symbol->get_type()))
+    if (! isSgArrayType(anchor_symbol->get_type())  && ! isSgPointerType(anchor_symbol->get_type()))
     { // only array elements can have different type from its anchor (parent) symbol
       // pointer type can also have array-like subscripting
       // typedef elements can have different type from its anchor symbol
@@ -2753,21 +2854,21 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     }
     bool assert_flag = true; 
     
-    if (SageInterface::isScalarType(t) || (isSgReferenceType(t) && SageInterface::isScalarType(isSgReferenceType(t)->get_base_type())))
+    if(isSgPointerType(baseT) || isSgReferenceType(baseT))
+    { 
+        rt = boost::make_shared<PointerNamedObj>(n, anchor_symbol, parent, iv, pedge); 
+    }
+    else if (SageInterface::isScalarType(baseT) || isSgEnumType(baseT))
     // We define the following SgType as scalar types: 
     // char, short, int, long , void, Wchar, Float, double, long long, string, bool, complex, imaginary 
     { 
         rt = boost::make_shared<ScalarNamedObj>(n, anchor_symbol, parent, iv, pedge); 
     }
-    else if (isSgFunctionType(t) || (isSgReferenceType(t) && isSgFunctionType(isSgReferenceType(t)->get_base_type())))
+    else if (isSgFunctionType(baseT))
     { 
         rt = boost::make_shared<FunctionNamedObj>(n, anchor_symbol, pedge); 
     }
-    else if (isSgPointerType(t) || (isSgReferenceType(t) && isSgPointerType(isSgReferenceType(t)->get_base_type())))
-    { 
-        rt = boost::make_shared<PointerNamedObj>(n, anchor_symbol, parent, iv, pedge); 
-    }
-    else if (isSgClassType(t) || (isSgReferenceType(t) && isSgClassType(isSgReferenceType(t)->get_base_type())))
+    else if (isSgClassType(baseT))
     {
         // #SA 10/15/12
         // Stripping init() from constructor
@@ -2775,29 +2876,102 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
         rt = boost::make_shared<LabeledAggregateNamedObj>(n, anchor_symbol, parent, iv, pedge);
         boost::dynamic_pointer_cast<LabeledAggregateNamedObj>(rt)->init(anchor_symbol, parent, iv, pedge);
     }
-    else if (isSgArrayType(t) || (isSgReferenceType(t) && isSgArrayType(isSgReferenceType(t)->get_base_type()))) // This is for the entire array variable
+    else if(isSgArrayType(baseT)) // This is for the entire array variable
     { 
         rt = boost::make_shared<ArrayNamedObj>(n, anchor_symbol, parent, iv, pedge); 
     }
     // #SA 11/28/12
     // to handle typedef memory objects
-    else if(isSgTypedefType(t))
+    // #GB 3/12/13: Don't need it if we always consider base types of each type
+    /*else if(isSgTypedefType(t))
     {
       // make a recursive call to create the object with typedef base type
       return createNamedMemLocObject(n, anchor_symbol, t->findBaseType(), pedge, parent, iv);
-    }
+    }*/
     else
     {
-      cerr<<"Warning: createNamedMemLocObject(): unhandled symbol:"<<anchor_symbol->class_name() << 
-          " name: " <<  anchor_symbol->get_name().getString() << " type: "<< t->class_name()<< " @ "<<StringUtility::numberToString(anchor_symbol) <<endl;
-      assert_flag = false;
+      cerr<<"Warning: createNamedMemLocObject(): unhandled symbol: \""<<anchor_symbol->class_name() << "\"" << 
+          " name: \"" <<  anchor_symbol->get_name().getString() << "\" type: \""<< t->class_name()<< "\", base type: \""<<t->findBaseType()->class_name()<<"\" @ "<<StringUtility::numberToString(anchor_symbol) <<endl;
+      SgType* myT = t;
+      while(isSgReferenceType(myT) || isSgModifierType(myT)) {
+        cerr << "base type: "<<cfgUtils::SgNode2Str(isSgReferenceType(t)->get_base_type())<<""<<endl;
+        if(isSgReferenceType(myT)) myT = isSgReferenceType(myT)->get_base_type();
+        else if(isSgModifierType(myT)) myT = isSgModifierType(myT)->get_base_type();
+      }
+      cerr << "final base type: "<<cfgUtils::SgNode2Str(myT)<<""<<endl;
+        
+      //assert_flag = false;
     }
     
     if (assert_flag) assert (rt); // we cannot always assert this since not all SgType are supported now
     
     return boost::make_shared<StxMemLocObject>(n, t, rt);
   }
-
+  
+  // Create a NamedMemLocObject from a static variable reference of form a and a.b.c where a is not a reference type
+  MemLocObjectPtr createNamedMemLocObject_DirectVarRef(SgNode* n, SgExpression* ref, PartEdgePtr pedge) 
+  {
+    // If this is a plain VarRef
+    if(isSgVarRefExp(ref)) 
+      return createNamedMemLocObject(n, isSgVarRefExp(ref)->get_symbol(), isSgVarRefExp(ref)->get_symbol()->get_type(), 
+                                     pedge, MemLocObjectPtr(), IndexVectorPtr()); // parent should be NULL since it is not a member variable symbol)
+    // Otherwise, if this is a dot expression
+    else if(isSgDotExp(n)) {
+      // Create the MemLocObject for the parent dot expression
+      MemLocObjectPtr parent;
+      if(isSgDotExp(isSgDotExp(n)->get_lhs_operand()))
+        parent = createNamedMemLocObject_DirectVarRefDotExp(isSgDotExp(n)->get_lhs_operand(), isSgDotExp(n)->get_lhs_operand(), pedge);
+      ROSE_ASSERT(isSgVarRefExp(isSgDotExp(n)->get_rhs_operand()));
+      SgSymbol* symbol = isSgVarRefExp(isSgDotExp(n)->get_rhs_operand())->get_symbol();
+      
+      // Create the MemLocObject for the overall expression
+      return createNamedMemLocObject(n, symbol, symbol->get_type(), pedge, parent, IndexVectorPtr()); // parent should be NULL since it is not a member variable symbol)
+    }
+    ROSE_ASSERT(0);
+  }
+  
+  // Create a NamedMemLocObject from a static variable reference of form a.b.c where a is not a reference type
+  MemLocObjectPtr createNamedMemLocObject_DirectVarRefDotExp(SgNode* n, SgExpression* ref, PartEdgePtr pedge) 
+  {
+    // If this is a SgDotExp in the middle of a larger dot expression tree
+    if(isSgDotExp(ref)) {
+      MemLocObjectPtr parentML = 
+              createNamedMemLocObject_DirectVarRefDotExp(
+                     isSgDotExp(ref)->get_lhs_operand(), 
+                     isSgDotExp(ref)->get_lhs_operand(),
+                     pedge);
+      ROSE_ASSERT(isSgVarRefExp(isSgDotExp(ref)->get_rhs_operand()));
+      return boost::make_shared<LabeledAggregateNamedObj>(isSgDotExp(ref)->get_rhs_operand(), 
+              isSgVarRefExp(isSgDotExp(ref)->get_rhs_operand())->get_symbol(), parentML, IndexVectorPtr(), pedge);
+    }
+    // If this is the top-most dot expression
+    else if(isSgVarRefExp(ref))
+      return boost::make_shared<LabeledAggregateNamedObj>(n, isSgVarRefExp(ref)->get_symbol(), MemLocObjectPtr(), IndexVectorPtr(), pedge);
+    
+    cerr << "Unhandled case in createNamedMemLocObject_DirectVarRefDotExp(n="<<cfgUtils::SgNode2Str(n)<<", ref="<<cfgUtils::SgNode2Str(ref)<<endl;
+    ROSE_ASSERT(0);
+    /*
+    assert (r!=NULL);
+    SgVariableSymbol * s = r->get_symbol();
+    assert (s != NULL);
+    SgType * t = s->get_type();
+    assert (t != NULL);
+    
+    // If ref is a simple reference to a static variable
+    if(isSgVarRefExp(ref))
+      return createNamedMemLocObject(n, symbol, symbol->get_type(), pedge, MemLocObjectPtr(), IndexVectorPtr()); // parent should be NULL since it is not a member variable symbol
+    // If ref is part of a dot expression and its parent is also a dot expression
+    else if(isSgDotExp(ref)) {
+      // We know that all the parents of this reference are direct SgDotExpressions, so call createNamedMemLocObject_DirectVarRef()
+      // recursively to create a MemLocObject of ref's parent and then call the generic createNamedMemLocObject()
+      // to construct the full MemLocObject for ref that refers to this parent.
+      SgInitializedName* parentName = SageInterface::convertRefToInitializedName(ref->get_parent());
+      SgSymbol* parenSymbol = isSgVariableSymbol(parentName->get_symbol_from_symbol_table());
+      MemLocObjectPtr parent = createNamedMemLocObject_DirectVarRef(n, ref->get_parent(), parentSymbol, pedge);
+      return createNamedMemLocObject(n, symbol, symbol->get_type(), pedge, parent, IndexVectorPtr()); // parent should be NULL since it is not a member variable symbol
+    }*/
+  }
+  
   // For a SgVarRef, find the corresponding symbol first
   // 1. if is a instance symbol. It corresponding to real top level instances of types. Create NamedObj as we see each of them, NULL as parent
   //     They are the symbols with declarations not under SgClassDefinition
@@ -2806,7 +2980,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //     use lhs of SgDotExp/SgArrowExp as parent
   //         lhs could be SgVarRefExp: find the corresponding NamedObj as parent (top level object, labeled aggregate)
   //         lhs could be another SgDotExp: find its rhs's NamedObj as parent
-  MemLocObjectPtr createNamedMemLocObject(SgNode* n, SgVarRefExp* r, PartEdgePtr pedge) // create NamedMemLocObject or aliased object from a variable reference 
+/*  MemLocObjectPtr createNamedMemLocObject(SgNode* n, SgExpression* ref, PartEdgePtr pedge) // create NamedMemLocObject or aliased object from a variable reference 
   {
     assert (r!=NULL);
     SgVariableSymbol * s = r->get_symbol();
@@ -2814,35 +2988,40 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     SgType * t = s->get_type();
     assert (t != NULL);
     
-    if(isMemberVariableDeclarationSymbol(s))
-    { // symbol within SgClassDefinition
-      //I think a reference to a data memory can only happen through . or -> operator
-      SgExpression* parent = isSgExpression(r->get_parent());
-      assert (parent != NULL);
-      SgDotExp * d_e = isSgDotExp (parent);
-      SgArrowExp * a_e = isSgArrowExp (parent);
-      assert (d_e != NULL || a_e != NULL);
-      SgBinaryOp* b_e = isSgBinaryOp (parent);
-      assert (b_e != NULL);
-      assert (b_e->get_rhs_operand_i() == r);
+    // symbol within SgClassDefinition
+    //if(isMemberVariableDeclarationSymbol(s))
+    // If this is an indirection via a pointer (reference a->b or a.b where a is a reference)
+    if(!isSgExpression(r->get_parent()) || isIndirectDotVarRef(isSgExpression(r->get_parent())))
+    { 
+      // We model referents of pointers as AliasedMemLocObjects
+      return createAliasedMemLocObject(n, t, pedge);
+    // Else, if this is a dot expression a.b with no pointer access
+    } else if(isSgDotExp (r->get_parent())) {
+      / *
+Dbg::dbg << "createNamedMemLocObject()"<<endl;
+Dbg::dbg << "n = "<<cfgUtils::SgNode2Str(parent)<<endl;
+Dbg::dbg << "r = "<<cfgUtils::SgNode2Str(r)<<endl;
+Dbg::dbg << "s = "<<cfgUtils::SgNode2Str(s)<<endl;
+Dbg::dbg << "t = "<<cfgUtils::SgNode2Str(t)<<endl;
+Dbg::dbg << "t2 = "<<cfgUtils::SgNode2Str(t)<<endl;
+Dbg::dbg << "parent = "<<cfgUtils::SgNode2Str(parent)<<endl;* /
+      SgBinaryOp* b_e = isSgBinaryOp (r->get_parent());
+      ROSE_ASSERT(b_e);
+      ROSE_ASSERT(b_e->get_rhs_operand_i() == r);
 
       // First, get MemLocObject for its parent part
       MemLocObjectPtr p_obj;
       SgExpression * lhs = b_e ->get_lhs_operand_i();
-      assert (lhs != NULL);
+      ROSE_ASSERT(lhs != NULL);
       if (isSgVarRefExp(lhs))
-      {
         p_obj = createNamedMemLocObject(NULL, isSgVarRefExp(lhs), pedge); // recursion here
-      }
-      else if (isSgBinaryOp (lhs)) // another SgDotExp or SgArrowExp
+      else if (isSgDotExp (lhs)) // another SgDotExp 
       { // find its rhs's NamedObj as parent
-        SgDotExp * d_e2 = isSgDotExp (lhs);
-        SgArrowExp * a_e2 = isSgArrowExp (lhs);
-        assert (d_e2 != NULL || a_e2 != NULL);
         SgExpression* rhs = isSgBinaryOp (lhs) -> get_rhs_operand_i();
         assert (isSgVarRefExp (rhs) != NULL); // there might be some more cases!!
         p_obj = createNamedMemLocObject(NULL, isSgVarRefExp(rhs), pedge);
-      }
+      } else
+        ROSE_ASSERT(false);
       // now create the child mem obj
       MemLocObjectPtr mem_obj = createNamedMemLocObject(n, s, s->get_type(), pedge, p_obj, IndexVectorPtr()); // we don't explicitly store index for elements of labeled aggregates for now 
       // assert (mem_obj != NULL); // we may return NULL for cases not yet handled
@@ -2854,7 +3033,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       // assert (mem_obj != NULL); // We may return NULL for cases not yet handled
       return mem_obj;
     }
-  }
+  }*/
 
  // create NamedObj from an array element access 
  /* The AST for a 2-D array element access:  
@@ -2874,11 +3053,11 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
        The creation interface should take care of avoiding duplicated creation of the entire array object.    
     2. Create the array element NamedMemLocObject for  a[4][6], based on parent a, and indexVector <4, 6>
   */
-  MemLocObjectPtr createNamedMemLocObject(SgNode* n, SgPntrArrRefExp* r, PartEdgePtr pedge) 
+  MemLocObjectPtr createNamedMemLocObject_PntrArrRef(SgNode* n, SgPntrArrRefExp* r, PartEdgePtr pedge) 
   {
     MemLocObjectPtr mem_obj;
     assert (r!=NULL);
-    MemLocObjectPtr whole_array_obj;
+    //MemLocObjectPtr whole_array_obj;
 
     SgPntrArrRefExp* arr_ref_parent = isSgPntrArrRefExp(r->get_parent());
     // Only create Named objects for top-level SgPntrArrRefExps
@@ -2890,6 +3069,32 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       std::vector<SgExpression*>* subscripts = new std::vector<SgExpression*>;
 
       SageInterface::isArrayReference(r, &arrayNameExp, &subscripts);
+      Dbg::dbg << "createNamedMemLocObject()"<<endl;
+      Dbg::dbg << "    n="<<cfgUtils::SgNode2Str(n)<<endl;
+      Dbg::dbg << "    r="<<cfgUtils::SgNode2Str(r)<<endl;
+      Dbg::dbg << "    arrayNameExp="<<cfgUtils::SgNode2Str(arrayNameExp)<<endl;
+      
+      // array[i] or a.b.c[i]
+      if(SgSymbol* symbol = isDirectVarRef(arrayNameExp)) {
+        MemLocObjectPtr whole_array_obj;
+        // If this is a plain VarRef
+        if(isSgVarRefExp(arrayNameExp)) 
+          whole_array_obj = createNamedMemLocObject(arrayNameExp, symbol, symbol->get_type(), pedge, MemLocObjectPtr(), IndexVectorPtr()); // parent should be NULL since it is not a member variable symbol)
+        // Otherwise, if this is a dot expression
+        else if(isSgDotExp(arrayNameExp))
+          whole_array_obj = createNamedMemLocObject_DirectVarRefDotExp(n, isSgDotExp(arrayNameExp), pedge);
+        
+        // create the element access then, using symbol, parent, and index
+        IndexVectorPtr iv = generateIndexVector(*subscripts);
+        assert (iv != 0);
+        return createNamedMemLocObject(n, symbol, r->get_type(), pedge, whole_array_obj, iv);
+      }
+      // Otherwise, the array reference denotes an aliased object
+      else
+        return createAliasedMemLocObject(n, r->get_type(), pedge);
+      
+      /* GB 2013-03-12: original code tried to capture simple array reference expressions but allowed 
+       *      odd thigs like (a->q)[10], which are clearly aliased objects because of the dereference
       SgInitializedName* array_name = SageInterface::convertRefToInitializedName(arrayNameExp);
       SgVariableSymbol * s = NULL; 
       if(array_name != NULL)
@@ -2914,7 +3119,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       // create the element access then, using symbol, parent, and index
       IndexVectorPtr iv = generateIndexVector(*subscripts);
       assert (iv != 0);
-      mem_obj = createNamedMemLocObject(n, s, r->get_type(), pedge, whole_array_obj, iv);
+      mem_obj = createNamedMemLocObject(n, s, r->get_type(), pedge, whole_array_obj, iv);*/
       
       // GB: Do we need to deallocate subscripts???
     }
@@ -2981,8 +3186,10 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       }
       else
       {
-        cerr<<"Warning: createExprMemLocObject(): unhandled expression:"<<anchor_exp->class_name() << 
-          " string : " <<  anchor_exp->unparseToString() << " type: "<< t->class_name()<< " @ "<<StringUtility::numberToString(anchor_exp) <<endl;
+        // By default make it a scalar object
+        rt = boost::make_shared<ScalarExprObj>(anchor_exp, pedge);
+/*        cerr<<"Warning: createExprMemLocObject(): unhandled expression:\""<<anchor_exp->class_name() << 
+          "\" string : \"" <<  anchor_exp->unparseToString() << "\" type: \""<< t->class_name()<< "\" @ "<<StringUtility::numberToString(anchor_exp) <<endl;*/
         assert_flag = false;
       }
 

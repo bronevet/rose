@@ -925,8 +925,17 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   StxMemLocObjectKindPtr createAliasedMemLocObjectKind(SgNode* n, SgType* t, PartEdgePtr pedge);
   
   MemLocObjectPtr createNamedMemLocObject(SgNode* n, SgSymbol* anchor_symbol, SgType* t, PartEdgePtr pedge, MemLocObjectPtr parent, IndexVectorPtr iv); // any 
-  MemLocObjectPtr createNamedMemLocObject(SgNode* n, SgVarRefExp* r, PartEdgePtr pedge); // create NamedMemLocObject or AliasedMemLocObject (for pointer type) from a variable reference 
-  MemLocObjectPtr createNamedMemLocObject(SgNode* n, SgPntrArrRefExp* r, PartEdgePtr pedge); // create NamedMemLocObject from an array element access
+  
+  // Create a NamedMemLocObject from a static variable reference of form a and a.b.c where a is not a reference type
+  MemLocObjectPtr createNamedMemLocObject_DirectVarRef(SgNode* n, SgExpression* ref, PartEdgePtr pedge);
+  
+  // Create a NamedMemLocObject from a static variable reference of form a and a.b.c where a is not a reference type
+  MemLocObjectPtr createNamedMemLocObject_DirectVarRefDotExp(SgNode* n, SgExpression* ref, PartEdgePtr pedge);
+  
+  MemLocObjectPtr createNamedMemLocObject_PntrArrRef(SgNode* n, SgPntrArrRefExp* r, PartEdgePtr pedge);
+  //MemLocObjectPtr createNamedMemLocObject(SgNode* n, SgVarRefExp* r, PartEdgePtr pedge); // create NamedMemLocObject or AliasedMemLocObject (for pointer type) from a variable reference   
+  
+  //MemLocObjectPtr createNamedMemLocObject(SgNode* n, SgPntrArrRefExp* r, PartEdgePtr pedge); // create NamedMemLocObject from an array element access
   MemLocObjectPtr createExpressionMemLocObject(SgExpression* anchor_exp, PartEdgePtr pedge); 
   // Return true if op is an operand of the given SgNode n and false otherwise.
   bool isOperand(SgNode* n, SgExpression* op);

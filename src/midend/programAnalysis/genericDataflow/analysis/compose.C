@@ -6,7 +6,7 @@
 
 namespace dataflow
 {
-int composerDebugLevel=0;
+int composerDebugLevel=1;
 /****************************
  ***** ComposedAnalysis *****
  ****************************/
@@ -630,10 +630,12 @@ MemLocObjectPtr ChainComposer::OperandExpr2MemLoc(SgNode* n, SgNode* operand, Pa
   // Get the parts of the execution prefixes that terminate at the operand before continuing directly 
   // to SgNode n in the given part
   list<PartEdgePtr> opPartEdges = pedge->getOperandPartEdge(n, operand);
-  //Dbg::dbg << "opPartEdges(#"<<opPartEdges.size()<<")="<<endl;
-  for(list<PartEdgePtr>::iterator opE=opPartEdges.begin(); opE!=opPartEdges.end(); opE++) {
-    Dbg::indent ind;
-    Dbg::dbg << (*opE)->str()<<endl;
+  if(composerDebugLevel>=2) {
+    Dbg::dbg << "opPartEdges(#"<<opPartEdges.size()<<")="<<endl;
+    for(list<PartEdgePtr>::iterator opE=opPartEdges.begin(); opE!=opPartEdges.end(); opE++) {
+      Dbg::indent ind;
+      Dbg::dbg << (*opE)->str()<<endl;
+    }
   }
   
   // The memory and expression MemLocObjects that represent the operand within different Parts in opParts

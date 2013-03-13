@@ -70,7 +70,7 @@ void partIterator::advance(bool fwDir, bool pushAllChildren)
     // pop the next CFG node from the front of the list
     PartPtr cur = remainingNodes.front();
     remainingNodes.pop_front();
-    //Dbg::dbg << "#remainingNodes="<<remainingNodes.size()<<" cur=["<<cur.getNode()->unparseToString()<<" | "<<cur.getNode()->class_name()<<"]"<<endl;
+    //Dbg::dbg << "#remainingNodes="<<remainingNodes.size()<<" cur="<<(cur? cur->str(): "NULLPart")<<endl;
     
     if(pushAllChildren)
     {
@@ -82,7 +82,7 @@ void partIterator::advance(bool fwDir, bool pushAllChildren)
       for(list<PartEdgePtr>::iterator it=nextE.begin(); it!=nextE.end(); it++)
       {
         PartPtr nextN = (fwDir ? (*it)->target() : nextN = (*it)->source());
-        //Dbg::dbg << "nextN=["<<nextN.getNode()->unparseToString()<<" | "<<nextN.getNode()->class_name()<<"]"<<endl;
+        //Dbg::dbg << "nextN="<<(nextN ? nextN->str(): "NullPart")<<endl;
         
         /*Dbg::dbg << "      iterator::advance "<<(fwDir?"descendant":"predecessor")<<": "
                <<nextN->str() << endl;/ *<<", "<<

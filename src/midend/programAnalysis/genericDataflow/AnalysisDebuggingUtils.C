@@ -133,7 +133,7 @@ void dbgBuf::init(std::streambuf* baseBuf)
 {
   this->baseBuf = baseBuf;
   synched = true;
-  ownerAccess = true;
+  ownerAccess = false;
   numOpenAngles = 0;
   //numDivs = 0;
   parentDivs.empty();
@@ -322,7 +322,6 @@ int dbgBuf::sync()
   int r = baseBuf->pubsync();
   if(r!=0) return -1;
 
-  //cout << "Synch synched="<<synched<<" ownerAccess="<<ownerAccess<<"\n";
   if(synched && !ownerAccess) {
     int ret;
     ret = printString("<br>\n");    if(ret != 0) return 0;

@@ -91,6 +91,14 @@ void FunctionState::setArgParamMap(PartPtr callPart, SgFunctionCallExp* call,
   SgExpressionPtrList args = call->get_args()->get_expressions();
   //SgInitializedNamePtrList params = funcArgToParamByRef(call);
   SgInitializedNamePtrList params = func.get_params();
+  /*cout << "callPart="<<callPart->str()<<endl;
+  cout << "call="<<cfgUtils::SgNode2Str(call)<<endl;
+  cout << "args="<<endl;
+  for(SgExpressionPtrList::iterator a=args.begin(); a!=args.end(); a++)
+    cout << "    "<<cfgUtils::SgNode2Str(*a)<<endl;
+  cout << "params="<<endl;
+  for(SgInitializedNamePtrList::iterator p=params.begin(); p!=params.end(); p++)
+    cout << "    "<<cfgUtils::SgNode2Str(*p)<<endl;*/
   ROSE_ASSERT(args.size() == params.size());
 
   //cout << "setArgParamMap() #args="<<args.size()<<" #params="<<params.size()<<"\n";

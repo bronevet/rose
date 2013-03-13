@@ -1,4 +1,5 @@
 #include "DataflowCFG.h"
+#include "cfgUtils.h"
 #include <cassert>
 using namespace std;
 
@@ -28,8 +29,13 @@ namespace VirtualCFG
       // filter out this node type
       // abstract memory object cannot be created for these nodes
       case V_SgExprListExp:
+      case V_SgNullStatement:
           return false;
 
+      // Filter out intermediate dot expressions. We only care about the complete ones.
+      case V_SgDotExp:
+        //cout << "defaultFilter() node="<<cfgUtils::SgNode2Str(node)<<" node->get_parent()="<<cfgUtils::SgNode2Str(node->get_parent())<<" interesting="<<(!isSgDotExp(node->get_parent()))<<endl;
+        return !isSgDotExp(node->get_parent());
       /*case V_SgCastExp:
           return false;*/
       

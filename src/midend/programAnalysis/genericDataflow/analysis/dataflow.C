@@ -216,8 +216,8 @@ list<PartEdgePtr> IntraFWDataflow::getEdgesToDescendants(PartPtr part)
 }
 
 list<PartEdgePtr> IntraBWDataflow::getEdgesToDescendants(PartPtr part)
-{ 
-  return part->inEdges();
+{  
+ return part->inEdges();
 }
 
 PartPtr IntraFWDataflow::getUltimate(const Function &func)
@@ -350,7 +350,7 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
         // When a dfInfo map goes into a transfer function it must only have one key: the NULL edge
         ROSE_ASSERT(dfInfoPost.size()==1);
         ROSE_ASSERT(dfInfoPost.find(NULLPartEdge) != dfInfoPost.end());
-
+        
         boost::shared_ptr<IntraDFTransferVisitor> transferVisitor = getTransferVisitor(func, part, *c, *state, dfInfoPost);
         sgn->accept(*transferVisitor);
         modified = transferVisitor->finish() || modified;
@@ -375,7 +375,7 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
             // First, map the original key to the first descendant edge
             dfInfoPost[*first] = dfInfoPost[NULLPartEdge];
             dfInfoPost.erase(NULLPartEdge);
-
+            
             // Set to *first the PartEdge of all the lattices stored under this edge
             for(vector<Lattice*>::iterator l=dfInfoPost[*first].begin(); l!=dfInfoPost[*first].end(); l++) {
               //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;first="<<(*first)->str()<<endl;

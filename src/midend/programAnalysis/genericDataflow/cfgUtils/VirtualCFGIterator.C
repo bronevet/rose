@@ -61,16 +61,16 @@ bool iterator::isRemaining(const CFGNode n)
 void iterator::advance(bool fwDir, bool pushAllChildren)
 {
   ROSE_ASSERT(initialized);
-  //Dbg::dbg << "iterator::advance(fwDir="<<fwDir<<") #remainingNodes="<<remainingNodes.size()<<endl;
-  /*cout<<"  visited=\n";
+  /*cout << "iterator::advance(fwDir="<<fwDir<<", pushAllChildren="<<pushAllChildren<<") #remainingNodes="<<remainingNodes.size()<<endl;
+  cout<<"  visited=\n";
   for(set<CFGNode>::iterator it=visited.begin(); it!=visited.end(); it++)
-    cout << "      ["<<it.getNode()->class_name()<<" | "<<it.getNode()<<" | "<<it.getNode()->unparseToString()<<"]\n";*/
+    cout << "      "<<cfgUtils::CFGNode2Str(*it)<<"\n";*/
   if(remainingNodes.size()>0)
   {
     // pop the next CFG node from the front of the list
     CFGNode cur = remainingNodes.front();
     remainingNodes.pop_front();
-    //Dbg::dbg << "#remainingNodes="<<remainingNodes.size()<<" cur=["<<cur.getNode()->unparseToString()<<" | "<<cur.getNode()->class_name()<<"]"<<endl;
+    //cout << "#remainingNodes="<<remainingNodes.size()<<" cur="<<cfgUtils::CFGNode2Str(cur)<<endl;
     
     if(pushAllChildren)
     {
@@ -79,13 +79,12 @@ void iterator::advance(bool fwDir, bool pushAllChildren)
       vector<CFGEdge> nextE;
       if(fwDir) nextE = cur.outEdges();
       else      nextE = cur.inEdges();
+      //cout << "    #nextE="<<nextE.size()<<endl;
       for(vector<CFGEdge>::iterator it=nextE.begin(); it!=nextE.end(); it++)
       {
         CFGNode nextN = (fwDir ? it->target() : nextN = it->source());
-        //Dbg::dbg << "nextN=["<<nextN.getNode()->unparseToString()<<" | "<<nextN.getNode()->class_name()<<"]"<<endl;
-        
-        /*cout << "      iterator::advance "<<(fwDir?"descendant":"predecessor")<<": "<<
-               "<"<<nextN.getNode()->class_name()<<" | "<<nextN.getNode()<<" | "<<nextN.getNode()->unparseToString()<<">, "<<
+        /*cout << "    nextN="<<cfgUtils::CFGNode2Str(nextN)<<endl;
+        cout << "      iterator::advance "<<(fwDir?"descendant":"predecessor")<<": "<<
                "visited="<<(visited.find(nextN) != visited.end())<<
                " remaining="<<isRemaining(nextN)<<"\n";*/
         
@@ -93,7 +92,7 @@ void iterator::advance(bool fwDir, bool pushAllChildren)
         if(visited.find(nextN) == visited.end() &&
            !isRemaining(nextN))
         {
-          //printf("   pushing back node <%s: 0x%x: %s> visited=%d\n", nextN.getNode()->class_name().c_str(), nextN.getNode(), nextN.getNode()->unparseToString().c_str(), visited.find(nextN)!=visited.end());
+          //printf("       pushing back node <%s: 0x%x: %s> visited=%d\n", nextN.getNode()->class_name().c_str(), nextN.getNode(), nextN.getNode()->unparseToString().c_str(), visited.find(nextN)!=visited.end());
           remainingNodes.push_back(nextN);
         }
       }
@@ -104,7 +103,7 @@ void iterator::advance(bool fwDir, bool pushAllChildren)
         // take the next node from the front of the list and mark it as visited
         visited.insert(remainingNodes.front());
       
-        //Dbg::dbg << "remainingNodes.front()=["<<remainingNodes.front().getNode()->unparseToString()<<" | "<<remainingNodes.front().getNode()->class_name()<<"]"<<endl;
+        //cout << "        remainingNodes.front()=["<<remainingNodes.front().getNode()->unparseToString()<<" | "<<remainingNodes.front().getNode()->class_name()<<"]"<<endl;
       }
       // Since pushAllChildren always = true or = false, we only need to worry about managing visited in the true case
     }

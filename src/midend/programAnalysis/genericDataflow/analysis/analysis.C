@@ -33,7 +33,7 @@
 using namespace std;
 namespace dataflow {
   
-int analysisDebugLevel=0;
+int analysisDebugLevel=2;
 
 /*******************************
  *** IntraProceduralAnalysis ***
@@ -63,7 +63,7 @@ InterProceduralAnalysis::~InterProceduralAnalysis() {}
 void UnstructuredPassIntraAnalysis::runAnalysis(const Function& func, NodeState* state)
 {
   if(analysisDebugLevel>=2)
-    Dbg::dbg << "UnstructuredPassIntraAnalysis::runAnalysis() function "<<func.get_name().getString()<<"()\n";
+    Dbg::dbg << "UnstructuredPassIntraAnalysis::runAnalysis() function "<<func.get_name().getString()<<"()"<<endl;
   
   // Iterate over all the nodes in this function
   for(partIterator it(analysis->getComposer()->GetFunctionStartPart(func, analysis)); it!=partIterator::end(); it++)
@@ -316,8 +316,8 @@ void MergeAllReturnStates::visit(const Function& func, PartPtr part, NodeState& 
   for(set<CFGNode>::iterator c=v.begin(); c!=v.end(); c++) {
     SgNode* sgn=c->getNode();
 
-    // If this is an explicit return statement
-    if(isSgReturnStmt(sgn)) {
+    // If this is an explicit non-void return statement
+    if(isSgReturnStmt(sgn) && isSgReturnStmt(sgn)->get_expression()) {
       if(analysisDebugLevel>=1)
         Dbg::dbg << "MergeAllReturnStates::visit() return expr="<<isSgReturnStmt(sgn)->get_expression()<<"["<<Dbg::escape(isSgReturnStmt(sgn)->get_expression()->unparseToString())<<" | "<<isSgReturnStmt(sgn)->get_expression()->class_name()<<"]\n";
 
@@ -357,10 +357,11 @@ void MergeAllReturnStates::visit(const Function& func, PartPtr part, NodeState& 
       for(vector<Lattice*>::iterator l=exprLats.begin(); l!=exprLats.end(); l++) 
         delete *l;
     }
-    // If this is the end of a function, which is an implicit return that has no return value
-    else if(isSgFunctionDefinition(sgn)) {
+    // If this is a void return or the end of a function, which is an implicit return that has no return value
+    else if((isSgReturnStmt(sgn) && !isSgReturnStmt(sgn)->get_expression()) || 
+            isSgFunctionDefinition(sgn)) {
       if(analysisDebugLevel>=1)
-        Dbg::dbg << "MergeAllReturnStates::visit() isSgFunctionDefinition\n";
+        Dbg::dbg << "MergeAllReturnStates::visit() "<<(isSgReturnStmt(sgn)? "void return": "isSgFunctionDefinition")<<"\n";
     
       NodeState* state = NodeState::getNodeState(analysis, part);
       
@@ -1112,8 +1113,9 @@ void ContextInsensitiveInterProceduralDataflow::visit(const CGFunction* funcCG)
       for(CGFunction::iterator it = funcCG->predecessors(); it!=funcCG->end(); it++)
       {
         const CGFunction* caller = it.getTarget(functions);
+        // Skip NULL callers, 
 
-        //Dbg::dbg << "Caller of "<<funcCG->get_name().getString()<<": "<<caller->get_name().getString()<<endl;
+        if(analysisDebugLevel>=1) { Dbg::dbg << "Caller of "<<(funcCG? funcCG->get_name().getString(): "NULL")<<": "<<(caller? caller->get_name().getString(): "NULL")<<endl; }
         addToRemaining(caller);
         remainingDueToCalls[caller].insert(func);
       }

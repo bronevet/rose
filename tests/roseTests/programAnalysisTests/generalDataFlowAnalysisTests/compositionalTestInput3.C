@@ -1,10 +1,4 @@
-#pragma ChainComposer ConstantPropagationAnalysis
-#pragma ChainComposer DeadPathElimAnalysis
-#pragma ChainComposer OrthogonalArrayAnalysis
-#pragma ChainComposer ConstantPropagationAnalysis
-#pragma ChainComposer DeadPathElimAnalysis
-#pragma ChainComposer OrthogonalArrayAnalysis
-#pragma ChainComposer ConstantPropagationAnalysis
+#pragma fuse lc(ld, cp, dp, cp, dp, cp, oa, cp, dp, oa, cp)
 
 void CompDebugAssert(bool, ...);
 
@@ -51,7 +45,7 @@ int main()
 		array[z]=456;
 	}
 	// ConstProp: w=15, x=10, y=20, z=15, array[20]==15, array[15]=123
-	CompDebugAssert(w==15, x==10, y==20, z==20, /*array[20]==15, */array[15]=123);
+	CompDebugAssert(w==15, x==10, y==20, z==20, /*array[20]==15, */array[15]==123);
 
 	return z+array[y]+array[z];
 }

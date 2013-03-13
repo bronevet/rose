@@ -1,10 +1,4 @@
-#pragma ChainComposer LiveDeadMemAnalysis
-#pragma ChainComposer OrthogonalArrayAnalysis
-#pragma ChainComposer ConstantPropagationAnalysis
-#pragma ChainComposer OrthogonalArrayAnalysis
-#pragma ChainComposer ConstantPropagationAnalysis
-#pragma ChainComposer OrthogonalArrayAnalysis
-#pragma ChainComposer ConstantPropagationAnalysis
+#pragma fuse lc(ld, oa, cp, oa, cp, oa, cp, oa, cp)
 void CompDebugAssert(bool, ...);
 int global;
 
@@ -48,16 +42,18 @@ int main()
   while(a) 
     W = noProp(a);
   
-  CompDebugAssert(a==1, b==2, c==3, W=303);
+  CompDebugAssert(a==1, b==2, c==3, W==102);
   // ConstProp: a=1, b=2, c=3, d=4, W=102
   // LiveDead: a, b, c, d, W
   int X;
   if(a)
     X = PropThroughArg(W);
-  else
+  else {
     X = 202;
+    W = 303;
+  }
   
-  CompDebugAssert(a==1, b==2, c==3, X=202, W=303);
+  CompDebugAssert(a==1, b==2, c==3, X==202, W==303);
   // ConstProp: a=1, b=2, c=3, d=4, X=202, W=303
   // LiveDead: a, b, c, d, X, W
   int Y = PropThroughRet1(X)+W;
@@ -83,7 +79,7 @@ int main()
   // LiveDead: a, b, c, d, array[1], array[2]
   array[array[d-c]+array[b]] = array[a];
 
-  CompDebugAssert(b==2, c==3, array[2]=806, array[2113]==1307, array[2113]==array[array[d/d]+array[d-b]]);
+  CompDebugAssert(b==2, c==3, array[2]==806, array[2113]==1307, array[2113]==array[array[d/d]+array[d-b]]);
   // ConstProp: b=2, c=3, array[2113]=1307, array[2]=806
   // LiveDead: b, c, array[2], array[2113]
   array2D[3][array[2113]+401+601] = array[b];
