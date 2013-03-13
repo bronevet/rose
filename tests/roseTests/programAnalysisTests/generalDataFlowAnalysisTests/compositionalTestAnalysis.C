@@ -105,7 +105,7 @@ int main(int argc, char** argv)
   initAnalysis(project);
   
   string fuseCmd = "";
-  Rose_STL_Container<string> dataflowoptions = CommandlineProcessing::generateOptionList(args, "-dataflow:");
+  Rose_STL_Container<string> dataflowoptions = CommandlineProcessing::generateOptionList(args, "-fuse:");
   //std::vector<std::string>  dataflowoptions = project->get_originalCommandLineArgumentList();
   if(dataflowoptions.size()>1) { cout << "ERROR: too many -dataflow options!"; exit(-1); }
   // If the caller provided a description of the composition structure on the command line, set fuseCmd to it
