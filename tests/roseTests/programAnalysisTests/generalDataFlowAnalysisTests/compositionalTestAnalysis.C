@@ -187,21 +187,7 @@ int main(int argc, char** argv)
     } else
       cout << "FAIL composer\n";
   }
-  // passed by command line argument
-  // currently command line assumes loose sequential
-  else if(analyses.size() > 0)
-  {
-    checkDataflowInfoPass* cdip = new checkDataflowInfoPass();
-    ChainComposer cc(analyses, cdip, true);
-    cc.runAnalysis();
-    if(cdip->getNumErrors() > 0) cout << cdip->getNumErrors() << "Errors Reported!" << endl;
-    else                         cout << "PASS" << endl;
-  }
-  /*checkDataflowInfoPass* cdip = new checkDataflowInfoPass();
   
-  ChainComposer cc(analyses, cdip, false);
-  cc.runAnalysis();*/
-
   printf("==========  E  N  D  ==========\n");
   
   return 0;
