@@ -127,7 +127,8 @@ clean-cxx-constprop-local:
 CXX_TESTDIR = $(top_srcdir)/tests/CompileTests/Cxx_tests
 
 #Run livedeadmem and constant propagation for all analysis using the following flag
-CP_ROSE_FLAGS ="-dataflow:livedeadmemanalysis -dataflow:constantpropagationanalysis"
+#CP_ROSE_FLAGS ="-dataflow:livedeadmemanalysis -dataflow:constantpropagationanalysis"
+CP_ROSE_FLAGS = "-fuse:\"lc(cp)\""
 
 CXX_CONSTPROP_SPECIMENS =													 \
 	X.C lexPhase2003_01.C math.C test2001_01.C test2001_02.C test2001_05.C test2001_06.C test2001_07.C test2001_08.C	 \
@@ -204,8 +205,7 @@ CXX_CONSTPROP_SPECIMENS =													 \
 	test2011_74.C test2011_75.C test2011_76.C test2011_77.C test2011_78.C test2011_79.C test2011_80.C test2011_81.C		 \
 	test2011_82.C test2011_83.C test2011_84.C test2011_85.C test2011_86.C test2011_87.C test2011_88.C test2011_89.C		 \
 	test2011_90.C test2011_91.C test2011_92.C test2011_93.C test2011_94.C test2011_95.C test2011_96.C test2011_97.C		 \
-	test2011_98.C test_CplusplusMacro_Cpp.C test_int_lexemes.C test_int_lexemes_donot_pass.C test_simple_int.C test_wchars.C
-CXX_CONSTPROP_SPECIMENS_FAILING =											\
+	test2011_98.C test_CplusplusMacro_Cpp.C test_int_lexemes.C test_int_lexemes_donot_pass.C test_simple_int.C test_wchars.C \
 	inputBug317.C inputBug327.C inputForLoopLocator.C test2001_04.C test2001_14.C test2001_28.C test2003_01.C	\
 	test2003_15.C test2003_18.C test2003_32.C test2003_35.C test2003_36.C test2004_02.C test2004_10.C test2004_11.C	\
 	test2004_120.C test2004_127.C test2004_129.C test2004_130.C test2004_139.C test2004_14.C test2004_141.C		\

@@ -75,9 +75,11 @@ struct output_nested_results
           what.nested_results().begin(),
           what.nested_results().end(),
           ons);
-      /*std::fill_n( std::ostream_iterator<char_type>( std::cout ), tabs_ * 4, space_ch ); cout << "#mySubAnalyses="<<mySubAnalyses.size()<<endl;
+      // std::fill_n( std::ostream_iterator<char_type>( std::cout ), tabs_ * 4, space_ch );
+      cout << "#mySubAnalyses="<<mySubAnalyses.size()<<endl;
       for(list<ComposedAnalysis*>::iterator i=mySubAnalyses.begin(); i!=mySubAnalyses.end(); i++)
-      { std::fill_n( std::ostream_iterator<char_type>( std::cout ), tabs_ * 4, space_ch ); cout << "    "<<(*i)->str()<<endl; }*/
+      { // std::fill_n( std::ostream_iterator<char_type>( std::cout ), tabs_ * 4, space_ch );
+        cout << "    "<<(*i)->str()<<endl; }
       
       if(parentComposerType == looseSeq) {
         ChainComposer* cc = new ChainComposer(mySubAnalyses, cdip, true);
