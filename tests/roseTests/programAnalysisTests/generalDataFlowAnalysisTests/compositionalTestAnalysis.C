@@ -75,9 +75,11 @@ struct output_nested_results
           what.nested_results().begin(),
           what.nested_results().end(),
           ons);
-      /*std::fill_n( std::ostream_iterator<char_type>( std::cout ), tabs_ * 4, space_ch ); cout << "#mySubAnalyses="<<mySubAnalyses.size()<<endl;
+      // std::fill_n( std::ostream_iterator<char_type>( std::cout ), tabs_ * 4, space_ch );
+      cout << "#mySubAnalyses="<<mySubAnalyses.size()<<endl;
       for(list<ComposedAnalysis*>::iterator i=mySubAnalyses.begin(); i!=mySubAnalyses.end(); i++)
-      { std::fill_n( std::ostream_iterator<char_type>( std::cout ), tabs_ * 4, space_ch ); cout << "    "<<(*i)->str()<<endl; }*/
+      { // std::fill_n( std::ostream_iterator<char_type>( std::cout ), tabs_ * 4, space_ch );
+        cout << "    "<<(*i)->str()<<endl; }
       
       if(parentComposerType == looseSeq) {
         ChainComposer* cc = new ChainComposer(mySubAnalyses, cdip, true);
@@ -189,14 +191,14 @@ int main(int argc, char** argv)
   }
   // passed by command line argument
   // currently command line assumes loose sequential
-  else if(analyses.size() > 0)
-  {
-    checkDataflowInfoPass* cdip = new checkDataflowInfoPass();
-    ChainComposer cc(analyses, cdip, true);
-    cc.runAnalysis();
-    if(cdip->getNumErrors() > 0) cout << cdip->getNumErrors() << "Errors Reported!" << endl;
-    else                         cout << "PASS" << endl;
-  }
+  // else if(analyses.size() > 0)
+  // {
+  //   checkDataflowInfoPass* cdip = new checkDataflowInfoPass();
+  //   ChainComposer cc(analyses, cdip, true);
+  //   cc.runAnalysis();
+  //   if(cdip->getNumErrors() > 0) cout << cdip->getNumErrors() << "Errors Reported!" << endl;
+  //   else                         cout << "PASS" << endl;
+  // }
   /*checkDataflowInfoPass* cdip = new checkDataflowInfoPass();
   
   ChainComposer cc(analyses, cdip, false);
