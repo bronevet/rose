@@ -38,9 +38,6 @@ namespace dataflow {
   class AbstractObjectMap : public Lattice {
     
   protected: 
-    EqualFunctorPtr    equalFunctor;
-    MustEqualFunctor   mustEqual;
-    MayEqualFunctor    mayEqual;
     list<MapElement>   items;
     // Pointer to a default instance of the given lattice type.
     // AbstractObjectMap::get() can return copies of this object to indicate that
@@ -57,11 +54,8 @@ namespace dataflow {
     ComposedAnalysis* analysis;
     
   public:
-    // GB: Removed the empty constructor since an object constructed this 
-    // way would not have a valid equalFunctor and thus would not function
-    //AbstractObjectMap() : /*composer(NULL), */isFinite(true) {}
+    //AbstractObjectMap() : isFinite(true), comp(NULL) {}
     AbstractObjectMap(const AbstractObjectMap& that) : Lattice(that.latPEdge),
-                                   equalFunctor(that.equalFunctor),
                                    items       (that.items),
                                    defaultLat  (that.defaultLat),
                                    isFinite    (that.isFinite),
@@ -69,12 +63,8 @@ namespace dataflow {
                                    comp        (that.comp),
                                    analysis    (that.analysis)
     {}
-    AbstractObjectMap(EqualFunctor& ef, LatticePtr defaultLat_, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis) : 
-      Lattice(pedge), equalFunctor(EqualFunctorPtr(&ef)), defaultLat(defaultLat_), isFinite(true), mapIsFull(false), comp(comp), analysis(analysis) {}
-    AbstractObjectMap(EqualFunctor* ef, LatticePtr defaultLat_, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis) : 
-      Lattice(pedge), equalFunctor(EqualFunctorPtr(ef)), defaultLat(defaultLat_), isFinite(true), mapIsFull(false), comp(comp), analysis(analysis) {}
-    AbstractObjectMap(EqualFunctorPtr efPtr, LatticePtr defaultLat_, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis) :
-      Lattice(pedge), equalFunctor(efPtr), defaultLat(defaultLat_), isFinite(true), mapIsFull(false), comp(comp), analysis(analysis) {}
+    AbstractObjectMap(LatticePtr defaultLat_, PartEdgePtr pedge, Composer* comp, ComposedAnalysis* analysis) :
+      Lattice(pedge), defaultLat(defaultLat_), isFinite(true), mapIsFull(false), comp(comp), analysis(analysis) {}
     ~AbstractObjectMap() {}
 
   public:
@@ -97,6 +87,12 @@ namespace dataflow {
     // Set this Lattice object to represent the of no execution prefixes (empty set).
     // Return true if this causes the object to change and false otherwise.
     bool setToEmpty();
+    
+    // Set all the information associated Lattice object with this MemLocObjectPtr to full.
+    // Return true if this causes the object to change and false otherwise.
+    // This function does nothing because it is a set of abstract objects rather than a map from some abstract objects
+    // to others. 
+    bool setMLValueToFull(MemLocObjectPtr ml);
 
     // Returns whether this lattice denotes the set of all possible execution prefixes.
     bool isFull();

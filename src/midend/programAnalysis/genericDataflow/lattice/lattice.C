@@ -127,6 +127,15 @@ bool BoolAndLattice::setToEmpty()
   return modified;
 }
 
+// Set all the value information that this Lattice object associates with this MemLocObjectPtr to full.
+// Return true if this causes the object to change and false otherwise.
+bool BoolAndLattice::setMLValueToFull(MemLocObjectPtr ml)
+{
+  // Since this lattice may contain information for the entire application state,
+  // we set the entire lattice to full just in case
+  return setToFull();
+}
+
 // Returns whether this lattice denotes the set of all possible execution prefixes.
 bool BoolAndLattice::isFull()
 { return state==1; }
@@ -284,6 +293,15 @@ bool IntMaxLattice::setToEmpty()
   bool modified = (state!=-1);
   state = -1;
   return modified;
+}
+
+// Set all the value information that this Lattice object associates with this MemLocObjectPtr to full.
+// Return true if this causes the object to change and false otherwise.
+bool IntMaxLattice::setMLValueToFull(MemLocObjectPtr ml)
+{
+  // Since this lattice may contain information for the entire application state,
+  // we set the entire lattice to full just in case
+  return setToFull();
 }
 
 // Returns whether this lattice denotes the set of all possible execution prefixes.
@@ -481,6 +499,17 @@ bool ProductLattice::setToEmpty()
       modified = (*it)->setToEmpty() || modified;
   return modified;
 }
+
+// Set all the value information that this Lattice object associates with this MemLocObjectPtr to full.
+// Return true if this causes the object to change and false otherwise.
+bool ProductLattice::setMLValueToFull(MemLocObjectPtr ml)
+{
+  bool modified = false;
+  for(vector<Lattice*>::const_iterator it = lattices.begin(); it!=lattices.end(); it++)
+      modified = (*it)->setMLValueToFull(ml) || modified;
+  return modified;
+}
+
 
 // Returns whether this lattice denotes the set of all possible execution prefixes.
 bool ProductLattice::isFull()

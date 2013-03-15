@@ -195,6 +195,15 @@ bool AbstractObjectSet::setToEmpty()
   return modified;
 }
 
+// Set all the information associated Lattice object with this MemLocObjectPtr to full.
+// Return true if this causes the object to change and false otherwise.
+// This function does nothing because it is a set of abstract objects rather than a map from some abstract objects
+// to others. 
+bool AbstractObjectSet::setMLValueToFull(MemLocObjectPtr ml)
+{
+  return false;
+}
+
 // Returns whether this lattice denotes the set of all possible execution prefixes.
 bool AbstractObjectSet::isFull()
 {

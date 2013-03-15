@@ -75,6 +75,10 @@ class BoolAndLattice : public FiniteLattice
   // Return true if this causes the object to change and false otherwise.
   bool setToEmpty();
   
+  // Set all the value information that this Lattice object associates with this MemLocObjectPtr to full.
+  // Return true if this causes the object to change and false otherwise.
+  bool setMLValueToFull(MemLocObjectPtr ml);
+  
   // Returns whether this lattice denotes the set of all possible execution prefixes.
   bool isFull();
   // Returns whether this lattice denotes the empty set.
@@ -147,6 +151,10 @@ class IntMaxLattice : public InfiniteLattice
   // Set this Lattice object to represent the of no execution prefixes (empty set).
   // Return true if this causes the object to change and false otherwise.
   bool setToEmpty();
+  
+  // Set all the value information that this Lattice object associates with this MemLocObjectPtr to full.
+  // Return true if this causes the object to change and false otherwise.
+  bool setMLValueToFull(MemLocObjectPtr ml);
   
   // Returns whether this lattice denotes the set of all possible execution prefixes.
   bool isFull();
@@ -230,6 +238,10 @@ class ProductLattice : public virtual Lattice
   // Set this Lattice object to represent the of no execution prefixes (empty set).
   // Return true if this causes the object to change and false otherwise.
   bool setToEmpty();
+  
+  // Set all the value information that this Lattice object associates with this MemLocObjectPtr to full.
+  // Return true if this causes the object to change and false otherwise.
+  bool setMLValueToFull(MemLocObjectPtr ml);
   
   // Returns whether this lattice denotes the set of all possible execution prefixes.
   bool isFull();

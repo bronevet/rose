@@ -532,6 +532,14 @@ bool DeadPathElimPartEdge::setToEmpty()
   return modified;
 }
 
+// Set all the information associated Lattice object with this MemLocObjectPtr to full.
+// Return true if this causes the object to change and false otherwise.
+bool DeadPathElimPartEdge::setMLValueToFull(MemLocObjectPtr ml)
+{
+  // Do nothing since this object does not contain information about MemLocObjects
+  return false;
+}
+
 // Set this Lattice object to represent a dead part
 // Return true if this causes the object to change and false otherwise.
 bool DeadPathElimPartEdge::setToDead()

@@ -126,6 +126,12 @@ public:
   // Return true if this causes the object to change and false otherwise.
   bool setToEmpty();
   
+  // Set all the information associated Lattice object with this MemLocObjectPtr to full.
+  // Return true if this causes the object to change and false otherwise.
+  // This function does nothing because it is a set of abstract objects rather than a map from some abstract objects
+  // to others. 
+  bool setMLValueToFull(MemLocObjectPtr ml);
+  
   // Returns whether this lattice denotes the set of all possible execution prefixes.
   bool isFull();
   // Returns whether this lattice denotes the empty set.

@@ -156,7 +156,7 @@ MemLocObjectPtr SyntacticAnalysis::Expr2MemLocStatic(SgNode* n, PartEdgePtr pedg
   else if (isSgSymbol(n) || isSgInitializedName(n)) // skip SgFunctionSymbol etc
   {
     SgSymbol* s;
-    cout << "n="<<cfgUtils::SgNode2Str(n)<<endl;
+    //cout << "n="<<cfgUtils::SgNode2Str(n)<<endl;
     if(isSgSymbol(n)) s = isSgSymbol (n);
     else              s = isSgInitializedName(n)->search_for_symbol_from_symbol_table();
     assert (s != NULL);

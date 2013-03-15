@@ -122,6 +122,10 @@ class Lattice : public printable
   // Return true if this causes the object to change and false otherwise.
   virtual bool setToEmpty()=0;
   
+  // Set all the value information that this Lattice object associates with this MemLocObjectPtr to full.
+  // Return true if this causes the object to change and false otherwise.
+  virtual bool setMLValueToFull(MemLocObjectPtr ml)=0;
+  
   // Returns whether this lattice denotes the set of all possible execution prefixes.
   virtual bool isFull()=0;
   // Returns whether this lattice denotes the empty set.

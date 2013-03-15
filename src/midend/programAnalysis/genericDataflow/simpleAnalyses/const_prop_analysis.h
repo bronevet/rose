@@ -99,6 +99,10 @@ class CPValueObject : public FiniteLattice, public ValueObject
   // Return true if this causes the object to change and false otherwise.
   bool setToEmpty();
   
+  // Set all the information associated Lattice object with this MemLocObjectPtr to full.
+  // Return true if this causes the object to change and false otherwise.
+  bool setMLValueToFull(MemLocObjectPtr ml);
+  
   // Returns whether this lattice denotes the set of all possible execution prefixes.
   bool isFull();
   // Returns whether this lattice denotes the empty set.

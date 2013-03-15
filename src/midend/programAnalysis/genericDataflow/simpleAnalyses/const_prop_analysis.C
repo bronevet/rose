@@ -212,6 +212,15 @@ CPValueObject::setToEmpty()
   return setBottom();
 }
 
+// Set all the information associated Lattice object with this MemLocObjectPtr to full.
+// Return true if this causes the object to change and false otherwise.
+bool
+CPValueObject::setMLValueToFull(MemLocObjectPtr ml)
+{
+  // Do nothing since this object does not contain information about MemLocObjects
+  return false;
+}
+
 // Returns whether this lattice denotes the set of all possible execution prefixes.
 bool
 CPValueObject::isFull()
@@ -702,8 +711,7 @@ ConstantPropagationAnalysis::ConstantPropagationAnalysis()
 void ConstantPropagationAnalysis::genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
                                                  std::vector<Lattice*>& initLattices)
 {
-  AbstractObjectMap* l = new AbstractObjectMap(new MustEqualFunctor(), 
-                                               boost::make_shared<CPValueObject>(pedge/*part->inEdgeFromAny()*/),
+  AbstractObjectMap* l = new AbstractObjectMap(boost::make_shared<CPValueObject>(pedge/*part->inEdgeFromAny()*/),
                                                pedge,
                                                getComposer(), this);
   /*Dbg::dbg << "ConstantPropagationAnalysis::initializeState, analysis="<<returning l="<<l<<" n=<"<<Dbg::escape(p.getNode()->unparseToString())<<" | "<<p.getNode()->class_name()<<" | "<<p.getIndex()<<">\n";

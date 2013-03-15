@@ -11,8 +11,8 @@ namespace dataflow
     :IntraDFTransferVisitor(func, part, cn, state, dfInfo),
      composer(_composer),
      analysis(_analysis),
-     debugLevel(_debugLevel),
-     modified(false)
+     modified(false),
+     debugLevel(_debugLevel)
   {
     // set the pointer of the map for this PartEdge
     setProductLattice();
@@ -139,8 +139,7 @@ namespace dataflow
   void PointsToAnalysis::genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge,
                                         std::vector<Lattice*>& initLattices)
   {
-    AbstractObjectMap* productlattice = new AbstractObjectMap(new MayEqualFunctor(),
-                                                              boost::make_shared<AbstractObjectSet>(pedge, 
+    AbstractObjectMap* productlattice = new AbstractObjectMap(boost::make_shared<AbstractObjectSet>(pedge, 
                                                                                                     getComposer(), 
                                                                                                     this, 
                                                                                                     AbstractObjectSet::may),

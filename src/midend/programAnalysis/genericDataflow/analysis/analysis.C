@@ -583,7 +583,7 @@ ContextInsensitiveInterProceduralDataflow::ContextInsensitiveInterProceduralData
   }*/
   for(set<CGFunction>::iterator func=functions.begin(); func!=functions.end(); func++) {
     //if(SageInterface::isMain(func->get_declaration()))
-      remainingDueToCallers.insert(*func);
+    remainingDueToCallers.insert(*func);
   }
   
   if(intraDataflow->getDirection()==ComposedAnalysis::none) return;
@@ -786,7 +786,7 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
   //!!!     delete remappedL;
       }
       
-      // If this resulted in the dataflow information before the callee changing or the calle has not yet been
+      // If this resulted in the dataflow information before the callee changing or the callee has not yet been
       // analyzed, add it to the remaining list.
       if(modified || (visited.find(callee) == visited.end())) {
         if(analysisDebugLevel > 0) Dbg::dbg << "ContextInsensitiveInterProceduralDataflow::transfer Incoming Dataflow info modified\n";
@@ -800,8 +800,8 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
     // ----------------
     {
       Dbg::region reg(analysisDebugLevel, 1, Dbg::region::midLevel, "Inter::transfer Callee -> Caller");
+
       // The lattices after the function (forward: before=above, after=below; backward: before=below, after=above).
-      
       PartPtr afterPart = 
               (getIntraComposedAnalysis()->getDirection()==ComposedAnalysis::fw ? 
                   getIntraComposedAnalysis()->getComposer()->GetFunctionEndPart(callee,   getIntraComposedAnalysis()) : 
@@ -879,10 +879,55 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
     for(vector<Lattice*>::iterator l=(*retState)->begin(); l!=(*retState)->end(); l++)
       Dbg::dbg << "    "<<(*l)->str("      ")<<endl;*/
   }
-  // Don't do anything for functions with no definitions
+  // If a function has no definition, conservatively set all the MemLocs that the function has access to
+  // to full.
+  // GB: !!! What about MemLocs accessible from them? Should create functionality to track side-effects 
+  //     !!! recursively until we reach a fixed point.
+  // GB: !!! Need to cover globals as well as function arguments!
   else
   {
+    Dbg::region reg(analysisDebugLevel, 1, Dbg::region::midLevel, "Inter::transfer Unknown Callee -> Caller");
+
+    if(analysisDebugLevel>=1) {
+      for(vector<Lattice*>::const_iterator l=dfInfo.begin(); l!=dfInfo.end(); l++) {
+        Dbg::dbg << "callerL-before=["<<*l<<"]"<<endl;
+        {Dbg::indent ind; Dbg::dbg<<(*l)->str()<<endl; }
+      }
+    }
     
+    // Iterate over all the arguments to the function and set all the information mapped to them to full
+    SgExpressionPtrList args = call->get_args()->get_expressions();
+    for(SgExpressionPtrList::iterator a=args.begin(); a!=args.end(); a++) {
+      // If the analysis is backward, all the arguments are set to full but if it is forwards only the
+      // arguments passed by value are set to full since the others are not passed to the function in 
+      // the forward direction.
+      if(getIntraComposedAnalysis()->getDirection()==ComposedAnalysis::bw ||
+         (getIntraComposedAnalysis()->getDirection()==ComposedAnalysis::fw && isSgReferenceType((*a)->get_type())))
+      {
+        MemLocObjectPtr argML = 
+                getIntraComposedAnalysis()->getComposer()->Expr2MemLoc(*a, callPart->inEdgeFromAny(), getIntraComposedAnalysis());
+
+        for(vector<Lattice*>::const_iterator l=dfInfo.begin(); l!=dfInfo.end(); l++)
+          (*l)->setMLValueToFull(argML);
+      }
+    }
+    
+    // If this is a forward analysis, we also set the information associated with the call expression
+    // to full since the function's return value is unknown
+    if(getIntraComposedAnalysis()->getDirection()==ComposedAnalysis::fw) {
+      MemLocObjectPtr callML = 
+              getIntraComposedAnalysis()->getComposer()->Expr2MemLoc(call, callPart->inEdgeFromAny(), getIntraComposedAnalysis());
+
+      for(vector<Lattice*>::const_iterator l=dfInfo.begin(); l!=dfInfo.end(); l++)
+        (*l)->setMLValueToFull(callML);
+    }
+    
+    if(analysisDebugLevel>=1) {
+      for(vector<Lattice*>::const_iterator l=dfInfo.begin(); l!=dfInfo.end(); l++) {
+        Dbg::dbg << "callerL-after=["<<*l<<"]"<<endl;
+        {Dbg::indent ind; Dbg::dbg<<(*l)->str()<<endl; }
+      }
+    }
   }
   
   return modified;

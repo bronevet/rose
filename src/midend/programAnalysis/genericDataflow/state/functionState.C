@@ -114,7 +114,6 @@ void FunctionState::setArgParamMap(PartPtr callPart, SgFunctionCallExp* call,
     MemLocObjectPtr arg = composer->Expr2MemLoc(*itA, funcNode->inEdgeFromAny(), analysis);
     // if(argP.expr) arg = argP.expr;
     // else    arg = argP.mem;
-    
     if(analysisDebugLevel>=1) Dbg::dbg << "argParamMap["<<arg->str()<<"]="<< composer->Expr2MemLoc(*itP, funcNode->inEdgeFromAny(), analysis)->str()<<endl;
     argParamMap.insert(make_pair(arg,
          composer->Expr2MemLoc(*itP, funcNode->inEdgeFromAny(), analysis)));
@@ -163,7 +162,7 @@ void FunctionState::setArgByRef2ParamMap(PartPtr callPart, SgFunctionCallExp* ca
                                               composer->Expr2MemLoc(*itParams, funcNode->outEdgeToAny(), analysis)));
     }
   
-  // Add the mapping from the function's declaration (denotes the return value) to the function's call expression
+  // Add the mapping from the FuncResultMemLocObject that denotes the return value to the function's call expression
   /*Dbg::dbg << "declSymbol=["<<func.get_declaration()->search_for_symbol_from_symbol_table()->unparseToString()<<" | "<<func.get_declaration()->search_for_symbol_from_symbol_table()->class_name()<<"]"<<endl;
   Dbg::dbg << "declSymbol MemLoc = "<<composer->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), funcNode, analysis).str()<<endl;
   Dbg::dbg << "declSymbol MemLoc (funcNode)= "<<composer->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), funcNode, analysis).strp(funcNode)<<endl;

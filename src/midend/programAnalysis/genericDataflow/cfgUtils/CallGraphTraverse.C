@@ -69,11 +69,13 @@ Function::Function(SgFunctionDefinition* sample)
 
 Function::Function(SgFunctionCallExp* funcCall)
 {
-  if(!isSgFunctionRefExp(funcCall->get_function())) {
-    cout << "Function::Function(funcCall="<<cfgUtils::SgNode2Str(funcCall)<<") funcCall->get_function()="<<cfgUtils::SgNode2Str(funcCall->get_function())<<endl;
-  }
-  ROSE_ASSERT(isSgFunctionRefExp(funcCall->get_function()));
-  init(isSgFunctionRefExp(funcCall->get_function())->get_symbol()->get_declaration());
+  //ROSE_ASSERT(isSgFunctionRefExp(funcCall->get_function()));
+  // If the call's referent is known, initialize based on its declaration
+  if(isSgFunctionRefExp(funcCall->get_function()))
+    init(isSgFunctionRefExp(funcCall->get_function())->get_symbol()->get_declaration());
+  // Otherwise, set the function to NUL:
+  else
+    init(NULL);
 }
 
 void Function::init(SgFunctionDeclaration* sample)
@@ -84,7 +86,10 @@ void Function::init(SgFunctionDeclaration* sample)
   //printf("Function::init() name=%s=%s\n", this, sample->get_name().str(), mangledName.str());
 
   // decl will be initialized to the defining declaration or the first non-defining declaration if there is no definition
-  decl = getCanonicalDecl(sample);
+  if(sample)
+    decl = getCanonicalDecl(sample);
+  else
+    decl = NULL;
 
   // insert the sample declaration into decls, in case this is a name-less function declaration (i.e. a function pointer)
   // which won't show up in an AST query
@@ -143,6 +148,7 @@ Function::Function(const Function *that)
 
 SgFunctionDeclaration* Function::getCanonicalDecl(SgFunctionDeclaration* sampleDecl)
 {
+  ROSE_ASSERT(sampleDecl);
   SgFunctionDeclaration* canonicalDecl = NULL;
 
   if(sampleDecl->get_definingDeclaration())
