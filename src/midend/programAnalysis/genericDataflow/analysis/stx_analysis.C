@@ -63,7 +63,7 @@ SgSymbol* isDirectVarRef(SgNode* r)
   //Dbg::dbg << "isDirectVarRef("<<cfgUtils::SgNode2Str(r)<<")"<<endl;
   // a
   if(isSgVarRefExp(r)) {
-    Dbg::dbg << "isDirectVarRef("<<cfgUtils::SgNode2Str(r)<<") => varref "<<cfgUtils::SgNode2Str(isSgVarRefExp(r)->get_symbol())<<endl;
+    //Dbg::dbg << "isDirectVarRef("<<cfgUtils::SgNode2Str(r)<<") => varref "<<cfgUtils::SgNode2Str(isSgVarRefExp(r)->get_symbol())<<endl;
     return isSgVarRefExp(r)->get_symbol();
   // a.b
   } else if(isSgDotExp(r)) {
@@ -156,22 +156,36 @@ MemLocObjectPtr SyntacticAnalysis::Expr2MemLocStatic(SgNode* n, PartEdgePtr pedg
   else if (isSgSymbol(n) || isSgInitializedName(n)) // skip SgFunctionSymbol etc
   {
     SgSymbol* s;
+    cout << "n="<<cfgUtils::SgNode2Str(n)<<endl;
     if(isSgSymbol(n)) s = isSgSymbol (n);
     else              s = isSgInitializedName(n)->search_for_symbol_from_symbol_table();
     assert (s != NULL);
 
-    if (!isMemberVariableDeclarationSymbol (s))
-      rt  = createNamedMemLocObject(n, s, s->get_type(), pedge, MemLocObjectPtr(), IndexVectorPtr()); // parent should be NULL since it is not a member variable symbol
-                                                   // TODO handle array of arrays ?? , then last IndexVectorPtr should not be NULL   
-    else
+/*    if(SgClassDefinition* classDef = isMemberVariableDeclarationSymbol(s))
     {
-      // This symbol is part of an aggregate object
+/ *      // This symbol is part of an aggregate object
       // We cannot create an MemLocObject based on this symbol alone since it can be instantiated to multiple instances, based on the parent obj, and optional index value
       // We should create something like a.b when this field (b) is referenced in the AST
-      /*Dbg::dbg << "n->get_parent()->get_parent()="<<cfgUtils::SgNode2Str(n->get_parent()->get_parent())<<endl;
+      Dbg::dbg << "n->get_parent()->get_parent()="<<cfgUtils::SgNode2Str(n->get_parent()->get_parent())<<endl;
       Dbg::dbg << "n->get_parent()="<<cfgUtils::SgNode2Str(n->get_parent())<<endl;
       Dbg::dbg << "n="<<cfgUtils::SgNode2Str(n)<<endl;
-      Dbg::dbg << "s="<<cfgUtils::SgNode2Str(s)<<endl;*/
+      Dbg::dbg << "s="<<cfgUtils::SgNode2Str(s)<<endl;
+      if(SgVariableSymbol* vs = isSgVariableSymbol (s)) {
+        Dbg::dbg << "vs->get_declaration()->get_scope()="<<cfgUtils::SgNode2Str(vs->get_declaration()->get_scope())<<endl;
+      }
+      ROSE_ASSERT(0);
+* /
+        // The parent is an aliased object because we don't know the actual class instance that we're operating on
+        rt  = createNamedMemLocObject(n, s, s->get_type(), pedge, 
+                                   //createAliasedMemLocObject(classDef, classDef->get_type(), pedge),
+                                   MemLocObjectPtr(),
+                                   IndexVectorPtr());
+    } else {*/
+    if(isSgVariableSymbol (s)) {
+      // parent should be NULL since it is not a member variable symbol
+      // TODO handle array of arrays ?? , then last IndexVectorPtr should not be NULL   
+      rt  = createNamedMemLocObject(n, s, s->get_type(), pedge, MemLocObjectPtr(), IndexVectorPtr()); 
+    } else {
       ROSE_ASSERT(0);
     }
   } else ROSE_ASSERT(0);
@@ -3069,10 +3083,10 @@ Dbg::dbg << "parent = "<<cfgUtils::SgNode2Str(parent)<<endl;* /
       std::vector<SgExpression*>* subscripts = new std::vector<SgExpression*>;
 
       SageInterface::isArrayReference(r, &arrayNameExp, &subscripts);
-      Dbg::dbg << "createNamedMemLocObject()"<<endl;
+      /*Dbg::dbg << "createNamedMemLocObject()"<<endl;
       Dbg::dbg << "    n="<<cfgUtils::SgNode2Str(n)<<endl;
       Dbg::dbg << "    r="<<cfgUtils::SgNode2Str(r)<<endl;
-      Dbg::dbg << "    arrayNameExp="<<cfgUtils::SgNode2Str(arrayNameExp)<<endl;
+      Dbg::dbg << "    arrayNameExp="<<cfgUtils::SgNode2Str(arrayNameExp)<<endl;*/
       
       // array[i] or a.b.c[i]
       if(SgSymbol* symbol = isDirectVarRef(arrayNameExp)) {
@@ -3210,10 +3224,10 @@ Dbg::dbg << "parent = "<<cfgUtils::SgNode2Str(parent)<<endl;* /
     }
   }
   
-  // a helper function to check if a symbol is corresponding to a member variable declaration within SgClassDefinition or not
-  bool isMemberVariableDeclarationSymbol(SgSymbol * s)
+  // If a symbol corresponds to a member variable declaration within SgClassDefinition, returns a pointer
+  // to the SgClassDefinition. Otherwise, returns NULL.
+  SgClassDefinition* isMemberVariableDeclarationSymbol(SgSymbol * s)
   {
-    bool rt = false;
     assert (s!=NULL);
     // Only relevant for SgVariableSymbol for now
     SgVariableSymbol* vs = isSgVariableSymbol (s);
@@ -3221,12 +3235,11 @@ Dbg::dbg << "parent = "<<cfgUtils::SgNode2Str(parent)<<endl;* /
     {
       SgInitializedName* i_name = vs->get_declaration();
       assert  (i_name != NULL);
-      if (isSgClassDefinition(i_name->get_scope()))
-        rt = true;
+      if (SgClassDefinition* def = isSgClassDefinition(i_name->get_scope()))
+        return def;
     }
-    return rt;
+    return NULL;
   }
-
   
   /// Visits live expressions to determine whether the given SgExpression is an operand of the visited Sgxpression
   class IsOperandVisitor : public ROSE_VisitorPatternDefaultBase

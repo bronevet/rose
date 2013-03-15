@@ -631,15 +631,15 @@ TraverseCallGraph::TraverseCallGraph(SgIncidenceDirectedGraph* graph)
     
     // GB 2013-03-13: Now including these functions in the CG. Not clear if there will be any issues associated with this decision
     // if this function is not compiler-generated
-/*    if(!func.get_file_info()->isCompilerGenerated())
+    //if(!func.get_file_info()->isCompilerGenerated())
     {
       // add the mapping to decl2CFNode
       //decl2CFNode[func].insert(*itn);
       /*printf("TraverseCallGraph::TraverseCallGraph inserting %s\n", func.get_name().str());
-      printf("TraverseCallGraph::TraverseCallGraph functions.find(func) == functions.end() = %d\n", functions.find(func) == functions.end());* /
+      printf("TraverseCallGraph::TraverseCallGraph functions.find(func) == functions.end() = %d\n", functions.find(func) == functions.end());*/
       
       functions.insert(func);
-    }*/
+    }
     
     //gettimeofday(&ntv, &ntz); printf("2 time = %lf secs, elapsed = %lf secs\n", (ntv.tv_sec + 1000000*ntv.tv_usec) - (stv.tv_sec + 1000000*stv.tv_usec), (ntv.tv_sec + 1000000*ntv.tv_usec) - (itv.tv_sec + 1000000*itv.tv_usec)); stv.tv_sec = ntv.tv_sec; stv.tv_usec = ntv.tv_usec; 
   }

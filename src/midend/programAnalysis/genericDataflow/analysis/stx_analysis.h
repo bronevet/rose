@@ -951,8 +951,9 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   //            2 they have overlap (one type is a subtype of the other)
   bool isAliased (const SgType * t1, const SgType * t2 ); 
 
-  // a helper function to check if a symbol is corresponding to a member variable declaration within SgClassDefinition or not
-  bool isMemberVariableDeclarationSymbol(SgSymbol * s);
+  // If a symbol corresponds to a member variable declaration within SgClassDefinition, returns a pointer
+  // to the SgClassDefinition. Otherwise, returns NULL.
+  SgClassDefinition* isMemberVariableDeclarationSymbol(SgSymbol * s);
 
   // a helper function to fill up elements of MemLocObject p from a class/structure type
   // #SA 10/15/12 - modified first parameter to LabeledAggregatePtr

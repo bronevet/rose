@@ -33,7 +33,7 @@
 using namespace std;
 namespace dataflow {
   
-int analysisDebugLevel=2;
+int analysisDebugLevel=1;
 
 /*******************************
  *** IntraProceduralAnalysis ***
